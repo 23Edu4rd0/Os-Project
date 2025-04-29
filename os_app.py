@@ -6,6 +6,7 @@ from reportlab.platypus import Paragraph
 from reportlab.lib.styles import getSampleStyleSheet
 from datetime import datetime, timedelta
 from impress import imprimir_pdf
+from numero_os import Contador
 
 class OrdemServicoPDF:
     def __init__(self, dados, arquivo_pdf="ordem_servico.pdf"):
@@ -107,47 +108,58 @@ class OrdemServicoApp:
     def __init__(self, root):
         self.root = root
         self.root.title("Ordem de Serviço")
-        self.root.geometry("325x350")
+        self.root.geometry("700x500")
+        self.root.minsize(500,400)
+
+        numero_os = Contador.ler_contador() + 1
 
         ttk.Label(root, text="Número da OS:").grid(row=0, column=0, padx=10, pady=5, sticky="w")
-        self.numero_os_entry = ttk.Entry(root)
-        self.numero_os_entry.grid(row=0, column=1, padx=10, pady=5)
+        self.numero_os_label = ttk.Label(root, text=str(numero_os), anchor='center')
+        self.numero_os_label.grid(row=0, column=1, padx=10, pady=5, sticky="ew")
 
         ttk.Label(root, text="Nome do Cliente:").grid(row=1, column=0, padx=10, pady=5, sticky="w")
         self.nome_cliente_entry = ttk.Entry(root)
-        self.nome_cliente_entry.grid(row=1, column=1, padx=10, pady=5)
+        self.nome_cliente_entry.grid(row=1, column=1, padx=10, pady=5, sticky="ew")
 
         ttk.Label(root, text="CPF do Cliente:").grid(row=2, column=0, padx=10, pady=5, sticky="w")
         self.cpf_cliente_entry = ttk.Entry(root)
-        self.cpf_cliente_entry.grid(row=2, column=1, padx=10, pady=5)
+        self.cpf_cliente_entry.grid(row=2, column=1, padx=10, pady=5, sticky="ew")
 
         ttk.Label(root, text="Telefone do Cliente:").grid(row=3, column=0, padx=10, pady=5, sticky="w")
         self.telefone_cliente_entry = ttk.Entry(root)
-        self.telefone_cliente_entry.grid(row=3, column=1, padx=10, pady=5)
+        self.telefone_cliente_entry.grid(row=3, column=1, padx=10, pady=5, sticky="ew")
 
-        ttk.Label(root, text="Detalhes do Produto:").grid(row=4, column=0, padx=10, pady=5, sticky="w")
-        self.detalhes_produto_entry = ttk.Entry(root)
-        self.detalhes_produto_entry.grid(row=4, column=1, padx=10, pady=5)
+        ttk.Label(root, text="Detalhes do Produto:").grid(row=4, column=0, padx=10, pady=5, sticky="nw")
+        self.detalhes_produto_text = tk.Text(root, height=4, wrap="word")
+        self.detalhes_produto_text.grid(row=4, column=1, padx=10, pady=5, sticky="nsew")
 
         ttk.Label(root, text="Valor Estimado:").grid(row=5, column=0, padx=10, pady=5, sticky="w")
         self.valor_estimado_entry = ttk.Entry(root)
-        self.valor_estimado_entry.grid(row=5, column=1, padx=10, pady=5)
+        self.valor_estimado_entry.grid(row=5, column=1, padx=10, pady=5, sticky="ew")
 
         ttk.Label(root, text="Forma de Pagamento:").grid(row=6, column=0, padx=10, pady=5, sticky="w")
         self.pagamento_combobox = ttk.Combobox(root, values=["Pix", "Crédito", "Débito", "Dinheiro Físico"])
-        self.pagamento_combobox.grid(row=6, column=1, padx=10, pady=5)
+        self.pagamento_combobox.grid(row=6, column=1, padx=10, pady=5, sticky="ew")
 
         ttk.Label(root, text="Prazo de Entrega (dias):").grid(row=7, column=0, padx=10, pady=5, sticky="w")
         self.prazo_entry = ttk.Entry(root)
-        self.prazo_entry.grid(row=7, column=1, padx=10, pady=5)
+        self.prazo_entry.grid(row=7, column=1, padx=10, pady=5, sticky="ew")
 
         self.gerar_pdf_button = ttk.Button(root, text="Gerar PDF", command=self.gerar_pdf)
-        self.gerar_pdf_button.grid(row=8, column=0, columnspan=2, pady=10)
+        self.gerar_pdf_button.grid(row=8, column=0, padx=(10, 5), pady=10, sticky="ew")
 
         self.imprimir_pdf_button = ttk.Button(root, text="Imprimir PDF", command=self.imprimir_pdf)
-        self.imprimir_pdf_button.grid(row=9, column=0, columnspan=2, pady=10)
+        self.imprimir_pdf_button.grid(row=8, column=1, padx=(5, 10), pady=10, sticky="ew")
 
         self.arquivo_pdf = "ordem_servico.pdf"
+
+        # Torna as colunas adaptativas
+        self.root.grid_columnconfigure(0, weight=1)
+        self.root.grid_columnconfigure(1, weight=1)
+
+        # Torna as linhas adaptativas (ajuste o range conforme o número de linhas)
+        for i in range(9):  # Se você tem 9 linhas (0 a 8)
+            self.root.grid_rowconfigure(i, weight=1)
 
     def coletar_dados(self):
         try:
@@ -158,11 +170,11 @@ class OrdemServicoApp:
             prazo = None
 
         return {
-            "numero_os": self.numero_os_entry.get().strip(),
+            "numero_os": self.numero_os_label['text'],
             "nome_cliente": self.nome_cliente_entry.get().strip(),
             "cpf_cliente": self.cpf_cliente_entry.get().strip(),
             "telefone_cliente": self.telefone_cliente_entry.get().strip(),
-            "detalhes_produto": self.detalhes_produto_entry.get().strip(),
+            "detalhes_produto": self.detalhes_produto_text.get("1.0", "end").strip(),
             "valor_estimado": valor_estimado,
             "forma_pagamento": self.pagamento_combobox.get().strip(),
             "prazo": prazo
@@ -182,11 +194,16 @@ class OrdemServicoApp:
         return True
 
     def gerar_pdf(self):
+        numero_os = int(self.numero_os_label['text'])  # pega o que está no label
         dados = self.coletar_dados()
+        dados['numero_os'] = numero_os
         if not self.validar_dados(dados):
             return
         pdf = OrdemServicoPDF(dados, self.arquivo_pdf)
         pdf.gerar()
+        Contador.salvar_contador(numero_os)
+        # Atualiza o label para o próximo número disponível
+        self.numero_os_label.config(text=str(numero_os + 1))
         messagebox.showinfo("Sucesso", "PDF gerado com sucesso!")
 
     def imprimir_pdf(self):
