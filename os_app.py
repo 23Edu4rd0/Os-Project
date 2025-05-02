@@ -4,9 +4,10 @@
         PDF : Dados do cliente e do produto
 """
 
-import tkinter as tk
+import ttkbootstrap as tb
+from ttkbootstrap.constants import *
 from datetime import datetime, timedelta
-from tkinter import ttk, messagebox
+from tkinter import messagebox
 from reportlab.pdfgen import canvas
 from reportlab.lib.units import mm
 from reportlab.platypus import Paragraph
@@ -69,7 +70,7 @@ class OrdemServicoPDF:
 
         detalhes_paragraph = Paragraph(detalhes_produto, style)
         text_width = width - 20
-        w, h = detalhes_paragraph.wrap(text_width, y_position)
+        _, h = detalhes_paragraph.wrap(text_width, y_position)
         detalhes_paragraph.drawOn(c, 10, y_position - h)
         y_position -= h + 20
 
@@ -115,46 +116,50 @@ class OrdemServicoApp:
         self.root = root
         self.root.title("Ordem de Serviço")
         self.root.geometry("700x500")
-        self.root.minsize(500,400)
+        self.root.minsize(500, 400)
 
         numero_os = Contador.ler_contador() + 1
 
-        ttk.Label(root, text="Número da OS:").grid(row=0, column=0, padx=10, pady=5, sticky="w")
-        self.numero_os_label = ttk.Label(root, text=str(numero_os), anchor='center')
+        tb.Label(root, text="Número da OS:").grid(row=0, column=0, padx=10, pady=5, sticky="w")
+        self.numero_os_label = tb.Label(root, text=str(numero_os), anchor='center')
         self.numero_os_label.grid(row=0, column=1, padx=10, pady=5, sticky="ew")
 
-        ttk.Label(root, text="Nome do Cliente:").grid(row=1, column=0, padx=10, pady=5, sticky="w")
-        self.nome_cliente_entry = ttk.Entry(root)
+        tb.Label(root, text="Nome do Cliente:").grid(row=1, column=0, padx=10, pady=5, sticky="w")
+        self.nome_cliente_entry = tb.Entry(root)
         self.nome_cliente_entry.grid(row=1, column=1, padx=10, pady=5, sticky="ew")
 
-        ttk.Label(root, text="CPF do Cliente:").grid(row=2, column=0, padx=10, pady=5, sticky="w")
-        self.cpf_cliente_entry = ttk.Entry(root)
+        tb.Label(root, text="CPF do Cliente:").grid(row=2, column=0, padx=10, pady=5, sticky="w")
+        self.cpf_cliente_entry = tb.Entry(root)
         self.cpf_cliente_entry.grid(row=2, column=1, padx=10, pady=5, sticky="ew")
 
-        ttk.Label(root, text="Telefone do Cliente:").grid(row=3, column=0, padx=10, pady=5, sticky="w")
-        self.telefone_cliente_entry = ttk.Entry(root)
+        tb.Label(root, text="Telefone do Cliente:").grid(row=3, column=0, padx=10, pady=5, sticky="w")
+        self.telefone_cliente_entry = tb.Entry(root)
         self.telefone_cliente_entry.grid(row=3, column=1, padx=10, pady=5, sticky="ew")
 
-        ttk.Label(root, text="Detalhes do Produto:").grid(row=4, column=0, padx=10, pady=5, sticky="nw")
-        self.detalhes_produto_text = tk.Text(root, height=4, wrap="word")
+        tb.Label(root, text="Detalhes do Produto:", font=("Helvetica", 9)).grid(row=4, column=0, padx=10, pady=5, sticky="nw")
+        self.detalhes_produto_text = tb.Text(root, height=4, wrap="word")
         self.detalhes_produto_text.grid(row=4, column=1, padx=10, pady=5, sticky="nsew")
 
-        ttk.Label(root, text="Valor Estimado:").grid(row=5, column=0, padx=10, pady=5, sticky="w")
-        self.valor_estimado_entry = ttk.Entry(root)
+        tb.Label(root, text="Valor Estimado:").grid(row=5, column=0, padx=10, pady=5, sticky="w")
+        self.valor_estimado_entry = tb.Entry(root)
         self.valor_estimado_entry.grid(row=5, column=1, padx=10, pady=5, sticky="ew")
 
-        ttk.Label(root, text="Forma de Pagamento:").grid(row=6, column=0, padx=10, pady=5, sticky="w")
-        self.pagamento_combobox = ttk.Combobox(root, values=["Pix", "Crédito", "Débito", "Dinheiro Físico"])
+        tb.Label(root, text="Forma de Pagamento:").grid(row=6, column=0, padx=10, pady=5, sticky="w")
+        self.pagamento_combobox = tb.Combobox(root, values=["Pix", "Crédito", "Débito", "Dinheiro Físico"])
         self.pagamento_combobox.grid(row=6, column=1, padx=10, pady=5, sticky="ew")
 
-        ttk.Label(root, text="Prazo de Entrega (dias):").grid(row=7, column=0, padx=10, pady=5, sticky="w")
-        self.prazo_entry = ttk.Entry(root)
+        tb.Label(root, text="Prazo de Entrega (dias):").grid(row=7, column=0, padx=10, pady=5, sticky="w")
+        self.prazo_entry = tb.Entry(root)
         self.prazo_entry.grid(row=7, column=1, padx=10, pady=5, sticky="ew")
 
-        self.gerar_pdf_button = ttk.Button(root, text="Gerar PDF", command=self.gerar_pdf)
+        self.gerar_pdf_button = tb.Button(
+            root, text="Gerar PDF", command=self.gerar_pdf, bootstyle=PRIMARY
+        )
         self.gerar_pdf_button.grid(row=8, column=0, padx=(10, 5), pady=10, sticky="ew")
 
-        self.imprimir_pdf_button = ttk.Button(root, text="Imprimir PDF", command=self.imprimir_pdf)
+        self.imprimir_pdf_button = tb.Button(
+            root, text="Imprimir PDF", command=self.imprimir_pdf, bootstyle=PRIMARY
+        )
         self.imprimir_pdf_button.grid(row=8, column=1, padx=(5, 10), pady=10, sticky="ew")
 
         self.arquivo_pdf = "ordem_servico.pdf"
