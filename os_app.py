@@ -1,10 +1,16 @@
+""" Pega as informações do cliente e produto, gerando um PDF com os dados
+
+    Returns:
+        PDF : Dados do cliente e do produto
+"""
+
 import tkinter as tk
+from datetime import datetime, timedelta
 from tkinter import ttk, messagebox
 from reportlab.pdfgen import canvas
 from reportlab.lib.units import mm
 from reportlab.platypus import Paragraph
 from reportlab.lib.styles import getSampleStyleSheet
-from datetime import datetime, timedelta
 from impress import imprimir_pdf
 from numero_os import Contador
 

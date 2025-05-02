@@ -1,3 +1,7 @@
+""" 
+    Arquivo principal que inicia a aplicação
+"""
+
 import ttkbootstrap as tb
 from os_app import OrdemServicoApp
 
