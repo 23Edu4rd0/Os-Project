@@ -14,6 +14,7 @@ from reportlab.platypus import Paragraph
 from reportlab.lib.styles import getSampleStyleSheet
 from impress import imprimir_pdf
 from numero_os import Contador
+import platform
 
 class OrdemServicoPDF:
     def __init__(self, dados, arquivo_pdf="ordem_servico.pdf"):
@@ -217,6 +218,10 @@ class OrdemServicoApp:
         ajuda_menu.add_command(label="Sobre", command=self.mostrar_sobre)
         menu_bar.add_cascade(label="Ajuda", menu=ajuda_menu)
 
+        impressora_menu = tb.Menu(menu_bar, tearoff=0)
+        impressora_menu.add_command(label="Selecionar Impressora", command=self.selecionar_impressora)
+        menu_bar.add_cascade(label="Impressora", menu=impressora_menu)
+
     def diminuir_os(self):
         atual = Contador.ler_contador()
         if atual > 0:
@@ -290,4 +295,80 @@ class OrdemServicoApp:
 
     def mostrar_sobre(self):
         messagebox.showinfo("Sobre", "Aplicação de Ordem de Serviço v1.0")
+
+    def selecionar_impressora(self):
+        """
+        Abre uma janela para selecionar a impressora padrão.
+        """
+        sistema = platform.system()
+
+        if sistema == "Windows":
+            try:
+                import win32print
+                impressoras = win32print.EnumPrinters(win32print.PRINTER_ENUM_LOCAL | win32print.PRINTER_ENUM_CONNECTIONS)
+                impressoras_nomes = [imp[2] for imp in impressoras]
+
+                # Cria uma nova janela para seleção de impressora
+                janela_impressora = tb.Toplevel(self.root)
+                janela_impressora.title("Selecionar Impressora")
+                janela_impressora.geometry("400x300")
+
+                tb.Label(janela_impressora, text="Selecione uma Impressora:", bootstyle="primary").pack(pady=10)
+
+                impressora_selecionada = tb.StringVar()
+                impressora_combobox = tb.Combobox(janela_impressora, textvariable=impressora_selecionada, state="readonly")
+                impressora_combobox["values"] = impressoras_nomes
+                impressora_combobox.pack(pady=10, padx=20, fill="x")
+
+                def confirmar_selecao():
+                    impressora = impressora_selecionada.get()
+                    if impressora:
+                        win32print.SetDefaultPrinter(impressora)
+                        tb.Label(janela_impressora, text=f"Impressora selecionada: {impressora}", bootstyle="success").pack(pady=10)
+                    else:
+                        tb.Label(janela_impressora, text="Nenhuma impressora selecionada.", bootstyle="danger").pack(pady=10)
+
+                tb.Button(janela_impressora, text="Confirmar", command=confirmar_selecao, bootstyle="success").pack(pady=10)
+
+            except ImportError:
+                messagebox.showerror("Erro", "Biblioteca 'pywin32' não instalada. Use 'pip install pywin32'.")
+            except Exception as e:
+                messagebox.showerror("Erro", f"Erro ao listar impressoras: {e}")
+
+        elif sistema == "Linux":
+            try:
+                import subprocess
+                resultado = subprocess.run(["lpstat", "-p"], capture_output=True, text=True)
+                linhas = resultado.stdout.splitlines()
+                impressoras = [linha.split()[1] for linha in linhas if linha.startswith("printer")]
+
+                # Cria uma nova janela para seleção de impressora
+                janela_impressora = tb.Toplevel(self.root)
+                janela_impressora.title("Selecionar Impressora")
+                janela_impressora.geometry("400x300")
+
+                tb.Label(janela_impressora, text="Selecione uma Impressora:", bootstyle="primary").pack(pady=10)
+
+                impressora_selecionada = tb.StringVar()
+                impressora_combobox = tb.Combobox(janela_impressora, textvariable=impressora_selecionada, state="readonly")
+                impressora_combobox["values"] = impressoras
+                impressora_combobox.pack(pady=10, padx=20, fill="x")
+
+                def confirmar_selecao():
+                    impressora = impressora_selecionada.get()
+                    if impressora:
+                        subprocess.run(["lpoptions", "-d", impressora])
+                        tb.Label(janela_impressora, text=f"Impressora selecionada: {impressora}", bootstyle="success").pack(pady=10)
+                    else:
+                        tb.Label(janela_impressora, text="Nenhuma impressora selecionada.", bootstyle="danger").pack(pady=10)
+
+                tb.Button(janela_impressora, text="Confirmar", command=confirmar_selecao, bootstyle="success").pack(pady=10)
+
+            except FileNotFoundError:
+                messagebox.showerror("Erro", "O comando 'lpstat' não está disponível. Instale o CUPS com 'sudo apt install cups'.")
+            except Exception as e:
+                messagebox.showerror("Erro", f"Erro ao listar impressoras: {e}")
+
+        else:
+            messagebox.showerror("Erro", f"Sistema operacional '{sistema}' não suportado para seleção de impressoras.")
 

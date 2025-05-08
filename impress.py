@@ -1,37 +1,19 @@
 import platform
 import subprocess
 
-def imprimir_pdf(caminho_arquivo: str, imprimir: bool = True) -> None:
+def imprimir_pdf(caminho_arquivo: str) -> None:
     """
-    Imprime um arquivo PDF no sistema operacional atual.
+    Função para imprimir um arquivo PDF no sistema operacional atual.
 
-    Parâmetros:
-    ----------
-    caminho_arquivo : str
-        Caminho completo para o arquivo PDF que será impresso.
-    imprimir : bool, opcional (padrão=True)
-        Se False, a função não faz nada.
-
-    Funciona em:
-    ------------
-    - Windows: usa win32api e win32print.
-    - Linux: usa o comando `lp` (requer CUPS instalado).
-
-    Observações:
-    ------------
-    - Em sistemas Linux, é necessário que o utilitário 'lp' esteja disponível.
-    - Em sistemas Windows, requer pywin32 instalado.
+    Args:
+        caminho_arquivo (str): Caminho do arquivo PDF a ser impresso.
     """
-    if not imprimir:
-        return
-
     sistema = platform.system()
 
     if sistema == "Windows":
         try:
             import win32print
             import win32api
-            impressora = win32print.GetDefaultPrinter()
             win32api.ShellExecute(0, "print", caminho_arquivo, None, ".", 0)
         except ImportError:
             print("Erro: Biblioteca 'pywin32' não instalada. Use 'pip install pywin32'.")
