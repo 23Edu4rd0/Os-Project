@@ -46,22 +46,35 @@ class OrdemServicoPDF:
 
         c.setFont("Helvetica-Bold", 12)
         c.drawString(10, height - 70, f"NÚMERO DA OS: {numero_os}")
+        c.line(10, height - 75, width - 10, height - 75)  # Linha separadora
+
+        # Ajusta o espaçamento para 10 px
+        y_position = height - 85
+
         c.setFont("Helvetica", 9)
-        c.drawString(10, height - 85, f"Data de Emissão: {data_e_hora_texto}")
+        c.drawString(10, y_position, f"Data de Emissão: {data_e_hora_texto}")
+        y_position -= 20  # Espaçamento ajustado para 20 px
 
         c.setFont("Helvetica-Bold", 12)
-        c.drawString(10, height - 110, "DADOS DO CLIENTE")
+        c.drawString(10, y_position, "DADOS DO CLIENTE")
+        c.line(10, y_position - 5, width - 10, y_position - 5)  # Linha separadora
+        y_position -= 20  # Espaçamento ajustado para 20 px
+
         c.setFont("Helvetica", 9)
-        c.drawString(10, height - 130, f'Nome: {nome_cliente}')
-        c.drawString(10, height - 145, f'CPF: {cpf_cliente}')
-        c.drawString(10, height - 160, f'Telefone: {telefone_cliente}')
+        c.drawString(10, y_position, f'Nome: {nome_cliente}')
+        y_position -= 15  # Espaçamento ajustado para 15 px
+        c.drawString(10, y_position, f'CPF: {cpf_cliente}')
+        y_position -= 15  # Espaçamento ajustado para 15 px
+        c.drawString(10, y_position, f'Telefone: {telefone_cliente}')
+        y_position -= 25  # Espaçamento ajustado para 25 px
 
-        y_position = height - 190
-
+        # Adiciona o título "DETALHES DO PRODUTO"
         c.setFont("Helvetica-Bold", 12)
-        c.drawString(10, y_position, "DESCRIÇÃO DO PRODUTO")
-        y_position -= 15
+        c.drawString(10, y_position, "DETALHES DO PRODUTO")
+        c.line(10, y_position - 5, width - 10, y_position - 5)  # Linha separadora
+        y_position -= 20  # Espaçamento ajustado para 20 px
 
+        # Adiciona os detalhes do produto
         styles = getSampleStyleSheet()
         style = styles["Normal"]
         style.fontName = "Helvetica"
@@ -72,10 +85,11 @@ class OrdemServicoPDF:
         text_width = width - 20
         _, h = detalhes_paragraph.wrap(text_width, y_position)
         detalhes_paragraph.drawOn(c, 10, y_position - h)
-        y_position -= h + 20
+        y_position -= h + 25  # Espaçamento ajustado após os detalhes do produto
 
         c.setFont("Helvetica-Bold", 12)
         c.drawString(10, y_position, "ORÇAMENTO")
+        c.line(10, y_position - 5, width - 10, y_position - 5)  # Linha separadora
         y_position -= 20
         c.setFont("Helvetica", 9)
         c.drawString(10, y_position, f'Valor estimado: R$ {valor_estimado:.2f}')
@@ -85,6 +99,7 @@ class OrdemServicoPDF:
 
         c.setFont("Helvetica-Bold", 12)
         c.drawString(10, y_position, "PRAZOS")
+        c.line(10, y_position - 5, width - 10, y_position - 5)  # Linha separadora
         y_position -= 20
         c.setFont("Helvetica", 9)
         c.drawString(10, y_position, f'Prazo estimado para entrega: {data_de_entrega}')
@@ -93,6 +108,7 @@ class OrdemServicoPDF:
         y_position -= 20
         c.setFont("Helvetica-Bold", 12)
         c.drawString(10, y_position, "TERMOS E CONDIÇÕES")
+        c.line(10, y_position - 5, width - 10, y_position - 5)  # Linha separadora
         y_position -= 15
 
         termos_condicoes = """
