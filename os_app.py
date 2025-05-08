@@ -133,60 +133,108 @@ class OrdemServicoApp:
         self.root.title("Ordem de Serviço")
         self.root.geometry("700x500")
         self.root.minsize(500, 400)
+        self.numero_os = Contador.ler_contador()
+        self.arquivo_pdf = "ordem_servico.pdf"
 
-        numero_os = Contador.ler_contador() + 1
+        # Centralizar a janela na tela
+        largura_janela = 700
+        altura_janela = 500
+        largura_tela = self.root.winfo_screenwidth()
+        altura_tela = self.root.winfo_screenheight()
+        pos_x = (largura_tela - largura_janela) // 2
+        pos_y = (altura_tela - altura_janela) // 2
+        self.root.geometry(f"{largura_janela}x{altura_janela}+{pos_x}+{pos_y}")
 
+        # Configuração da interface
         tb.Label(root, text="Número da OS:").grid(row=0, column=0, padx=10, pady=5, sticky="w")
-        self.numero_os_label = tb.Label(root, text=str(numero_os), anchor='center')
-        self.numero_os_label.grid(row=0, column=1, padx=10, pady=5, sticky="ew")
 
+        self.numero_os_label = tb.Label(root, text=str(self.numero_os), anchor='center')
+        self.numero_os_label.grid(row=0, column=1, padx=5, pady=5, sticky="ew")
+
+        self.botao_diminuir_os = tb.Button(root, text="-", width=3, command=self.diminuir_os)
+        self.botao_diminuir_os.grid(row=0, column=2, padx=2, pady=5, sticky="ew")
+
+        self.botao_aumentar_os = tb.Button(root, text="+", width=3, command=self.aumentar_os)
+        self.botao_aumentar_os.grid(row=0, column=3, padx=(2, 10), pady=5, sticky="ew")
+
+        # Configuração de outros campos
         tb.Label(root, text="Nome do Cliente:").grid(row=1, column=0, padx=10, pady=5, sticky="w")
         self.nome_cliente_entry = tb.Entry(root)
-        self.nome_cliente_entry.grid(row=1, column=1, padx=10, pady=5, sticky="ew")
+        self.nome_cliente_entry.grid(row=1, column=1, columnspan=3, padx=10, pady=5, sticky="ew")
 
         tb.Label(root, text="CPF do Cliente:").grid(row=2, column=0, padx=10, pady=5, sticky="w")
         self.cpf_cliente_entry = tb.Entry(root)
-        self.cpf_cliente_entry.grid(row=2, column=1, padx=10, pady=5, sticky="ew")
+        self.cpf_cliente_entry.grid(row=2, column=1, columnspan=3, padx=10, pady=5, sticky="ew")
 
         tb.Label(root, text="Telefone do Cliente:").grid(row=3, column=0, padx=10, pady=5, sticky="w")
         self.telefone_cliente_entry = tb.Entry(root)
-        self.telefone_cliente_entry.grid(row=3, column=1, padx=10, pady=5, sticky="ew")
+        self.telefone_cliente_entry.grid(row=3, column=1, columnspan=3, padx=10, pady=5, sticky="ew")
 
         tb.Label(root, text="Detalhes do Produto:", font=("Helvetica", 9)).grid(row=4, column=0, padx=10, pady=5, sticky="nw")
         self.detalhes_produto_text = tb.Text(root, height=4, wrap="word")
-        self.detalhes_produto_text.grid(row=4, column=1, padx=10, pady=5, sticky="nsew")
+        self.detalhes_produto_text.grid(row=4, column=1, columnspan=3, padx=10, pady=5, sticky="nsew")
 
         tb.Label(root, text="Valor Estimado:").grid(row=5, column=0, padx=10, pady=5, sticky="w")
         self.valor_estimado_entry = tb.Entry(root)
-        self.valor_estimado_entry.grid(row=5, column=1, padx=10, pady=5, sticky="ew")
+        self.valor_estimado_entry.grid(row=5, column=1, columnspan=3, padx=10, pady=5, sticky="ew")
 
         tb.Label(root, text="Forma de Pagamento:").grid(row=6, column=0, padx=10, pady=5, sticky="w")
-        self.pagamento_combobox = tb.Combobox(root, values=["Pix", "Crédito", "Débito", "Dinheiro Físico"])
-        self.pagamento_combobox.grid(row=6, column=1, padx=10, pady=5, sticky="ew")
+        self.pagamento_combobox = tb.Combobox(
+            root, 
+            values=["Pix", "Crédito", "Débito", "Dinheiro Físico"], 
+            state="readonly"
+        )
+        self.pagamento_combobox.grid(row=6, column=1, columnspan=3, padx=10, pady=5, sticky="ew")
 
         tb.Label(root, text="Prazo de Entrega (dias):").grid(row=7, column=0, padx=10, pady=5, sticky="w")
         self.prazo_entry = tb.Entry(root)
-        self.prazo_entry.grid(row=7, column=1, padx=10, pady=5, sticky="ew")
+        self.prazo_entry.grid(row=7, column=1, columnspan=3, padx=10, pady=5, sticky="ew")
 
-        self.gerar_pdf_button = tb.Button(
-            root, text="Gerar PDF", command=self.gerar_pdf, bootstyle=PRIMARY
-        )
+        self.gerar_pdf_button = tb.Button(root, text="Gerar PDF", command=self.gerar_pdf, bootstyle=PRIMARY)
         self.gerar_pdf_button.grid(row=8, column=0, padx=(10, 5), pady=10, sticky="ew")
 
-        self.imprimir_pdf_button = tb.Button(
-            root, text="Imprimir PDF", command=self.imprimir_pdf, bootstyle=PRIMARY
-        )
-        self.imprimir_pdf_button.grid(row=8, column=1, padx=(5, 10), pady=10, sticky="ew")
+        self.imprimir_pdf_button = tb.Button(root, text="Imprimir PDF", command=self.imprimir_pdf, bootstyle=PRIMARY)
+        self.imprimir_pdf_button.grid(row=8, column=1, columnspan=3, padx=(5, 10), pady=10, sticky="ew")
 
-        self.arquivo_pdf = "ordem_servico.pdf"
-
-        # Torna as colunas adaptativas
+        # Configuração de layout
         self.root.grid_columnconfigure(0, weight=1)
-        self.root.grid_columnconfigure(1, weight=1)
+        self.root.grid_columnconfigure(1, weight=2)
+        self.root.grid_columnconfigure(2, weight=1)
+        self.root.grid_columnconfigure(3, weight=1)
 
-        # Torna as linhas adaptativas (ajuste o range conforme o número de linhas)
-        for i in range(9):  # Se você tem 9 linhas (0 a 8)
+        for i in range(12):
             self.root.grid_rowconfigure(i, weight=1)
+
+        # Adiciona o menu
+        menu_bar = tb.Menu(root)
+        root.config(menu=menu_bar)
+
+        arquivo_menu = tb.Menu(menu_bar, tearoff=0)
+        arquivo_menu.add_command(label="Sair", command=root.quit)
+        menu_bar.add_cascade(label="Arquivo", menu=arquivo_menu)
+
+        ajuda_menu = tb.Menu(menu_bar, tearoff=0)
+        ajuda_menu.add_command(label="Sobre", command=self.mostrar_sobre)
+        menu_bar.add_cascade(label="Ajuda", menu=ajuda_menu)
+
+    def diminuir_os(self):
+        atual = Contador.ler_contador()
+        if atual > 0:
+            novo_valor = atual - 1
+            Contador.salvar_contador(novo_valor)
+            self.numero_os = novo_valor
+            self.numero_os_label.config(text=str(self.numero_os))
+            messagebox.showinfo("Contador", f"Número da OS ajustado para {self.numero_os}")
+        else:
+            messagebox.showwarning("Aviso", "Não é possível diminuir o número da OS abaixo de 0.")
+
+    def aumentar_os(self):
+        atual = Contador.ler_contador()
+        novo_valor = atual + 1
+        Contador.salvar_contador(novo_valor)
+        self.numero_os = novo_valor
+        self.numero_os_label.config(text=str(self.numero_os))
+        messagebox.showinfo("Contador", f"Número da OS ajustado para {self.numero_os}")
 
     def coletar_dados(self):
         try:
@@ -239,4 +287,7 @@ class OrdemServicoApp:
             messagebox.showinfo("Impressão", "Enviado para a impressora!")
         except Exception as e:
             messagebox.showerror("Erro", f"Erro ao imprimir: {e}")
+
+    def mostrar_sobre(self):
+        messagebox.showinfo("Sobre", "Aplicação de Ordem de Serviço v1.0")
 
