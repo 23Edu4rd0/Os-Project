@@ -99,7 +99,7 @@ class OrdemServicoPDF:
         y_position -= 30
 
         c.setFont("Helvetica-Bold", 12)
-        c.drawString(10, y_position, "PRAZOS")
+        c.drawString(10, y_position, "DATA DE ENTREGA")
         c.line(10, y_position - 5, width - 10, y_position - 5)  # Linha separadora
         y_position -= 20
         c.setFont("Helvetica", 9)
@@ -113,11 +113,10 @@ class OrdemServicoPDF:
         y_position -= 15
 
         termos_condicoes = """
-        1. Peças não retiradas no prazo de 30 (trinta) dias serão consideradas propriedade da empresa.<br/>
-        2. Valor pode variar conforme material e complexidade do serviço.<br/>
-        3. Prazos podem mudar por aprovação ou falta de material.<br/>
-        4. Alterações após início implicam novo prazo e valor.<br/>
-        5. Entrega só é válida com este documento.
+        1. Valor pode variar conforme material e complexidade do serviço.<br/>
+        2. Prazos podem mudar por aprovação ou falta de material.<br/>
+        3. Alterações após início implicam novo prazo e valor.<br/>
+        4. Entrega só é válida com este documento.
         """
         termos_paragraph = Paragraph(termos_condicoes, style)
         w, h = termos_paragraph.wrap(text_width, y_position)
@@ -196,6 +195,15 @@ class OrdemServicoApp:
 
         self.imprimir_pdf_button = tb.Button(root, text="Imprimir PDF", command=self.imprimir_pdf, bootstyle=PRIMARY)
         self.imprimir_pdf_button.grid(row=8, column=1, columnspan=3, padx=(5, 10), pady=10, sticky="ew")
+
+        # Exemplo para os campos principais:
+        self.nome_cliente_entry.bind("<Return>", lambda e: self.cpf_cliente_entry.focus_set())
+        self.cpf_cliente_entry.bind("<Return>", lambda e: self.telefone_cliente_entry.focus_set())
+        self.telefone_cliente_entry.bind("<Return>", lambda e: self.detalhes_produto_text.focus_set())
+        self.detalhes_produto_text.bind("<Return>", lambda e: (self.valor_estimado_entry.focus_set(), "break")[1])  # Para Text, precisa retornar "break"
+        self.valor_estimado_entry.bind("<Return>", lambda e: self.pagamento_combobox.focus_set())
+        self.pagamento_combobox.bind("<Return>", lambda e: self.prazo_entry.focus_set())
+        self.prazo_entry.bind("<Return>", lambda e: self.gerar_pdf_button.focus_set())
 
         # Configuração de layout
         self.root.grid_columnconfigure(0, weight=1)
