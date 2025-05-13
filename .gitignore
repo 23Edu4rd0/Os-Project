@@ -1,4 +1,7 @@
 __pycache__/
 *.pyc
 .venv
-
+dist/
+build/
+main.spec
+icon.ico

@@ -13,4 +13,4 @@ from os_app import OrdemServicoApp
 if __name__ == "__main__": 
     root = tb.Window(themename="darkly")  # Temas possíveis: darkly, flatly, cyborg.
     app = OrdemServicoApp(root)           
-    root.mainloop()                       
+    root.mainloop()
