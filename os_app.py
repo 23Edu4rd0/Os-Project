@@ -285,7 +285,7 @@ class OrdemServicoApp:
         return True
 
     def gerar_pdf(self):
-        numero_os = int(self.numero_os_label['text'])  # pega o que está no label
+        numero_os = int(self.numero_os_label['text'])  
         dados = self.coletar_dados()
         dados['numero_os'] = numero_os
         if not self.validar_dados(dados):
@@ -305,7 +305,7 @@ class OrdemServicoApp:
             messagebox.showerror("Erro", f"Erro ao imprimir: {e}")
 
     def mostrar_sobre(self):
-        messagebox.showinfo("Sobre", "Aplicação de Ordem de Serviço v1.0")
+        messagebox.showinfo("Sobre", "Aplicação de Ordem de Serviço v1.1\nDesenvolvido por Eduardo\n")
 
     def selecionar_impressora(self):
         """
