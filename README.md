@@ -18,23 +18,29 @@ Este é um aplicativo desktop para geração e gerenciamento de Ordens de Servi�
 1. **Pré-requisitos**
    - Python 3.x instalado
    - Instalar dependências:
-     ```
+
+     ```bash
      pip install -r requirements.txt
      ```
+
    - (Opcional) Instalar o PyInstaller para gerar o executável:
-     ```
+
+     ```bash
      pip install pyinstaller
      ```
 
 2. **Executar o app**
-   ```
+
+   ```bash
    python main.py
    ```
 
 3. **Gerar o executável**
-   ```
+
+   ```bash
    pyinstaller --onefile --noconsole --icon=assets/icons8-o-um-anel-40.ico main.py
    ```
+
    O executável será criado na pasta `dist`.
 
 ---
