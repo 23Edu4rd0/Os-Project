@@ -1,7 +1,9 @@
 __pycache__/
+.gitignore
 *.pyc
 .venv
 dist/
 build/
 main.spec
 icon.ico
+ordem_servico.pdf
