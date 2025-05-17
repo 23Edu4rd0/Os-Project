@@ -52,7 +52,7 @@ class Contador:
             return int(conteudo)
 
     @staticmethod
-    def salvar_contador(valor):
+    def salvar_contador(valor: int):
         """
         Salva um novo valor no contador.
 

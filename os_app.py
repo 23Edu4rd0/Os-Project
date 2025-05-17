@@ -237,7 +237,7 @@ class OrdemServicoApp:
             Contador.salvar_contador(novo_valor)
             self.numero_os = novo_valor
             self.numero_os_label.config(text=str(self.numero_os))
-            messagebox.showinfo("Contador", f"Número da OS ajustado para {self.numero_os}")
+            
         else:
             messagebox.showwarning("Aviso", "Não é possível diminuir o número da OS abaixo de 0.")
 
@@ -247,7 +247,7 @@ class OrdemServicoApp:
         Contador.salvar_contador(novo_valor)
         self.numero_os = novo_valor
         self.numero_os_label.config(text=str(self.numero_os))
-        messagebox.showinfo("Contador", f"Número da OS ajustado para {self.numero_os}")
+        
 
     def coletar_dados(self):
         try:
@@ -268,11 +268,10 @@ class OrdemServicoApp:
             "prazo": prazo
         }
 
-    def validar_dados(self, dados):
-        if not all([dados["numero_os"], dados["nome_cliente"], dados["cpf_cliente"], dados["telefone_cliente"],
-                    dados["detalhes_produto"], dados["valor_estimado"], dados["forma_pagamento"]]):
-            messagebox.showerror("Erro", "Todos os campos devem ser preenchidos.")
-            return False
+
+    def validar_dados(self, dados: dict):
+        
+
         if len(dados["cpf_cliente"]) != 11 or not dados["cpf_cliente"].isdigit():
             messagebox.showerror("Erro", "CPF inválido. Insira somente números e 11 dígitos.")
             return False
@@ -281,6 +280,10 @@ class OrdemServicoApp:
             return False
         if dados["prazo"] is None or dados["prazo"] <= 0:
             messagebox.showerror("Erro", "Prazo inválido. Insira um número inteiro positivo.")
+            return False
+        if not all([dados["numero_os"], dados["nome_cliente"], dados["cpf_cliente"], dados["telefone_cliente"],
+                    dados["detalhes_produto"], dados["valor_estimado"], dados["forma_pagamento"]]):
+            messagebox.showerror("Erro", "Todos os campos devem ser preenchidos.")
             return False
         return True
 
