@@ -48,15 +48,24 @@ Este é um aplicativo desktop para geração e gerenciamento de Ordens de Servi�
 ## Estrutura do Projeto
 
 ```
-Projeto_Shayder_Final/
-│
-├── assets/                # Ícones e imagens
-│   └── icons8-o-um-anel-40.ico
-├── os_app.py              # Código principal da aplicação
-├── main.py                # Arquivo de inicialização
-├── impress.py             # Funções de impressão/PDF
-├── requirements.txt       # Dependências do projeto
-└── dist/                  # (gerada pelo PyInstaller) executável final
+Os-Project/
+├── app/
+│   ├── __init__.py
+│   ├── os_app.py           # Interface principal (Tkinter/ttkbootstrap)
+│   ├── numero_os.py        # Controle do número da OS
+│   ├── impressApp.py       # Seleção de impressora (GUI)
+├── assets/
+│   ├── Montserrat-Regular.ttf
+│   ├── Montserrat-Bold.ttf
+├── documents/
+│   ├── __init__.py
+│   ├── os_pdf.py           # Geração do PDF da OS (ReportLab)
+├── services/
+│   ├── __init__.py
+│   ├── impress.py          # Função para impressão cross-platform
+├── main.py                 # Arquivo principal para iniciar o app
+├── requirements.txt        # Dependências do projeto
+└── README.md               # Documentação do projeto
 ```
 
 ---
