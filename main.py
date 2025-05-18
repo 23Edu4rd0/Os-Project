@@ -7,7 +7,7 @@ executa a aplicação principal definida em `os_app.py`.
 """
 
 import ttkbootstrap as tb
-from os_app import OrdemServicoApp
+from app.os_app import OrdemServicoApp
 
 if __name__ == "__main__":
     root = tb.Window(themename="darkly")
