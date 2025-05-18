@@ -14,6 +14,7 @@ from app.numero_os import Contador
 # Renomear para evitar conflito
 from services.impress import imprimir_pdf as imprimir_pdf_service
 from ttkbootstrap.constants import PRIMARY
+from app.impressApp import ImpressApp
 
 # It's good practice to handle platform-specific imports gracefully
 try:
@@ -31,15 +32,17 @@ class OrdemServicoApp:
     """
     def __init__(self, root):
         """
-        Inicializa a interface gráfica e os componentes principais.
+        Inicializa a interface gráfica principal da Ordem de Serviço.
+        Configura todos os widgets, menus e dicas de preenchimento.
         """
         self.root = root
         self.root.title("Ordem de Serviço")
         self.root.geometry("800x600")
         self.root.minsize(600, 500)
         self.numero_os = Contador.ler_contador()
-        self.arquivo_pdf = "ordem_servico.pdf"  # Definir o nome do arquivo PDF
-        self.impressora_padrao = None  # Inicializar impressora padrão
+        self.arquivo_pdf = "ordem_servico.pdf"  # Nome do arquivo PDF gerado
+        self.impressora_padrao = None  # Impressora padrão selecionada
+        self.impressora_menu = ImpressApp(self.root)
 
         # Parâmetros base para ajuste dinâmico de fonte/layout
         self.base_width = 800
@@ -63,24 +66,28 @@ class OrdemServicoApp:
         )
         self.numero_os_label.pack(side="left")
 
-        # Botões para aumentar e diminuir OS
+        # Botões para aumentar/diminuir o número da OS
         btn_diminuir_os = tb.Button(
             os_frame, text="-", command=self.diminuir_os, width=3,
-            bootstyle="secondary"  # Increased width
+            bootstyle="secondary"
         )
-        # Added ipady for vertical padding
-        btn_diminuir_os.pack(side="left", padx=(10, 2), ipady=5)
+        # Botão para diminuir o número da OS
+        btn_diminuir_os.pack(
+            side="left", padx=(10, 2), ipady=5  # Espaçamento e altura
+        )
         btn_aumentar_os = tb.Button(
             os_frame, text="+", command=self.aumentar_os, width=3,
-            bootstyle="secondary"  # Increased width
+            bootstyle="secondary"
         )
-        # Added ipady for vertical padding
-        btn_aumentar_os.pack(side="left", padx=(0, 10), ipady=5)
+        # Botão para aumentar o número da OS
+        btn_aumentar_os.pack(
+            side="left", padx=(0, 10), ipady=5  # Espaçamento e altura
+        )
 
-        row += 1  # Increment row after OS display
+        row += 1  # Próxima linha após exibir o número da OS
         tb.Label(root, text="Nome do Cliente:", font=("Montserrat", 12)).grid(
             row=row, column=0, columnspan=2, padx=30,
-            pady=(5, 5), sticky="w"  # Adjusted pady
+            pady=(5, 5), sticky="w"  # Espaçamento superior/inferior
         )
         row += 1
         self.nome_cliente_entry = tb.Entry(root, font=("Montserrat", 12))
@@ -111,7 +118,7 @@ class OrdemServicoApp:
             pady=(0, 15), sticky="ew"
         )
         row += 1
-        tb.Label(root, text="Detalhes do Produto:",
+        tb.Label(root, text="Detalhes do Produto/Serviço:",
                  font=("Montserrat", 12)).grid(
             row=row, column=0, columnspan=2, padx=30, pady=(0, 5), sticky="w"
         )
@@ -120,24 +127,24 @@ class OrdemServicoApp:
                                      font=("Montserrat", 12), wrap="word")
         self.detalhes_text.grid(
             row=row, column=0, columnspan=2, padx=30,
-            pady=(0, 0), sticky="ew"  # Reduced bottom padding
+            pady=(0, 0), sticky="ew"  # Sem espaçamento inferior extra
         )
         row += 1
         tb.Label(root, text="Valor Estimado:", font=("Montserrat", 12)).grid(
             row=row, column=0, columnspan=2, padx=30,
-            pady=(5, 5), sticky="w"  # Added small top padding for label
+            pady=(5, 5), sticky="w"  # Espaçamento superior/inferior
         )
         row += 1
         self.valor_entry = tb.Entry(root, font=("Montserrat", 12))
         self.valor_entry.grid(
             row=row, column=0, columnspan=2, padx=30,
-            pady=(0, 0), sticky="ew"  # Reduced bottom padding
+            pady=(0, 0), sticky="ew"
         )
         row += 1
         tb.Label(root, text="Forma de Pagamento:",
                  font=("Montserrat", 12)).grid(
             row=row, column=0, columnspan=2, padx=30,
-            pady=(5, 5), sticky="w"  # Added small top padding for label
+            pady=(5, 5), sticky="w"
         )
         row += 1
         self.pagamento_combo = tb.Combobox(
@@ -146,12 +153,12 @@ class OrdemServicoApp:
         )
         self.pagamento_combo.grid(
             row=row, column=0, columnspan=2, padx=30,
-            pady=(0, 0), sticky="ew"  # Reduced bottom padding
+            pady=(0, 0), sticky="ew"
         )
         row += 1
         tb.Label(root, text="Prazo (dias):", font=("Montserrat", 12)).grid(
             row=row, column=0, columnspan=2, padx=30,
-            pady=(5, 5), sticky="w"  # Added small top padding for label
+            pady=(5, 5), sticky="w"
         )
         row += 1
         self.prazo_entry = tb.Entry(root, font=("Montserrat", 12))
@@ -162,20 +169,20 @@ class OrdemServicoApp:
         row += 1
         self.gerar_pdf_btn = tb.Button(
             root, text="Gerar PDF", bootstyle=PRIMARY, width=20,
-            command=self.gerar_pdf  # Increased width
+            command=self.gerar_pdf  # Largura aumentada
         )
         self.gerar_pdf_btn.grid(
             row=row, column=0, padx=(30, 10), pady=(10, 30),
-            sticky="ew", ipady=5  # Added ipady
+            sticky="ew", ipady=5  # Altura aumentada
         )
 
         self.imprimir_btn = tb.Button(
             root, text="Imprimir PDF", bootstyle=PRIMARY, width=20,
-            command=self.imprimir_pdf  # Increased width
+            command=self.imprimir_pdf  # Largura aumentada
         )
         self.imprimir_btn.grid(
             row=row, column=1, padx=(10, 30), pady=(10, 30),
-            sticky="ew", ipady=5  # Added ipady
+            sticky="ew", ipady=5  # Altura aumentada
         )
         # Menu principal
         menu_bar = tb.Menu(root)
@@ -189,7 +196,7 @@ class OrdemServicoApp:
         impressora_menu = tb.Menu(menu_bar, tearoff=0)
         impressora_menu.add_command(
             label="Selecionar Impressora",
-            command=self.selecionar_impressora
+            command=self.impressora_menu.selecionar_impressora
         )
         menu_bar.add_cascade(label="Impressora", menu=impressora_menu)
 
@@ -198,27 +205,32 @@ class OrdemServicoApp:
             self.nome_cliente_entry, self.cpf_entry, self.telefone_entry,
             self.detalhes_text, self.valor_entry, self.pagamento_combo,
             self.prazo_entry, self.gerar_pdf_btn, self.imprimir_btn,
-            self.numero_os_label  # Add the new label here
+            self.numero_os_label
         ]
-        # Remove the conditional append
-        # numero_os_label is now guaranteed to exist
-        self.root.bind('<Configure>', self._ajustar_fontes)  # Corrected
-        # Expansão
+        # Ajuste dinâmico de fonte ao redimensionar a janela
+        self.root.bind('<Configure>', self._ajustar_fontes)
+        # Expansão automática das linhas e colunas
         for i in range(row + 1):
             self.root.grid_rowconfigure(i, weight=1)
         for j in range(2):
             self.root.grid_columnconfigure(j, weight=1)
-        # Placeholders
-        self.add_placeholder(self.nome_cliente_entry,
-                             "Digite o nome do cliente")
-        self.add_placeholder(self.cpf_entry, "Somente números, 11 dígitos")
-        self.add_placeholder(self.telefone_entry, "Ex: 37999999999")
-        self.add_placeholder(self.valor_entry, "Ex: 100,00")
+        # Dicas de preenchimento (placeholders) para os campos
+        self.add_placeholder(
+            self.nome_cliente_entry, "Digite o nome do cliente"
+        )
+        self.add_placeholder(
+            self.cpf_entry, "Somente números, 11 dígitos"
+        )
+        self.add_placeholder(
+            self.telefone_entry, "Ex: 37999999999"
+        )
+        self.add_placeholder(
+            self.valor_entry, "Ex: 100,00"
+        )
         self.add_placeholder(
             self.prazo_entry,
-            "Insira o numero de dias. Ex: 30 -> daqui a 30 dias"
+            "Insira o número de dias. Ex: 30 -> daqui a 30 dias"
         )
-
         # Navegação entre campos com Enter
         self.nome_cliente_entry.bind(
             "<Return>", lambda e: self.cpf_entry.focus_set()
@@ -252,7 +264,7 @@ class OrdemServicoApp:
 
     def add_placeholder(self, entry, placeholder_text):
         """
-        Adiciona um placeholder (texto de dica) ao campo Entry.
+        Adiciona uma dica de preenchimento (placeholder) ao campo Entry.
         O texto aparece em cinza e some ao focar no campo.
         """
         entry.insert(0, placeholder_text)
@@ -273,7 +285,8 @@ class OrdemServicoApp:
 
     def diminuir_os(self):
         """
-        Diminui o número da OS, atualizando o contador e o label.
+        Diminui o número da OS, atualizando o contador e o rótulo.
+        Não permite valores menores que 1.
         """
         atual = Contador.ler_contador()
         if atual > 1:
@@ -289,7 +302,7 @@ class OrdemServicoApp:
 
     def aumentar_os(self):
         """
-        Aumenta o número da OS, atualizando o contador e o label.
+        Aumenta o número da OS, atualizando o contador e o rótulo.
         """
         atual = Contador.ler_contador()
         novo_valor = atual + 1
@@ -300,7 +313,7 @@ class OrdemServicoApp:
     def coletar_dados(self):
         """
         Coleta os dados dos campos da interface e retorna um dicionário.
-        Trata campos vazios e placeholders como strings vazias ou None.
+        Placeholders e campos vazios são tratados como string vazia ou None.
         """
         dados = {}
         dados["numero_os"] = self.numero_os_label['text']
@@ -398,6 +411,10 @@ class OrdemServicoApp:
         return True
 
     def gerar_pdf(self):
+        """
+        Gera o PDF da Ordem de Serviço com os dados coletados e validados.
+        Atualiza o número da OS após gerar o PDF.
+        """
         dados = self.coletar_dados()
 
         # Define fields to check for the "all empty" condition
@@ -457,6 +474,10 @@ class OrdemServicoApp:
             )
 
     def imprimir_pdf(self):
+        """
+        Envia o PDF gerado para a impressora padrão selecionada.
+        Exibe mensagens de sucesso ou erro conforme o resultado.
+        """
         if not os.path.exists(self.arquivo_pdf):
             messagebox.showerror(
                 "Erro de Impressão",
@@ -491,201 +512,13 @@ class OrdemServicoApp:
         """
         messagebox.showinfo(
             "Sobre",
-            "Aplicação de Ordem de Serviço v1.2\nDesenvolvido por Eduardo\n"
+            "Aplicação de Ordem de Serviço v1.3\nDesenvolvido por Eduardo\n"
         )
-
-    def selecionar_impressora(self):
-        """
-        Abre uma janela para selecionar a impressora padrão do sistema,
-        com layout aprimorado.
-        """
-        sistema = platform.system()
-
-        if sistema == "Windows":
-            if not win32print:
-                messagebox.showerror(
-                    "Erro",
-                    ("Biblioteca 'pywin32' não instalada ou não pôde ser "
-                     "importada. Use 'pip install pywin32'.")
-                )
-                return
-            try:
-                impressoras = win32print.EnumPrinters(
-                    win32print.PRINTER_ENUM_LOCAL |
-                    win32print.PRINTER_ENUM_CONNECTIONS
-                )
-                impressoras_nomes = [imp[2] for imp in impressoras]
-
-                janela_impressora = tb.Toplevel(self.root)
-                janela_impressora.title("Selecionar Impressora")
-                janela_impressora.geometry("420x320")
-                janela_impressora.resizable(False, False)
-                # Centralizar na tela
-                largura = 420
-                altura = 320
-                x = ((janela_impressora.winfo_screenwidth() // 2) -
-                     (largura // 2))
-                y = ((janela_impressora.winfo_screenheight() // 2) -
-                     (altura // 2))
-                janela_impressora.geometry(f"{largura}x{altura}+{x}+{y}")
-
-                # Título destacado
-                tb.Label(
-                    janela_impressora, text="Selecione uma Impressora",
-                    font=("Montserrat", 14, "bold"), bootstyle="light"
-                ).pack(pady=(20, 10))
-
-                impressora_selecionada = tb.StringVar()
-                impressora_combobox = tb.Combobox(
-                    janela_impressora,
-                    textvariable=impressora_selecionada,
-                    state="readonly", font=("Montserrat", 12)
-                )
-                impressora_combobox["values"] = impressoras_nomes
-                impressora_combobox.pack(pady=10, padx=40, fill="x")
-
-                status_label = tb.Label(
-                    janela_impressora, text="", font=("Montserrat", 11),
-                    bootstyle="info"
-                )
-                status_label.pack(pady=10)
-
-                def confirmar_selecao():
-                    impressora = impressora_selecionada.get()
-                    if impressora:
-                        win32print.SetDefaultPrinter(impressora)
-                        status_label.config(
-                            text=f"Impressora selecionada: {impressora}",
-                            bootstyle="success"
-                        )
-                    else:
-                        status_label.config(
-                            text="Nenhuma impressora selecionada.",
-                            bootstyle="danger"
-                        )
-
-                btn_frame = tb.Frame(janela_impressora)
-                btn_frame.pack(pady=20)
-                tb.Button(
-                    btn_frame, text="Confirmar", command=confirmar_selecao,
-                    bootstyle="success", width=15
-                ).pack(side="left", padx=10)
-                tb.Button(
-                    btn_frame, text="Fechar",
-                    command=janela_impressora.destroy,
-                    bootstyle="secondary", width=15
-                ).pack(side="left", padx=10)
-
-            except ImportError:  # Should be caught by the top-level check
-                messagebox.showerror(
-                    "Erro",
-                    ("Biblioteca 'pywin32' não instalada. "
-                     "Use 'pip install pywin32'.")
-                )
-            except Exception as e:
-                messagebox.showerror("Erro",
-                                     f"Erro ao listar impressoras: {e}")
-
-        elif sistema == "Linux":
-            try:
-                import subprocess
-                resultado = subprocess.run(
-                    ["lpstat", "-p"], capture_output=True, text=True, check=True
-                )
-                linhas = resultado.stdout.splitlines()
-                impressoras = [
-                    linha.split()[1] for linha in linhas
-                    if linha.startswith("printer")
-                ]
-
-                janela_impressora = tb.Toplevel(self.root)
-                janela_impressora.title("Selecionar Impressora")
-                janela_impressora.geometry("420x320")
-                janela_impressora.resizable(False, False)
-                largura = 420
-                altura = 320
-                x = ((janela_impressora.winfo_screenwidth() // 2) -
-                     (largura // 2))
-                y = ((janela_impressora.winfo_screenheight() // 2) -
-                     (altura // 2))
-                janela_impressora.geometry(f"{largura}x{altura}+{x}+{y}")
-
-                tb.Label(
-                    janela_impressora, text="Selecione uma Impressora",
-                    font=("Montserrat", 14, "bold"), bootstyle="primary"
-                ).pack(pady=(20, 10))
-
-                impressora_selecionada = tb.StringVar()
-                impressora_combobox = tb.Combobox(
-                    janela_impressora,
-                    textvariable=impressora_selecionada,
-                    state="readonly", font=("Montserrat", 12)
-                )
-                impressora_combobox["values"] = impressoras
-                impressora_combobox.pack(pady=10, padx=40, fill="x")
-
-                status_label = tb.Label(
-                    janela_impressora, text="", font=("Montserrat", 11),
-                    bootstyle="info"
-                )
-                status_label.pack(pady=10)
-
-                def confirmar_selecao():
-                    impressora = impressora_selecionada.get()
-                    if impressora:
-                        subprocess.run(
-                            ["lpoptions", "-d", impressora], check=True
-                        )
-                        status_label.config(
-                            text=f"Impressora selecionada: {impressora}",
-                            bootstyle="success"
-                        )
-                    else:
-                        status_label.config(
-                            text="Nenhuma impressora selecionada.",
-                            bootstyle="danger"
-                        )
-
-                btn_frame = tb.Frame(janela_impressora)
-                btn_frame.pack(pady=20)
-                tb.Button(
-                    btn_frame, text="Confirmar", command=confirmar_selecao,
-                    bootstyle="success", width=15
-                ).pack(side="left", padx=10)
-                tb.Button(
-                    btn_frame, text="Fechar",
-                    command=janela_impressora.destroy,
-                    bootstyle="secondary", width=15
-                ).pack(side="left", padx=10)
-
-            except FileNotFoundError:
-                messagebox.showerror(
-                    "Erro",
-                    ("O comando 'lpstat' não está disponível. "
-                     "Instale o CUPS com 'sudo apt install cups'.")
-                )
-            except subprocess.CalledProcessError as e:
-                messagebox.showerror(
-                    "Erro",
-                    f"Erro ao executar comando do sistema: {e}"
-                )
-            except Exception as e:
-                messagebox.showerror(
-                    "Erro",
-                    f"Erro ao listar impressoras: {e}"
-                )
-
-        else:
-            messagebox.showerror(
-                "Erro",
-                (f"Sistema operacional '{sistema}' não suportado para "
-                 "seleção de impressoras.")
-            )
 
     def _ajustar_fontes(self, event):
         """
         Ajusta o tamanho das fontes dos widgets principais conforme o tamanho
-        da janela.
+        da janela, mantendo a responsividade da interface.
         """
         # Ajuste de fonte proporcional ao tamanho da janela
         largura = self.root.winfo_width()

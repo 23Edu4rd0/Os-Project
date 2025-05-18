@@ -16,7 +16,6 @@ def imprimir_pdf(caminho_arquivo: str) -> tuple[bool, str]:
 
     if sistema == "Windows":
         try:
-            import win32print
             import win32api
             win32api.ShellExecute(0, "print", caminho_arquivo, None, ".", 0)
             return True, ''
