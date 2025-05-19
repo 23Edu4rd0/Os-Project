@@ -37,8 +37,8 @@ class OrdemServicoApp:
         """
         self.root = root
         self.root.title("Ordem de Serviço")
-        self.root.geometry("800x600")
-        self.root.minsize(600, 500)
+        self.root.geometry("500x600")
+        self.root.minsize(300, 700)
         self.numero_os = Contador.ler_contador()
         self.arquivo_pdf = "ordem_servico.pdf"  # Nome do arquivo PDF gerado
         self.impressora_padrao = None  # Impressora padrão selecionada
