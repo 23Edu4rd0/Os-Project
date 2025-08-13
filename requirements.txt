@@ -1,3 +1,14 @@
 
-reportlab
-ttkbootstrap
+# Dependências principais (obrigatórias)
+reportlab>=4.0.0
+ttkbootstrap>=1.10.0
+
+# Banco de dados (já incluído na biblioteca padrão Python)
+# sqlite3
+
+# Dependências opcionais para impressão (melhora funcionalidade mas não é obrigatória)
+# Windows: pywin32 (para impressão direta)
+# Linux: cups (sudo apt install cups)
+
+# Para instalar dependências opcionais do Windows:
+# pip install pywin32

@@ -9,9 +9,45 @@ import os
 
 
 class OrdemServicoPDF:
-    def __init__(self, dados, arquivo_pdf="ordem_servico.pdf"):
+    def __init__(self, dados, arquivo_pdf="ordem_servico.pdf", tamanho_folha="pequena"):
         self.dados = dados
-        self.arquivo_pdf = arquivo_pdf
+        self.arquivo_pdf = self._gerar_caminho_pdf(dados, arquivo_pdf)
+        self.tamanho_folha = tamanho_folha  # "pequena" ou "grande"
+        
+    def _gerar_caminho_pdf(self, dados, arquivo_padrao):
+        """
+        Gera um caminho para o PDF com base nos dados da OS.
+        Cria a estrutura de pastas necessária.
+        
+        Args:
+            dados (dict): Dados da OS
+            arquivo_padrao (str): Nome de arquivo padrão
+            
+        Returns:
+            str: Caminho completo para o arquivo PDF
+        """
+        # Criar pasta pdfs se não existir
+        pasta_pdfs = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'pdfs')
+        if not os.path.exists(pasta_pdfs):
+            os.makedirs(pasta_pdfs, exist_ok=True)
+            
+        # Criar nome de arquivo baseado na OS, cliente e data
+        numero_os = dados.get("numero_os", "00000")
+        # Converter para inteiro se for string, ou usar valor padrão
+        try:
+            if isinstance(numero_os, str):
+                numero_os = int(numero_os)
+        except ValueError:
+            numero_os = 0  # valor padrão se não puder converter
+            
+        nome_cliente = dados.get("nome_cliente", "cliente").replace(" ", "_")[:20]
+        data_atual = datetime.now().strftime('%Y%m%d_%H%M%S')
+        
+        # Nome do arquivo: OS_00001_NomeCliente_20250813_123045.pdf
+        nome_arquivo = f"OS_{numero_os:05d}_{nome_cliente}_{data_atual}.pdf"
+        
+        # Caminho completo
+        return os.path.join(pasta_pdfs, nome_arquivo)
 
     def gerar(self):
         numero_os = self.dados["numero_os"]
@@ -19,7 +55,9 @@ class OrdemServicoPDF:
         cpf_cliente = self.dados["cpf_cliente"]
         telefone_cliente = self.dados["telefone_cliente"]
         detalhes_produto = self.dados["detalhes_produto"]
-        valor_estimado = self.dados["valor_estimado"]
+        valor_produto = self.dados.get("valor_produto")
+        valor_entrada = self.dados.get("valor_entrada")
+        frete = self.dados.get("frete")
         forma_pagamento = self.dados["forma_pagamento"]
         prazo = self.dados["prazo"]
 
@@ -74,19 +112,23 @@ class OrdemServicoPDF:
             print(f"AVISO: Fonte bold não encontrada em {font_path_bold}")
         # --- Font Handling End ---
 
-        c = canvas.Canvas(self.arquivo_pdf, pagesize=(80 * mm, 250 * mm))
-        width, height = 80 * mm, 250 * mm
+        # Escolha do tamanho da folha
+        if self.tamanho_folha == "grande":
+            width, height = 210 * mm, 297 * mm  # A4
+        else:
+            width, height = 80 * mm, 250 * mm  # Bobina
+        c = canvas.Canvas(self.arquivo_pdf, pagesize=(width, height))
 
         # Cabeçalho
         c.setFont(font_bold_to_use, 12)
-        c.drawCentredString(width / 2, height - 20, "OuriPrata - Ourivesaria")
+        c.drawCentredString(width / 2, height - 20, "Merkava Ferramentas")
         c.setFont(font_to_use, 8)
         c.drawCentredString(
             width / 2,
             height - 30,
-            "Av. 1° de Junho, 411 - 501 - Centro - Divinópolis - MG"
+            "Rua José Gabriel Medef, 41 - Padre Liberio - Divinópolis - MG"
         )
-        c.drawCentredString(width / 2, height - 40, "Tel: (37) 9862-3061")
+        c.drawCentredString(width / 2, height - 40, "Tel: (37) 98402-9655")
 
         c.setFont(font_bold_to_use, 12)
         c.drawString(10, height - 70, f"NÚMERO DA OS: {numero_os}")
@@ -132,8 +174,26 @@ class OrdemServicoPDF:
         c.line(10, y_position - 5, width - 10, y_position - 5)
         y_position -= 20
         c.setFont(font_to_use, 9)
-        valor_formatado = f'{valor_estimado:.2f}'.replace('.', ',')
-        c.drawString(10, y_position, f'Valor estimado: R$ {valor_formatado}')
+        valor_produto_fmt = f'{valor_produto:.2f}'.replace('.', ',') if valor_produto is not None else "-"
+        valor_entrada_fmt = f'{valor_entrada:.2f}'.replace('.', ',') if valor_entrada is not None else "-"
+        frete_fmt = f'{frete:.2f}'.replace('.', ',') if frete is not None else "0,00"
+        c.drawString(10, y_position, f'Valor do produto: R$ {valor_produto_fmt}')
+        y_position -= 15
+        c.drawString(10, y_position, f'Valor da entrada: R$ {valor_entrada_fmt}')
+        y_position -= 15
+        c.drawString(10, y_position, f'Frete: R$ {frete_fmt}')
+        y_position -= 15
+        total = 0.0
+        restante = 0.0
+        try:
+            total = float(valor_produto or 0) + float(frete or 0)
+            restante = total - float(valor_entrada or 0)
+        except Exception:
+            total = 0.0
+            restante = 0.0
+        c.drawString(10, y_position, f'Total: R$ {total:.2f}'.replace('.', ','))
+        y_position -= 15
+        c.drawString(10, y_position, f'Restante: R$ {restante:.2f}'.replace('.', ','))
         y_position -= 15
         c.drawString(10, y_position, f'Forma de pagamento: {forma_pagamento}')
         y_position -= 30
