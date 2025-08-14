@@ -1681,7 +1681,6 @@ class OrdemServicoApp:
             messagebox.showerror('Erro', f'Erro ao salvar: {str(e)}\n\nDetalhes no console.')
 
     # ===== Ações Produtos (removidos - agora usando Pedidos) =====
-        c_pra.insert(0, str(os_full.get('prazo') or ''))
 
         def salvar():
             campos = {

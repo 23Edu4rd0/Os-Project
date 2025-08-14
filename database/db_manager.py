@@ -11,6 +11,17 @@ from datetime import datetime, timedelta
 
 class DatabaseManager:
 
+    def deletar_pedido(self, pedido_id):
+        """
+        Deleta um pedido específico pelo ID.
+        """
+        try:
+            # Usar o método deletar_ordem que já existe
+            return self.deletar_ordem(pedido_id)
+        except Exception as e:
+            print(f"Erro ao deletar pedido: {e}")
+            return False
+
     def atualizar_status_pedido(self, pedido_id, novo_status):
         """
         Atualiza o status do pedido (ordem de serviço) no campo dados_json.
@@ -20,29 +31,38 @@ class DatabaseManager:
             self.cursor.execute('SELECT dados_json FROM ordem_servico WHERE id = ?', (pedido_id,))
             row = self.cursor.fetchone()
             if not row:
-                raise Exception('Pedido não encontrado')
+                print(f'Pedido com ID {pedido_id} não encontrado')
+                return False
+                
             dados_json = row[0] or '{}'
             try:
                 dados = json.loads(dados_json)
             except Exception:
                 dados = {}
+                
             dados['status'] = novo_status
             novo_json = json.dumps(dados)
+            
             self.cursor.execute('UPDATE ordem_servico SET dados_json = ? WHERE id = ?', (novo_json, pedido_id))
             self.conn.commit()
+            print(f'Status do pedido {pedido_id} atualizado para: {novo_status}')
+            return True
+            
         except Exception as e:
             print(f"Erro ao atualizar status do pedido: {e}")
-            raise
+            self.conn.rollback()
+            return False
 
     def listar_pedidos_ordenados_por_prazo(self, limite=200):
         """
         Lista pedidos ordenados por prazo.
         USA APENAS O CAMPO PRAZO (dias) - NÃO USA data_entrega.
+        Carrega status do campo dados_json.
         """
         try:
             self.cursor.execute('''
                 SELECT id, numero_os, nome_cliente, detalhes_produto, valor_produto, 
-                       frete, data_emissao, prazo
+                       frete, data_emissao, prazo, dados_json
                 FROM ordem_servico
                 ORDER BY data_emissao DESC
                 LIMIT ?
@@ -50,7 +70,16 @@ class DatabaseManager:
             resultados = self.cursor.fetchall()
             pedidos = []
             for row in resultados:
-                id_, numero_os, nome_cliente, detalhes_produto, valor_produto, frete, data_emissao, prazo = row
+                id_, numero_os, nome_cliente, detalhes_produto, valor_produto, frete, data_emissao, prazo, dados_json = row
+                
+                # Extrair status do JSON
+                status = 'em produção'  # Padrão
+                if dados_json:
+                    try:
+                        dados = json.loads(dados_json)
+                        status = dados.get('status', 'em produção')
+                    except:
+                        pass
                 
                 pedidos.append({
                     'id': id_,
@@ -63,7 +92,7 @@ class DatabaseManager:
                     'valor_total': (valor_produto or 0.0) + (frete or 0.0),  # SEMPRE SOMAR
                     'data_emissao': data_emissao,
                     'prazo_dias': prazo,  # USAR APENAS ESTE CAMPO
-                    'status': 'em produção'
+                    'status': status  # Status real do JSON
                 })
             
             # Ordenar por prazo (menor prazo primeiro = mais urgente)
@@ -348,17 +377,18 @@ class DatabaseManager:
 
     def listar_clientes(self, limite=300):
         try:
-            self.cursor.execute('SELECT id, nome, cpf, telefone, email, created_at FROM clientes ORDER BY created_at DESC LIMIT ?', (limite,))
+            self.cursor.execute('SELECT id, nome, cpf, telefone, email, endereco, referencia, created_at FROM clientes ORDER BY created_at DESC LIMIT ?', (limite,))
             rows = self.cursor.fetchall()
-            cols = ['id','nome','cpf','telefone','email','created_at']
+            cols = ['id','nome','cpf','telefone','email','endereco','referencia','created_at']
             return [dict(zip(cols, r)) for r in rows]
         except sqlite3.Error as e:
             print(f"Erro ao listar clientes: {e}")
             return []
 
-    def atualizar_cliente(self, cliente_id: int, nome: str, cpf: str | None, telefone: str | None, email: str | None):
+    def atualizar_cliente(self, cliente_id: int, nome: str, cpf: str | None, telefone: str | None, email: str | None, endereco: str | None = None, referencia: str | None = None):
         try:
-            self.cursor.execute('UPDATE clientes SET nome = ?, cpf = ?, telefone = ?, email = ? WHERE id = ?', (nome, cpf, telefone, email, cliente_id))
+            self.cursor.execute('UPDATE clientes SET nome = ?, cpf = ?, telefone = ?, email = ?, endereco = ?, referencia = ? WHERE id = ?', 
+                               (nome, cpf, telefone, email, endereco, referencia, cliente_id))
             self.conn.commit()
             return True
         except sqlite3.Error as e:
