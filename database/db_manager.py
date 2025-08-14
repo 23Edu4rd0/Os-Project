@@ -10,6 +10,74 @@ from datetime import datetime, timedelta
 
 
 class DatabaseManager:
+
+    def atualizar_status_pedido(self, pedido_id, novo_status):
+        """
+        Atualiza o status do pedido (ordem de serviço) no campo dados_json.
+        """
+        try:
+            # Busca o JSON atual
+            self.cursor.execute('SELECT dados_json FROM ordem_servico WHERE id = ?', (pedido_id,))
+            row = self.cursor.fetchone()
+            if not row:
+                raise Exception('Pedido não encontrado')
+            dados_json = row[0] or '{}'
+            try:
+                dados = json.loads(dados_json)
+            except Exception:
+                dados = {}
+            dados['status'] = novo_status
+            novo_json = json.dumps(dados)
+            self.cursor.execute('UPDATE ordem_servico SET dados_json = ? WHERE id = ?', (novo_json, pedido_id))
+            self.conn.commit()
+        except Exception as e:
+            print(f"Erro ao atualizar status do pedido: {e}")
+            raise
+
+    def listar_pedidos_ordenados_por_prazo(self, limite=200):
+        """
+        Lista pedidos ordenados por prazo.
+        USA APENAS O CAMPO PRAZO (dias) - NÃO USA data_entrega.
+        """
+        try:
+            self.cursor.execute('''
+                SELECT id, numero_os, nome_cliente, detalhes_produto, valor_produto, 
+                       frete, data_emissao, prazo
+                FROM ordem_servico
+                ORDER BY data_emissao DESC
+                LIMIT ?
+            ''', (limite,))
+            resultados = self.cursor.fetchall()
+            pedidos = []
+            for row in resultados:
+                id_, numero_os, nome_cliente, detalhes_produto, valor_produto, frete, data_emissao, prazo = row
+                
+                pedidos.append({
+                    'id': id_,
+                    'numero_os': numero_os,
+                    'nome_cliente': nome_cliente,
+                    'descricao': detalhes_produto,
+                    'detalhes_produto': detalhes_produto,
+                    'valor_produto': valor_produto or 0.0,
+                    'frete': frete or 0.0,
+                    'valor_total': (valor_produto or 0.0) + (frete or 0.0),  # SEMPRE SOMAR
+                    'data_emissao': data_emissao,
+                    'prazo_dias': prazo,  # USAR APENAS ESTE CAMPO
+                    'status': 'em produção'
+                })
+            
+            # Ordenar por prazo (menor prazo primeiro = mais urgente)
+            def get_prazo_for_sort(pedido):
+                prazo = pedido.get('prazo_dias')
+                if prazo is not None:
+                    return int(prazo)
+                return 999  # Se não tem prazo, colocar no final
+            
+            pedidos.sort(key=get_prazo_for_sort)
+            return pedidos
+        except sqlite3.Error as e:
+            print(f"Erro ao listar pedidos ordenados por prazo: {e}")
+            return []
     """
     Gerencia o banco de dados das ordens de serviço, permitindo
     salvar, recuperar e pesquisar ordens anteriores.
@@ -93,6 +161,16 @@ class DatabaseManager:
                 self.cursor.execute('ALTER TABLE ordem_servico ADD COLUMN cliente_id INTEGER')
             except Exception:
                 pass
+            
+            # Adicionar colunas endereco e referencia na tabela clientes se não existirem
+            try:
+                self.cursor.execute('ALTER TABLE clientes ADD COLUMN endereco TEXT')
+            except Exception:
+                pass
+            try:
+                self.cursor.execute('ALTER TABLE clientes ADD COLUMN referencia TEXT')
+            except Exception:
+                pass
             # Tabela para controle de prazos (para uso futuro e relatórios)
             self.cursor.execute('''
                 CREATE TABLE IF NOT EXISTS prazos (
@@ -135,6 +213,7 @@ class DatabaseManager:
     def salvar_ordem(self, dados, caminho_pdf):
         """
         Salva uma ordem de serviço no banco de dados.
+        SEMPRE calcula e salva o campo prazo em dias.
         
         Args:
             dados (dict): Dicionário com dados da ordem de serviço
@@ -145,9 +224,27 @@ class DatabaseManager:
         """
         try:
             data_emissao = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            data_entrega = None
-            if dados.get("prazo"):
-                data_entrega = (datetime.now() + timedelta(days=int(dados["prazo"])) ).strftime('%Y-%m-%d')
+            
+            # GARANTIR que sempre temos o campo prazo em dias
+            prazo_dias = dados.get("prazo")
+            if not prazo_dias:
+                # Se não tem prazo, definir padrão de 30 dias
+                prazo_dias = 30
+                dados["prazo"] = prazo_dias
+            else:
+                # Garantir que é um número inteiro
+                try:
+                    prazo_dias = int(prazo_dias)
+                    dados["prazo"] = prazo_dias
+                except:
+                    prazo_dias = 30
+                    dados["prazo"] = prazo_dias
+            
+            # Calcular data_entrega baseada no prazo (apenas para referência)
+            data_entrega = dados.get('data_entrega')
+            if not data_entrega:
+                data_entrega = (datetime.now() + timedelta(days=prazo_dias)).strftime('%Y-%m-%d')
+                dados['data_entrega'] = data_entrega
             
             # Serializa dados completos para recuperação futura
             dados_json = json.dumps(dados)
@@ -164,18 +261,22 @@ class DatabaseManager:
                 dados.get("telefone_cliente"), dados.get("detalhes_produto"),
                 dados.get("valor_produto"), dados.get("valor_entrada"),
                 dados.get("frete"), dados.get("forma_pagamento"),
-                dados.get("prazo"), data_emissao, data_entrega, caminho_pdf,
+                prazo_dias, data_emissao, data_entrega, caminho_pdf,
                 dados_json
             ))
             self.conn.commit()
             ordem_id = self.cursor.lastrowid
+            print(f"Ordem salva com ID: {ordem_id}")  # Debug
+            
             # Vincula/atualiza cliente
             try:
                 cliente_id = self.upsert_cliente(
                     nome=dados.get("nome_cliente"),
                     cpf=dados.get("cpf_cliente"),
                     telefone=dados.get("telefone_cliente"),
-                    email=None
+                    email=None,
+                    endereco=None,
+                    referencia=None
                 )
                 if cliente_id:
                     try:
@@ -185,6 +286,8 @@ class DatabaseManager:
                         pass
             except Exception:
                 pass
+            
+            return ordem_id
             # Também salvamos/atualizamos o registro em 'prazos' para consultas futuras
             try:
                 self.salvar_prazo(dados)
@@ -203,7 +306,7 @@ class DatabaseManager:
             raise
 
     # ===== CRUD de Clientes =====
-    def upsert_cliente(self, nome: str, cpf: str | None = None, telefone: str | None = None, email: str | None = None):
+    def upsert_cliente(self, nome: str, cpf: str | None = None, telefone: str | None = None, email: str | None = None, endereco: str | None = None, referencia: str | None = None):
         """Cria ou atualiza cliente por CPF (preferencial) ou por par nome+telefone.
         Retorna o id do cliente.
         """
@@ -216,11 +319,13 @@ class DatabaseManager:
                 row = self.cursor.fetchone()
                 if row:
                     cid = row[0]
-                    self.cursor.execute('UPDATE clientes SET nome = ?, telefone = ?, email = ? WHERE id = ?', (nome, telefone, email, cid))
+                    self.cursor.execute('''UPDATE clientes SET nome = ?, telefone = ?, email = ?, endereco = ?, referencia = ? WHERE id = ?''', 
+                                      (nome, telefone, email, endereco, referencia, cid))
                     self.conn.commit()
                     return cid
                 else:
-                    self.cursor.execute('INSERT INTO clientes (nome, cpf, telefone, email, created_at) VALUES (?, ?, ?, ?, ?)', (nome, cpf, telefone, email, now))
+                    self.cursor.execute('''INSERT INTO clientes (nome, cpf, telefone, email, endereco, referencia, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)''', 
+                                      (nome, cpf, telefone, email, endereco, referencia, now))
                     self.conn.commit()
                     return self.cursor.lastrowid
             # Sem CPF: tenta pelo par nome+telefone
@@ -228,10 +333,12 @@ class DatabaseManager:
             row = self.cursor.fetchone()
             if row:
                 cid = row[0]
-                self.cursor.execute('UPDATE clientes SET email = ?, cpf = ifnull(cpf, ?) WHERE id = ?', (email, cpf, cid))
+                self.cursor.execute('''UPDATE clientes SET email = ?, cpf = ifnull(cpf, ?), endereco = ?, referencia = ? WHERE id = ?''', 
+                                  (email, cpf, endereco, referencia, cid))
                 self.conn.commit()
                 return cid
-            self.cursor.execute('INSERT INTO clientes (nome, cpf, telefone, email, created_at) VALUES (?, ?, ?, ?, ?)', (nome, cpf, telefone, email, now))
+            self.cursor.execute('''INSERT INTO clientes (nome, cpf, telefone, email, endereco, referencia, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)''', 
+                              (nome, cpf, telefone, email, endereco, referencia, now))
             self.conn.commit()
             return self.cursor.lastrowid
         except sqlite3.Error as e:

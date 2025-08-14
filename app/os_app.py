@@ -1,7 +1,7 @@
 """ Pega as informações do cliente e produto, gerando um PDF com os dados
 
-    Returns:
-        PDF : Dados do cliente e do produto
+Returns:
+    PDF : Dados do cliente e do produto
 """
 
 import ttkbootstrap as tb
@@ -28,7 +28,6 @@ if platform.system() == "Windows":
         import win32print
     except ImportError:
         win32print = None  # Define it as None if import fails
-
 
 class OrdemServicoApp:
     """
@@ -398,15 +397,11 @@ class OrdemServicoApp:
         self.db_inner_nb = tb.Notebook(parent)
         self.db_inner_nb.pack(fill="both", expand=True, padx=8, pady=8)
 
-        # Tabs
+        # Tabs - apenas Clientes e Pedidos
         self.tab_clientes = tb.Frame(self.db_inner_nb)
-        self.tab_ordens = tb.Frame(self.db_inner_nb)
-        self.tab_prazos = tb.Frame(self.db_inner_nb)
-        self.tab_produtos = tb.Frame(self.db_inner_nb)
+        self.tab_pedidos = tb.Frame(self.db_inner_nb)
         self.db_inner_nb.add(self.tab_clientes, text="Clientes")
-        self.db_inner_nb.add(self.tab_ordens, text="Ordens")
-        self.db_inner_nb.add(self.tab_prazos, text="Prazos")
-        self.db_inner_nb.add(self.tab_produtos, text="Produtos")
+        self.db_inner_nb.add(self.tab_pedidos, text="Pedidos")
 
         # Clientes
         top_c = tb.Frame(self.tab_clientes)
@@ -414,18 +409,17 @@ class OrdemServicoApp:
         tb.Button(top_c, text="Novo", bootstyle=SUCCESS, command=self._novo_cliente).pack(side="left", padx=5, pady=5)
         tb.Button(top_c, text="Editar", command=self._editar_cliente).pack(side="left", padx=5, pady=5)
         tb.Button(top_c, text="Excluir", bootstyle=DANGER, command=self._excluir_cliente).pack(side="left", padx=5, pady=5)
-        tb.Button(top_c, text="Ver pedidos", bootstyle=INFO, command=self._ver_pedidos_cliente).pack(side="left", padx=5, pady=5)
         tb.Button(top_c, text="Recarregar", command=self._carregar_grid_clientes).pack(side="right", padx=5, pady=5)
-
-        cols_c = ("id","nome","cpf","telefone","email","created_at")
+        cols_c = ("id","nome","cpf","telefone","email","endereco","referencia")
         self.tree_clientes = tb.Treeview(self.tab_clientes, columns=cols_c, show="headings")
         for col, text, w, anchor in [
             ("id","ID",60,"center"),
-            ("nome","Nome",220,"w"),
+            ("nome","Nome",180,"w"),
             ("cpf","CPF",120,"center"),
-            ("telefone","Telefone",140,"center"),
-            ("email","Email",200,"w"),
-            ("created_at","Criado em",140,"center"),
+            ("telefone","Telefone",120,"center"),
+            ("email","Email",150,"w"),
+            ("endereco","Endereço",200,"w"),
+            ("referencia","Referência",150,"w"),
         ]:
             self.tree_clientes.heading(col, text=text)
             self.tree_clientes.column(col, width=w, anchor=anchor)
@@ -433,149 +427,496 @@ class OrdemServicoApp:
         self.tree_clientes.configure(yscroll=ysc.set)
         self.tree_clientes.pack(side="left", fill="both", expand=True, padx=(8,0), pady=(0,8))
         ysc.pack(side="right", fill="y", pady=(0,8))
-        # Duplo clique abre pedidos do cliente
-        self.tree_clientes.bind('<Double-1>', self._ver_pedidos_cliente)
 
-    # Ordens
-    top_o = tb.Frame(self.tab_ordens)
-    top_o.pack(fill="x")
-    tb.Button(top_o, text="Editar", command=self._editar_ordem).pack(side="left", padx=5, pady=5)
-    tb.Button(top_o, text="Excluir", bootstyle=DANGER, command=self._excluir_ordem).pack(side="left", padx=5, pady=5)
-    tb.Button(top_o, text="Limpar filtro", command=self._limpar_filtro_ordens).pack(side="left", padx=5, pady=5)
-    tb.Button(top_o, text="Recarregar", bootstyle=SUCCESS, command=self._carregar_grid_ordens).pack(side="right", padx=5, pady=5)
-
-        cols_o = ("id","numero_os","nome_cliente","data_emissao","data_entrega","valor_produto","forma_pagamento")
-        self.tree_ordens = tb.Treeview(self.tab_ordens, columns=cols_o, show="headings")
-        for col, text, w, anchor in [
-            ("id","ID",60,"center"),
-            ("numero_os","OS",70,"center"),
-            ("nome_cliente","Cliente",220,"w"),
-            ("data_emissao","Emissão",120,"center"),
-            ("data_entrega","Entrega",120,"center"),
-            ("valor_produto","Valor",100,"e"),
-            ("forma_pagamento","Pagamento",120,"center"),
-        ]:
-            self.tree_ordens.heading(col, text=text)
-            self.tree_ordens.column(col, width=w, anchor=anchor)
-    yso = tb.Scrollbar(self.tab_ordens, orient="vertical", command=self.tree_ordens.yview)
-        self.tree_ordens.configure(yscroll=yso.set)
-        self.tree_ordens.pack(side="left", fill="both", expand=True, padx=(8,0), pady=(0,8))
-        yso.pack(side="right", fill="y", pady=(0,8))
-
-        # Prazos
-    top_p = tb.Frame(self.tab_prazos)
-        top_p.pack(fill="x")
-        tb.Button(top_p, text="Recarregar", bootstyle=SUCCESS, command=self._carregar_grid_prazos).pack(side="right", padx=5, pady=5)
-
-        cols_p = ("id","numero_os","nome_cliente","prazo","data_emissao","data_entrega","status")
-    self.tree_prazos = tb.Treeview(self.tab_prazos, columns=cols_p, show="headings")
-        for col, text, w, anchor in [
-            ("id","ID",60,"center"),
-            ("numero_os","OS",70,"center"),
-            ("nome_cliente","Cliente",220,"w"),
-            ("prazo","Prazo (dias)",110,"center"),
-            ("data_emissao","Emissão",120,"center"),
-            ("data_entrega","Entrega",120,"center"),
-            ("status","Status",100,"center"),
-        ]:
-            self.tree_prazos.heading(col, text=text)
-            self.tree_prazos.column(col, width=w, anchor=anchor)
-    ysp = tb.Scrollbar(self.tab_prazos, orient="vertical", command=self.tree_prazos.yview)
-        self.tree_prazos.configure(yscroll=ysp.set)
-        self.tree_prazos.pack(side="left", fill="both", expand=True, padx=(8,0), pady=(0,8))
-        ysp.pack(side="right", fill="y", pady=(0,8))
-
-        # Produtos
-    top_r = tb.Frame(self.tab_produtos)
-        top_r.pack(fill="x")
-    tb.Button(top_r, text="Editar", command=self._editar_produto).pack(side="left", padx=5, pady=5)
-    tb.Button(top_r, text="Excluir", bootstyle=DANGER, command=self._excluir_produto).pack(side="left", padx=5, pady=5)
-        tb.Button(top_r, text="Recarregar", bootstyle=SUCCESS, command=self._carregar_grid_produtos).pack(side="right", padx=5, pady=5)
-
-        cols_r = ("id","numero_os","nome_cliente","descricao","created_at")
-    self.tree_produtos = tb.Treeview(self.tab_produtos, columns=cols_r, show="headings")
-        for col, text, w, anchor in [
-            ("id","ID",60,"center"),
-            ("numero_os","OS",70,"center"),
-            ("nome_cliente","Cliente",200,"w"),
-            ("descricao","Produto/Linha",380,"w"),
-            ("created_at","Criado em",140,"center"),
-        ]:
-            self.tree_produtos.heading(col, text=text)
-            self.tree_produtos.column(col, width=w, anchor=anchor)
-    ysr = tb.Scrollbar(self.tab_produtos, orient="vertical", command=self.tree_produtos.yview)
-        self.tree_produtos.configure(yscroll=ysr.set)
-        self.tree_produtos.pack(side="left", fill="both", expand=True, padx=(8,0), pady=(0,8))
-        ysr.pack(side="right", fill="y", pady=(0,8))
+        # Pedidos (Layout Moderno com Cards)
+        top_ped = tb.Frame(self.tab_pedidos)
+        top_ped.pack(fill="x", padx=10, pady=5)
+        
+        # Filtro de status
+        self.status_var = tk.StringVar(value="todos")
+        status_options = ["todos", "em produção", "enviado", "entregue", "cancelado"]
+        tb.Label(top_ped, text="Filtrar por Status:", font=("Arial", 10, "bold")).pack(side="left", padx=(5,0))
+        status_combo = tb.Combobox(top_ped, textvariable=self.status_var, values=status_options, width=15, state="readonly")
+        status_combo.pack(side="left", padx=5, pady=5)
+        status_combo.bind("<<ComboboxSelected>>", lambda e: self._carregar_cards_pedidos())
+        
+        # Botões CRUD para Pedidos
+        btn_frame = tb.Frame(top_ped)
+        btn_frame.pack(side="right", padx=5)
+        tb.Button(btn_frame, text="➕ Novo", bootstyle=SUCCESS, command=self._novo_pedido).pack(side="left", padx=2)
+        tb.Button(btn_frame, text="🔄 Recarregar", command=self._carregar_cards_pedidos).pack(side="left", padx=2)
+        
+        # Frame principal com scroll para os cards
+        self.pedidos_main_frame = tb.Frame(self.tab_pedidos)
+        self.pedidos_main_frame.pack(fill="both", expand=True, padx=10, pady=5)
+        
+        # Canvas com scrollbar para cards
+        self.pedidos_canvas = tk.Canvas(self.pedidos_main_frame, highlightthickness=0)
+        self.pedidos_scrollbar = tb.Scrollbar(self.pedidos_main_frame, orient="vertical", command=self.pedidos_canvas.yview)
+        self.pedidos_scrollable_frame = tb.Frame(self.pedidos_canvas)
+        
+        self.pedidos_scrollable_frame.bind(
+            "<Configure>",
+            lambda e: self.pedidos_canvas.configure(scrollregion=self.pedidos_canvas.bbox("all"))
+        )
+        
+        self.pedidos_canvas.create_window((0, 0), window=self.pedidos_scrollable_frame, anchor="nw")
+        self.pedidos_canvas.configure(yscrollcommand=self.pedidos_scrollbar.set)
+        
+        self.pedidos_canvas.pack(side="left", fill="both", expand=True)
+        self.pedidos_scrollbar.pack(side="right", fill="y")
 
         # Carregamento inicial (após criar todas as treeviews)
-    self._carregar_grid_clientes()
-        self._carregar_grid_ordens()
-        self._carregar_grid_prazos()
-        self._carregar_grid_produtos()
+        self._carregar_grid_clientes()
+        self._carregar_cards_pedidos()
 
-    def _carregar_grid_ordens(self):
-        # Limpa
-        tree = getattr(self, 'tree_ordens', None)
-        if not tree:
-            return
-        for i in tree.get_children():
-            tree.delete(i)
-        # Busca
+    def _carregar_cards_pedidos(self):
+        """Carrega pedidos em formato de cards modernos."""
+        # Limpa cards existentes
+        for widget in self.pedidos_scrollable_frame.winfo_children():
+            widget.destroy()
+        
         try:
-            filtro_nome = getattr(self, '_filtro_cliente_nome', None)
-            if filtro_nome:
-                ordens = db_manager.buscar_ordem_por_cliente(filtro_nome) or []
-            else:
-                ordens = db_manager.listar_ultimas_ordens(200)
-            for o in ordens:
-                valor = o.get('valor_produto')
-                if isinstance(valor, (int, float)):
-                    valor_fmt = f"R$ {valor:.2f}".replace('.', ',')
+            # Busca pedidos do banco
+            status_filtro = self.status_var.get() if hasattr(self, 'status_var') else "todos"
+            pedidos = db_manager.listar_pedidos_ordenados_por_prazo() or []
+            if status_filtro and status_filtro != "todos":
+                pedidos = [p for p in pedidos if p.get('status', 'em produção') == status_filtro]
+            
+            if not pedidos:
+                # Mensagem quando não há pedidos
+                tb.Label(
+                    self.pedidos_scrollable_frame, 
+                    text="📋 Nenhum pedido encontrado", 
+                    font=("Arial", 14),
+                    foreground="gray"
+                ).pack(pady=50)
+                return
+            
+            # Criar cards para cada pedido
+            for i, pedido in enumerate(pedidos):
+                self._criar_card_pedido(pedido, i)
+                
+        except Exception as e:
+            tb.Label(
+                self.pedidos_scrollable_frame, 
+                text=f"❌ Erro ao carregar pedidos: {e}", 
+                font=("Arial", 12),
+                foreground="red"
+            ).pack(pady=20)
+
+    def _criar_card_pedido(self, pedido, index):
+        """Cria um card moderno para exibir um pedido."""
+        
+        # Calcular cor do card baseada no prazo de entrega
+        card_bg_color = "#37474F"  # Cor padrão (cinza escuro)
+        border_color = "#546E7A"   # Borda padrão
+        
+        prazo = pedido.get('data_entrega', pedido.get('prazo_entrega', 'N/A'))
+        try:
+            from datetime import datetime
+            if prazo != 'N/A' and prazo and '-' in str(prazo):
+                prazo_obj = datetime.strptime(str(prazo), '%Y-%m-%d')
+                hoje = datetime.now()
+                dias_restantes = (prazo_obj - hoje).days
+                
+                if dias_restantes < 0:
+                    # Vermelho para atrasado
+                    card_bg_color = "#4A2C2A"  # Vermelho escuro
+                    border_color = "#F44336"   # Borda vermelha
+                elif dias_restantes <= 10:
+                    # Amarelo para próximo do prazo (≤ 10 dias)
+                    card_bg_color = "#4A3C1D"  # Amarelo escuro
+                    border_color = "#FF9800"   # Borda laranja/amarela
                 else:
-                    valor_fmt = ''
-                tree.insert('', 'end', values=(
-                    o.get('id'), o.get('numero_os'), o.get('nome_cliente'),
-                    o.get('data_emissao'), o.get('data_entrega'), valor_fmt,
-                    o.get('forma_pagamento')
-                ))
-        except Exception as e:
-            messagebox.showerror('Erro', f'Falha ao carregar ordens: {e}')
-
-    def _carregar_grid_prazos(self):
-        # Limpa
-        tree = getattr(self, 'tree_prazos', None)
-        if not tree:
-            return
-        for i in tree.get_children():
-            tree.delete(i)
-        # Busca
+                    # Verde para prazo bom (> 10 dias)
+                    card_bg_color = "#2E4A2E"  # Verde escuro
+                    border_color = "#4CAF50"   # Borda verde
+        except:
+            pass
+        
+        # Frame principal do card com design moderno
+        card = tb.Frame(self.pedidos_scrollable_frame, padding=20, relief="solid", borderwidth=2)
+        card.pack(fill="x", padx=10, pady=8)
+        card.configure(style="Card.TFrame")
+        
+        # Aplicar cores personalizadas ao card
         try:
-            prazos = db_manager.listar_prazos(300)
-            for p in prazos:
-                tree.insert('', 'end', values=(
-                    p.get('id'), p.get('numero_os'), p.get('nome_cliente'), p.get('prazo'),
-                    p.get('data_emissao'), p.get('data_entrega'), p.get('status')
-                ))
-        except Exception as e:
-            messagebox.showerror('Erro', f'Falha ao carregar prazos: {e}')
-
-    def _carregar_grid_produtos(self):
-        # Limpa
-        tree = getattr(self, 'tree_produtos', None)
-        if not tree:
-            return
-        for i in tree.get_children():
-            tree.delete(i)
-        # Busca
+            card.configure(background=card_bg_color)
+            card.configure(relief="solid", borderwidth=2)
+            # A cor da borda será aplicada via estilo se necessário
+        except:
+            pass
+        
+        # Configurar cores baseadas no status (cores melhores para modo escuro)
+        status = pedido.get('status', 'em produção')
+        status_colors = {
+            'em produção': ('#FF6B35', 'EM PRODUÇÃO'),     # Laranja vibrante
+            'enviado': ('#4ECDC4', 'ENVIADO'),         # Verde água
+            'entregue': ('#45B7D1', 'ENTREGUE'),        # Azul claro
+            'cancelado': ('#F7931E', 'CANCELADO')        # Laranja escuro
+        }
+        status_color, icon = status_colors.get(status, ('#9B59B6', 'STATUS'))  # Roxo como padrão
+        
+        # === HEADER DO CARD ===
+        header = tb.Frame(card)
+        header.pack(fill="x", pady=(0, 15))
+        
+        # Lado esquerdo: OS e ID
+        left_header = tb.Frame(header)
+        left_header.pack(side="left", fill="x", expand=True)
+        
+        # Número da OS em destaque
+        os_label = tb.Label(
+            left_header, 
+            text=f"OS #{pedido.get('numero_os', 'N/A')}", 
+            font=("Segoe UI", 16, "bold"),
+            foreground="#FFFFFF"
+        )
+        os_label.pack(anchor="w")
+        
+        # ID menor embaixo
+        id_label = tb.Label(
+            left_header, 
+            text=f"ID: {pedido.get('id', 'N/A')}", 
+            font=("Segoe UI", 10),
+            foreground="#B0BEC5"
+        )
+        id_label.pack(anchor="w")
+        
+        # Lado direito: Status
+        status_frame = tb.Frame(header)
+        status_frame.pack(side="right")
+        
+        status_label = tb.Label(
+            status_frame,
+            text=f"{status.upper()}",
+            font=("Segoe UI", 11, "bold"),
+            foreground="#FFFFFF",
+            background=status_color,
+            padding=(12, 6),
+            relief="flat"
+        )
+        status_label.pack()
+        
+        # === INFORMAÇÕES PRINCIPAIS ===
+        info_grid = tb.Frame(card)
+        info_grid.pack(fill="x", pady=(0, 15))
+        info_grid.columnconfigure(1, weight=1)
+        info_grid.columnconfigure(3, weight=1)
+        
+        # Linha 1: Cliente e Valor
+        cliente_label = tb.Label(
+            info_grid, 
+            text=f"Cliente: {pedido.get('nome_cliente', 'N/A')}", 
+            font=("Segoe UI", 12, "bold"),
+            foreground="#ECEFF1"
+        )
+        cliente_label.grid(row=0, column=0, sticky="w", padx=(0, 30))
+        
+        # === USAR VALOR TOTAL SEMPRE ===
+        valor_total = pedido.get('valor_total', 0)
+        
         try:
-            registros = db_manager.listar_produtos(500)
-            for r in registros:
-                tree.insert('', 'end', values=(
-                    r.get('id'), r.get('numero_os'), r.get('nome_cliente'), r.get('descricao'), r.get('created_at')
-                ))
-        except Exception as e:
-            messagebox.showerror('Erro', f'Falha ao carregar produtos: {e}')
+            valor_total_float = float(valor_total) if valor_total else 0.0
+            valor_texto = f"R$ {valor_total_float:,.2f}"
+            valor_formatado = valor_texto.replace(',', 'X').replace('.', ',').replace('X', '.')
+        except:
+            valor_formatado = "R$ 0,00"
+            
+        valor_label = tb.Label(
+            info_grid, 
+            text=f"Valor Total: {valor_formatado}", 
+            font=("Segoe UI", 12, "bold"),
+            foreground="#4CAF50"
+        )
+        valor_label.grid(row=0, column=1, sticky="w")
+        
+        # Linha 2: Data do Pedido e Prazo de Entrega
+        data_pedido = pedido.get('data_emissao', 'N/A')
+        try:
+            from datetime import datetime
+            if data_pedido != 'N/A':
+                data_obj = datetime.strptime(data_pedido, '%Y-%m-%d')
+                data_pedido = data_obj.strftime('%d/%m/%Y')
+        except:
+            pass
+            
+        data_label = tb.Label(
+            info_grid, 
+            text=f"Pedido: {data_pedido}", 
+            font=("Segoe UI", 11),
+            foreground="#CFD8DC"
+        )
+        data_label.grid(row=1, column=1, sticky="w", pady=(8, 0), padx=(0, 30))
+        # === CALCULAR PRAZO - USAR APENAS CAMPO prazo_dias ===
+        prazo_texto = "Prazo não definido"
+        prazo_color = "#9E9E9E"
+        
+        # Usar APENAS o campo prazo_dias (em dias)
+        prazo_dias = pedido.get('prazo_dias')
+        
+        if prazo_dias is not None:
+            try:
+                prazo_dias = int(prazo_dias)
+                
+                # Determinar cor e texto baseado nos dias
+                if prazo_dias <= 0:
+                    prazo_texto = f"{prazo_dias} dias (ATRASADO)"
+                    prazo_color = "#FF5252"
+                elif prazo_dias == 1:
+                    prazo_texto = "1 dia (HOJE)"
+                    prazo_color = "#FF9800"
+                elif prazo_dias <= 3:
+                    prazo_texto = f"{prazo_dias} dias (URGENTE)"
+                    prazo_color = "#FFC107"
+                elif prazo_dias <= 10:
+                    prazo_texto = f"{prazo_dias} dias (PRÓXIMO)"
+                    prazo_color = "#FF9800"
+                else:
+                    prazo_texto = f"{prazo_dias} dias (OK)"
+                    prazo_color = "#4CAF50"
+                    
+            except Exception as e:
+                prazo_texto = "Erro no prazo"
+                prazo_color = "#F44336"
+        
+        prazo_label = tb.Label(
+            info_grid, 
+            text="Prazo: " + prazo_texto, 
+            font=("Segoe UI", 11),
+            foreground=prazo_color
+        )
+        prazo_label.grid(row=1, column=1, sticky="w", pady=(8, 0))
+        
+        # === SEÇÃO DE PRODUTOS ===
+        produtos_frame = tb.LabelFrame(card, text="Produtos/Serviços", padding=10)
+        produtos_frame.pack(fill="x", pady=(0, 15))
+        
+        descricao = pedido.get('detalhes_produto', pedido.get('descricao', 'Sem descrição'))
+        
+        # Quebrar descrição em linhas se for muito longa
+        if len(descricao) > 100:
+            # Tentar quebrar em parágrafos se existirem
+            linhas = descricao.split('\n')
+            descricao_exibida = []
+            char_count = 0
+            for linha in linhas:
+                if char_count + len(linha) > 150:
+                    descricao_exibida.append("...")
+                    break
+                descricao_exibida.append(linha)
+                char_count += len(linha)
+            descricao = '\n'.join(descricao_exibida)
+            
+        produto_text = tb.Label(
+            produtos_frame, 
+            text=descricao, 
+            font=("Segoe UI", 10),
+            foreground="#E0E0E0",
+            wraplength=650,
+            justify="left"
+        )
+        produto_text.pack(anchor="w")
+        
+        # Observações se existirem
+        observacoes = pedido.get('observacoes', '').strip()
+        if observacoes:
+            obs_frame = tb.LabelFrame(card, text="📝 Observações", padding=8)
+            obs_frame.pack(fill="x", pady=(0, 15))
+            
+            obs_text = tb.Label(
+                obs_frame, 
+                text=observacoes, 
+                font=("Segoe UI", 9),
+                foreground="#FFC107",
+                wraplength=650,
+                justify="left"
+            )
+            obs_text.pack(anchor="w")
+        
+        # === BOTÕES DE AÇÃO ===
+        btn_frame = tb.Frame(card)
+        btn_frame.pack(fill="x", pady=(15, 0))
+        
+        # Botão Editar
+        edit_btn = tb.Button(
+            btn_frame,
+            text="✏️ Editar",
+            bootstyle="primary-outline",
+            width=12,
+            command=lambda p=pedido: self._editar_pedido_card(p)
+        )
+        edit_btn.pack(side="left", padx=(0, 10))
+        
+        # Botão Status
+        status_btn = tb.Button(
+            btn_frame,
+            text="🔄 Status",
+            bootstyle="info-outline",
+            width=12,
+            command=lambda p=pedido: self._alterar_status_pedido(p)
+        )
+        status_btn.pack(side="left", padx=(0, 10))
+        
+        # Botão Excluir
+        delete_btn = tb.Button(
+            btn_frame,
+            text="🗑️ Excluir",
+            bootstyle="danger-outline",
+            width=12,
+            command=lambda p=pedido: self._excluir_pedido_card(p)
+        )
+        delete_btn.pack(side="left", padx=(0, 10))
+        
+        # Separador visual entre cards
+        separator = tb.Separator(self.pedidos_scrollable_frame, orient="horizontal")
+        separator.pack(fill="x", padx=20, pady=5)
+
+    def _editar_pedido_card(self, pedido):
+        """Edita um pedido específico do card."""
+        data = {
+            'id': pedido.get('id'),
+            'numero_os': pedido.get('numero_os'),
+            'cliente': pedido.get('nome_cliente', ''),
+            'descricao': pedido.get('detalhes_produto', ''),
+            'valor': pedido.get('valor_produto', 0),
+            'status': pedido.get('status', 'em produção'),
+            'observacoes': pedido.get('observacoes', '')
+        }
+        self._abrir_modal_pedido(data)
+
+    def _alterar_status_pedido(self, pedido):
+        """Altera rapidamente o status de um pedido."""
+        status_atual = pedido.get('status', 'em produção')
+        statuses = ["em produção", "enviado", "entregue", "cancelado"]
+        
+        win = tb.Toplevel(self.root)
+        win.title('Alterar Status')
+        win.transient(self.root)
+        win.grab_set()
+        win.geometry('350x200')
+        
+        frm = tb.Frame(win, padding=20)
+        frm.pack(fill='both', expand=True)
+        
+        tb.Label(frm, text=f'OS #{pedido.get("numero_os")} - {pedido.get("nome_cliente")}', 
+                font=('Segoe UI', 12, 'bold')).pack(pady=(0, 15))
+        
+        tb.Label(frm, text='Novo Status:', font=('Segoe UI', 10)).pack(anchor='w')
+        
+        status_var = tb.StringVar(value=status_atual)
+        status_combo = tb.Combobox(frm, textvariable=status_var, values=statuses, 
+                                  state="readonly", width=20, font=('Segoe UI', 10))
+        status_combo.pack(pady=(5, 20))
+        
+        def salvar_status():
+            novo_status = status_var.get()
+            if novo_status != status_atual:
+                success = db_manager.atualizar_status_pedido(pedido['id'], novo_status)
+                if success:
+                    self._carregar_cards_pedidos()
+                    messagebox.showinfo('Sucesso', f'Status alterado para "{novo_status}"!')
+                    win.destroy()
+                else:
+                    messagebox.showerror('Erro', 'Falha ao alterar status.')
+            else:
+                win.destroy()
+        
+        btn_frame = tb.Frame(frm)
+        btn_frame.pack()
+        
+        tb.Button(btn_frame, text='💾 Salvar', bootstyle="success", 
+                 command=salvar_status).pack(side='left', padx=5)
+        tb.Button(btn_frame, text='❌ Cancelar', command=win.destroy).pack(side='left', padx=5)
+
+    def _excluir_pedido_card(self, pedido):
+        """Exclui um pedido específico do card."""
+        if messagebox.askyesno('Confirmar Exclusão', 
+                              f'Tem certeza que deseja excluir a OS #{pedido.get("numero_os")}?\n\n'
+                              f'Cliente: {pedido.get("nome_cliente")}\n'
+                              f'Esta ação não pode ser desfeita.'):
+            success = db_manager.deletar_pedido(pedido['id'])
+            if success:
+                self._carregar_cards_pedidos()
+                messagebox.showinfo('Sucesso', 'Pedido excluído com sucesso!')
+            else:
+                messagebox.showerror('Erro', 'Falha ao excluir pedido.')
+
+    # ===== Ações Clientes =====
+        
+        tb.Button(
+            btn_right, 
+            text="🗑️ Excluir", 
+            bootstyle="outline-danger",
+            command=lambda: self._excluir_pedido_card(pedido)
+        ).pack(side="left", padx=2)
+
+    def _editar_pedido_card(self, pedido):
+        """Edita pedido a partir do card."""
+        data = {
+            'id': pedido.get('id'),
+            'numero_os': pedido.get('numero_os'),
+            'nome_cliente': pedido.get('nome_cliente'),
+            'descricao': pedido.get('descricao'),
+            'valor_produto': pedido.get('valor_produto'),
+            'data_emissao': pedido.get('data_emissao'),
+            'prazo_entrega': pedido.get('prazo_entrega'),
+            'status': pedido.get('status')
+        }
+        self._abrir_modal_pedido(data)
+
+    # ===== Ações Clientes =====
+        """Altera o status do pedido selecionado."""
+        _, vals = self._get_selected(self.tree_pedidos)
+        if not vals:
+            messagebox.showinfo('Info', 'Selecione um pedido para alterar o status.')
+            return
+        
+        pedido_id = vals[0]
+        status_atual = vals[6] if len(vals) > 6 else "em produção"
+        
+        # Criar janela para alterar status
+        win = tb.Toplevel(self.root)
+        win.title('Alterar Status do Pedido')
+        win.transient(self.root)
+        win.grab_set()
+        win.geometry('300x200')
+        
+        frm = tb.Frame(win, padding=10)
+        frm.pack(fill='both', expand=True)
+        
+        tb.Label(frm, text=f'Pedido ID: {pedido_id}').pack(pady=5)
+        tb.Label(frm, text=f'Status atual: {status_atual}').pack(pady=5)
+        tb.Label(frm, text='Novo status:').pack(pady=(10, 5))
+        
+        status_var = tb.StringVar(value=status_atual)
+        status_options = ["em produção", "enviado", "entregue", "cancelado"]
+        status_combo = tb.Combobox(frm, textvariable=status_var, values=status_options, state="readonly")
+        status_combo.pack(pady=5)
+        
+        def salvar_status():
+            novo_status = status_var.get()
+            if novo_status == status_atual:
+                win.destroy()
+                return
+                
+            try:
+                # Assumindo que existe um método no db_manager para atualizar status
+                success = db_manager.atualizar_status_pedido(pedido_id, novo_status)
+                if success:
+                    self._carregar_grid_pedidos()
+                    messagebox.showinfo('Sucesso', f'Status alterado para: {novo_status}')
+                    win.destroy()
+                else:
+                    messagebox.showerror('Erro', 'Não foi possível alterar o status.')
+            except Exception as e:
+                messagebox.showerror('Erro', f'Erro ao alterar status: {e}')
+        
+        btns = tb.Frame(frm)
+        btns.pack(pady=10)
+        tb.Button(btns, text='Salvar', bootstyle=SUCCESS, command=salvar_status).pack(side='left', padx=5)
+        tb.Button(btns, text='Cancelar', command=win.destroy).pack(side='left', padx=5)
 
     def _carregar_grid_clientes(self):
         tree = getattr(self, 'tree_clientes', None)
@@ -587,7 +928,13 @@ class OrdemServicoApp:
             clientes = db_manager.listar_clientes(500)
             for c in clientes:
                 tree.insert('', 'end', values=(
-                    c.get('id'), c.get('nome'), c.get('cpf'), c.get('telefone'), c.get('email'), c.get('created_at')
+                    c.get('id'), 
+                    c.get('nome'), 
+                    c.get('cpf'), 
+                    c.get('telefone'), 
+                    c.get('email'), 
+                    c.get('endereco', ''), 
+                    c.get('referencia', '')
                 ))
         except Exception as e:
             messagebox.showerror('Erro', f'Falha ao carregar clientes: {e}')
@@ -610,7 +957,13 @@ class OrdemServicoApp:
             messagebox.showinfo('Info', 'Selecione um cliente para editar.')
             return
         data = {
-            'id': vals[0], 'nome': vals[1], 'cpf': vals[2], 'telefone': vals[3], 'email': vals[4]
+            'id': vals[0], 
+            'nome': vals[1], 
+            'cpf': vals[2], 
+            'telefone': vals[3], 
+            'email': vals[4],
+            'endereco': vals[5] if len(vals) > 5 else '',
+            'referencia': vals[6] if len(vals) > 6 else ''
         }
         self._abrir_modal_cliente(data)
 
@@ -633,50 +986,73 @@ class OrdemServicoApp:
             return
         nome = vals[1]
         self._filtro_cliente_nome = nome
-        # troca para a aba Ordens e recarrega
+        # troca para a aba Pedidos e recarrega
         try:
-            self.db_inner_nb.select(self.tab_ordens)
+            self.db_inner_nb.select(self.tab_pedidos)
         except Exception:
             pass
-        self._carregar_grid_ordens()
+        self._carregar_grid_pedidos()
 
     def _abrir_modal_cliente(self, data=None):
         win = tb.Toplevel(self.root)
         win.title('Cliente')
         win.transient(self.root)
         win.grab_set()
+        win.geometry('500x450')
         frm = tb.Frame(win, padding=10)
         frm.pack(fill='both', expand=True)
+        
+        # Labels e campos
         tb.Label(frm, text='Nome:').grid(row=0, column=0, sticky='e', padx=5, pady=5)
         tb.Label(frm, text='CPF:').grid(row=1, column=0, sticky='e', padx=5, pady=5)
         tb.Label(frm, text='Telefone:').grid(row=2, column=0, sticky='e', padx=5, pady=5)
         tb.Label(frm, text='Email:').grid(row=3, column=0, sticky='e', padx=5, pady=5)
+        tb.Label(frm, text='Endereço:').grid(row=4, column=0, sticky='e', padx=5, pady=5)
+        tb.Label(frm, text='Referência:').grid(row=5, column=0, sticky='e', padx=5, pady=5)
+        
         nome_e = tb.Entry(frm, width=40)
         cpf_e = tb.Entry(frm, width=30)
         tel_e = tb.Entry(frm, width=30)
         email_e = tb.Entry(frm, width=40)
+        endereco_e = tb.Entry(frm, width=40)
+        referencia_e = tb.Entry(frm, width=40)
+        
         nome_e.grid(row=0, column=1, sticky='w')
         cpf_e.grid(row=1, column=1, sticky='w')
         tel_e.grid(row=2, column=1, sticky='w')
         email_e.grid(row=3, column=1, sticky='w')
+        endereco_e.grid(row=4, column=1, sticky='w')
+        referencia_e.grid(row=5, column=1, sticky='w')
+        
+        # Labels informativas para campos opcionais
+        tb.Label(frm, text='(obrigatório)', font=('Arial', 8), foreground='red').grid(row=0, column=2, sticky='w', padx=5)
+        tb.Label(frm, text='(opcional)', font=('Arial', 8), foreground='gray').grid(row=4, column=2, sticky='w', padx=5)
+        tb.Label(frm, text='(opcional)', font=('Arial', 8), foreground='gray').grid(row=5, column=2, sticky='w', padx=5)
+        
         if data:
             nome_e.insert(0, data.get('nome') or '')
             cpf_e.insert(0, data.get('cpf') or '')
             tel_e.insert(0, data.get('telefone') or '')
             email_e.insert(0, data.get('email') or '')
+            endereco_e.insert(0, data.get('endereco') or '')
+            referencia_e.insert(0, data.get('referencia') or '')
 
         def salvar():
             nome = nome_e.get().strip()
             cpf = cpf_e.get().strip() or None
             tel = tel_e.get().strip() or None
             email = email_e.get().strip() or None
+            endereco = endereco_e.get().strip() or None
+            referencia = referencia_e.get().strip() or None
+            
             if not nome:
                 messagebox.showerror('Erro', 'Nome é obrigatório.')
                 return
+            
             if data and data.get('id'):
-                ok = db_manager.atualizar_cliente(int(data['id']), nome, cpf, tel, email)
+                ok = db_manager.atualizar_cliente(int(data['id']), nome, cpf, tel, email, endereco, referencia)
             else:
-                ok = db_manager.upsert_cliente(nome, cpf, tel, email) is not None
+                ok = db_manager.upsert_cliente(nome, cpf, tel, email, endereco, referencia) is not None
             if ok:
                 self._carregar_grid_clientes()
                 win.destroy()
@@ -684,83 +1060,628 @@ class OrdemServicoApp:
                 messagebox.showerror('Erro', 'Falha ao salvar cliente.')
 
         btns = tb.Frame(frm)
-        btns.grid(row=4, column=0, columnspan=2, pady=10)
+        btns.grid(row=6, column=0, columnspan=3, pady=10)
         tb.Button(btns, text='Salvar', bootstyle=SUCCESS, command=salvar).pack(side='left', padx=5)
         tb.Button(btns, text='Cancelar', command=win.destroy).pack(side='left', padx=5)
 
-    # ===== Ações Ordens =====
-    def _limpar_filtro_ordens(self):
-        self._filtro_cliente_nome = None
-        self._carregar_grid_ordens()
+    # ===== Ações Pedidos =====
+    def _novo_pedido(self):
+        """Abre modal para criar novo pedido."""
+        self._abrir_modal_pedido()
 
-    def _editar_ordem(self):
-        _, vals = self._get_selected(self.tree_ordens)
-        if not vals:
-            messagebox.showinfo('Info', 'Selecione uma ordem para editar.')
-            return
-        data = {
-            'id': int(vals[0]),
-            'numero_os': vals[1],
-            'nome_cliente': vals[2],
-            'data_emissao': vals[3],
-            'data_entrega': vals[4]
-        }
-        self._abrir_modal_ordem(data)
+    def _editar_pedido(self):
+        """Função mantida por compatibilidade - agora usa cards."""
+        messagebox.showinfo('Info', 'Use o botão "Editar" no card do pedido desejado.')
 
-    def _excluir_ordem(self):
-        _, vals = self._get_selected(self.tree_ordens)
-        if not vals:
-            messagebox.showinfo('Info', 'Selecione uma ordem para excluir.')
-            return
-        if not messagebox.askyesno('Confirmar', f"Excluir OS #{vals[1]}?"):
-            return
-        ok = db_manager.deletar_ordem(int(vals[0]))
-        if ok:
-            self._carregar_grid_ordens()
-            self._carregar_grid_prazos()
-            self._carregar_grid_produtos()
-        else:
-            messagebox.showerror('Erro', 'Não foi possível excluir a OS.')
+    def _excluir_pedido(self):
+        """Função mantida por compatibilidade - agora usa cards."""
+        messagebox.showinfo('Info', 'Use o botão "Excluir" no card do pedido desejado.')
 
-    def _abrir_modal_ordem(self, data):
+    def _abrir_modal_pedido(self, data=None):
+        """Abre modal para criar/editar pedido."""
         win = tb.Toplevel(self.root)
-        win.title(f"Editar OS #{data.get('numero_os')}")
+        win.title('Novo Pedido' if not data else f'Editar Pedido #{data.get("numero_os")}')
         win.transient(self.root)
         win.grab_set()
+        win.geometry('700x800')
+        
+        # Frame principal com scroll
+        main_canvas = tb.Canvas(win)
+        scrollbar = tb.Scrollbar(win, orient="vertical", command=main_canvas.yview)
+        scrollable_frame = tb.Frame(main_canvas)
+        
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: main_canvas.configure(scrollregion=main_canvas.bbox("all"))
+        )
+        
+        main_canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        main_canvas.configure(yscrollcommand=scrollbar.set)
+        
+        main_canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+        
+        frm = tb.Frame(scrollable_frame, padding=15)
+        frm.pack(fill='both', expand=True)
+        
+        # === SEÇÃO CLIENTE ===
+        client_frame = tb.LabelFrame(frm, text="📋 Informações do Cliente", padding=10)
+        client_frame.pack(fill='x', pady=(0, 15))
+        
+        # Buscar lista de clientes para autocompletar
+        try:
+            clientes = db_manager.listar_clientes(1000)
+            nomes_clientes = [c.get('nome', '') for c in clientes if c.get('nome')]
+        except:
+            nomes_clientes = []
+        
+        # Frame para cliente com combobox e botão
+        cliente_frame = tb.Frame(client_frame)
+        cliente_frame.pack(fill='x', pady=5)
+        cliente_frame.columnconfigure(0, weight=1)
+        
+        tb.Label(cliente_frame, text='Cliente:', font=('Segoe UI', 10, 'bold')).pack(anchor='w')
+        
+        cliente_combo = tb.Combobox(cliente_frame, values=nomes_clientes, width=50, state="normal", font=('Segoe UI', 10))
+        cliente_combo.pack(fill='x', pady=(5, 0))
+        
+        # Botão "Novo Cliente" (inicialmente escondido)
+        btn_novo_cliente = tb.Button(
+            cliente_frame, 
+            text='➕ Adicionar Novo Cliente', 
+            bootstyle="success-outline",
+            command=lambda: self._abrir_novo_cliente_rapido(win, cliente_combo, cliente_combo.get())
+        )
+        
+        # Label de aviso (inicialmente escondido)
+        aviso_label = tb.Label(cliente_frame, text='', foreground='#ffa500', font=('Segoe UI', 9))
+        
+        # === SEÇÃO PRAZO ===
+        prazo_frame = tb.LabelFrame(frm, text="⏰ Prazo de Entrega", padding=10)
+        prazo_frame.pack(fill='x', pady=(0, 15))
+        
+        tb.Label(prazo_frame, text='Dias para entrega:', font=('Segoe UI', 10, 'bold')).pack(anchor='w')
+        prazo_var = tb.StringVar(value="30")
+        prazo_entry = tb.Entry(prazo_frame, textvariable=prazo_var, width=10, font=('Segoe UI', 10))
+        prazo_entry.pack(anchor='w', pady=(5, 5))
+        
+        # Label para mostrar data calculada
+        data_entrega_label = tb.Label(prazo_frame, text='', foreground='#4CAF50', font=('Segoe UI', 9))
+        data_entrega_label.pack(anchor='w')
+        
+        def atualizar_data_entrega():
+            try:
+                dias = int(prazo_var.get())
+                from datetime import datetime, timedelta
+                data_futura = datetime.now() + timedelta(days=dias)
+                data_entrega_label.config(text=f"📅 Data de entrega: {data_futura.strftime('%d/%m/%Y')}")
+            except:
+                data_entrega_label.config(text="⚠️ Número de dias inválido")
+        
+        prazo_var.trace_add('write', lambda *args: atualizar_data_entrega())
+        atualizar_data_entrega()  # Atualizar inicialmente
+        
+        # === SEÇÃO PRODUTOS ===
+        produtos_frame = tb.LabelFrame(frm, text="📦 Produtos", padding=10)
+        produtos_frame.pack(fill='both', expand=True, pady=(0, 15))
+        
+        # Lista de produtos
+        self.produtos_list = []
+        produtos_container = tb.Frame(produtos_frame)
+        produtos_container.pack(fill='both', expand=True)
+        
+        def adicionar_produto():
+            produto_frame = tb.Frame(produtos_container, relief='ridge', borderwidth=1, padding=8)
+            produto_frame.pack(fill='x', pady=5)
+            
+            # Cabeçalho do produto
+            header_frame = tb.Frame(produto_frame)
+            header_frame.pack(fill='x')
+            
+            tb.Label(header_frame, text=f'🏷️ Produto {len(self.produtos_list) + 1}', 
+                    font=('Segoe UI', 10, 'bold'), foreground='#FF6B35').pack(side='left')
+            
+            # Botão remover produto
+            if len(self.produtos_list) > 0:  # Não permite remover se é o único
+                remove_btn = tb.Button(header_frame, text='🗑️ Remover', bootstyle="danger-outline",
+                                     command=lambda pf=produto_frame: remover_produto(pf))
+                remove_btn.pack(side='right')
+            
+            # Campos do produto
+            campos_frame = tb.Frame(produto_frame)
+            campos_frame.pack(fill='x', pady=(10, 0))
+            campos_frame.columnconfigure(1, weight=1)
+            
+            # Linha 1: Descrição
+            tb.Label(campos_frame, text='Descrição:').grid(row=0, column=0, sticky='e', padx=(0, 10), pady=5)
+            desc_entry = tb.Entry(campos_frame, width=40, font=('Segoe UI', 10))
+            desc_entry.grid(row=0, column=1, sticky='ew', pady=5)
+            
+            # Linha 2: Cor e Gavetas
+            tb.Label(campos_frame, text='Cor:').grid(row=1, column=0, sticky='e', padx=(0, 10), pady=5)
+            cor_frame = tb.Frame(campos_frame)
+            cor_frame.grid(row=1, column=1, sticky='ew', pady=5)
+            cor_frame.columnconfigure(0, weight=1)
+            
+            cor_combo = tb.Combobox(cor_frame, values=[
+                "Branco", "Preto", "Madeira Natural", "Carvalho", "Mogno", 
+                "Cinza", "Azul", "Verde", "Vermelho", "Personalizada"
+            ], state="readonly", width=20)
+            cor_combo.grid(row=0, column=0, sticky='w')
+            
+            tb.Label(cor_frame, text='Gavetas:').grid(row=0, column=1, padx=(20, 10))
+            gavetas_var = tb.StringVar(value="0")
+            gavetas_spinbox = tb.Spinbox(cor_frame, from_=0, to=10, textvariable=gavetas_var, width=5)
+            gavetas_spinbox.grid(row=0, column=2)
+            
+            # Linha 3: Valor
+            tb.Label(campos_frame, text='Valor (R$):').grid(row=2, column=0, sticky='e', padx=(0, 10), pady=5)
+            valor_entry = tb.Entry(campos_frame, width=15, font=('Segoe UI', 10))
+            valor_entry.grid(row=2, column=1, sticky='w', pady=5)
+            
+            # Armazenar referências
+            produto_data = {
+                'frame': produto_frame,
+                'descricao': desc_entry,
+                'cor': cor_combo,
+                'gavetas': gavetas_var,
+                'valor': valor_entry
+            }
+            
+            self.produtos_list.append(produto_data)
+            return produto_data
+        
+        def remover_produto(produto_frame):
+            # Encontrar e remover o produto da lista
+            for i, produto in enumerate(self.produtos_list):
+                if produto['frame'] == produto_frame:
+                    self.produtos_list.pop(i)
+                    break
+            produto_frame.destroy()
+            
+            # Renumerar produtos restantes
+            for i, produto in enumerate(self.produtos_list):
+                header = produto['frame'].winfo_children()[0]  # header_frame
+                label = header.winfo_children()[0]  # label
+                label.config(text=f'🏷️ Produto {i + 1}')
+        
+        # Adicionar primeiro produto
+        adicionar_produto()
+        
+        # Botão para adicionar mais produtos
+        add_produto_btn = tb.Button(produtos_frame, text='➕ Adicionar Outro Produto', 
+                                   bootstyle="info-outline", command=adicionar_produto)
+        add_produto_btn.pack(pady=10)
+        
+        # === SEÇÃO STATUS E OBSERVAÇÕES ===
+        bottom_frame = tb.LabelFrame(frm, text="📝 Detalhes Finais", padding=10)
+        bottom_frame.pack(fill='x', pady=(0, 15))
+        
+        # Status
+        status_frame = tb.Frame(bottom_frame)
+        status_frame.pack(fill='x', pady=(0, 10))
+        status_frame.columnconfigure(1, weight=1)
+        
+        tb.Label(status_frame, text='Status:', font=('Segoe UI', 10, 'bold')).grid(row=0, column=0, sticky='w')
+        status_combo = tb.Combobox(status_frame, values=["em produção", "enviado", "entregue", "cancelado"], 
+                                  state="readonly", width=20, font=('Segoe UI', 10))
+        status_combo.set("em produção")
+        status_combo.grid(row=0, column=1, sticky='w', padx=(10, 0))
+        
+        # Valor de entrega/frete (opcional)
+        tb.Label(status_frame, text='Frete (R$):', font=('Segoe UI', 10, 'bold')).grid(row=0, column=2, sticky='w', padx=(30, 10))
+        frete_entry = tb.Entry(status_frame, width=15, font=('Segoe UI', 10))
+        frete_entry.grid(row=0, column=3, sticky='w')
+        frete_entry.insert(0, "0.00")
+        
+        # Observações
+        tb.Label(bottom_frame, text='Observações:', font=('Segoe UI', 10, 'bold')).pack(anchor='w')
+        obs_text = tb.Text(bottom_frame, width=60, height=4, font=('Segoe UI', 10))
+        obs_text.pack(fill='x', pady=(5, 0))
+        
+        # === AUTOCOMPLETE PARA CLIENTE ===
+        def on_cliente_change(event=None):
+            valor_digitado = cliente_combo.get().lower().strip()
+            
+            if len(valor_digitado) >= 1:
+                clientes_filtrados = [nome for nome in nomes_clientes if valor_digitado in nome.lower()]
+                cliente_combo['values'] = clientes_filtrados
+                
+                if clientes_filtrados and event and event.keysym not in ['Tab', 'Return', 'Escape']:
+                    cliente_combo.event_generate('<Button-1>')
+                    win.after(10, lambda: cliente_combo.event_generate('<Down>'))
+                
+                cliente_exato = any(nome.lower() == valor_digitado for nome in nomes_clientes)
+                
+                if valor_digitado and not cliente_exato:
+                    btn_novo_cliente.pack(pady=(10, 0))
+                    aviso_label.pack(pady=(5, 0))
+                    aviso_label.config(text=f'⚠️ Cliente "{cliente_combo.get()}" não encontrado!')
+                else:
+                    btn_novo_cliente.pack_forget()
+                    aviso_label.pack_forget()
+            else:
+                cliente_combo['values'] = nomes_clientes
+                btn_novo_cliente.pack_forget()
+                aviso_label.pack_forget()
+        
+        def on_focus_in(event):
+            if not cliente_combo.get():
+                cliente_combo['values'] = nomes_clientes
+        
+        def on_key_press(event):
+            win.after(10, on_cliente_change)
+        
+        cliente_combo.bind('<KeyRelease>', on_cliente_change)
+        cliente_combo.bind('<KeyPress>', on_key_press)
+        cliente_combo.bind('<<ComboboxSelected>>', on_cliente_change)
+        cliente_combo.bind('<FocusIn>', on_focus_in)
+        cliente_combo.bind('<Button-1>', lambda e: on_cliente_change())
+        
+        # === PREENCHER DADOS SE EDITANDO ===
+        if data:
+            cliente_combo.set(data.get('cliente', data.get('nome_cliente', '')))
+            
+            # Calcular prazo em dias baseado na data de entrega
+            prazo_dias = 30
+            try:
+                data_entrega = data.get('data_entrega')
+                if data_entrega:
+                    from datetime import datetime
+                    entrega_obj = datetime.strptime(data_entrega, '%Y-%m-%d')
+                    emissao_obj = datetime.strptime(data.get('data_emissao', datetime.now().strftime('%Y-%m-%d')), '%Y-%m-%d')
+                    prazo_dias = (entrega_obj - emissao_obj).days
+            except:
+                pass
+            
+            prazo_var.set(str(prazo_dias))
+            status_combo.set(data.get('status', 'em produção'))
+            
+            # Preencher produtos - tentar fazer parse da descrição
+            descricao = data.get('descricao', data.get('detalhes_produto', ''))
+            if descricao:
+                # Se a descrição parece ser de múltiplos produtos (contém "Produto 1:", "Produto 2:", etc.)
+                if 'Produto 1:' in descricao:
+                    linhas = descricao.split('\n')
+                    produtos_parseados = []
+                    
+                    for linha in linhas:
+                        if linha.startswith('Produto '):
+                            # Parse: "Produto 1: Caixa Linda - Cor: Mogno - 5 gaveta(s) - R$ 760.00"
+                            try:
+                                parts = linha.split(': ', 1)[1]  # Remove "Produto X: "
+                                desc_produto = parts.split(' - ')[0]  # Primeira parte é a descrição
+                                
+                                cor = ''
+                                gavetas = 0
+                                valor = 0.0
+                                
+                                # Procurar por padrões
+                                if ' - Cor: ' in parts:
+                                    cor_part = parts.split(' - Cor: ')[1].split(' - ')[0]
+                                    cor = cor_part
+                                
+                                if ' gaveta(s)' in parts:
+                                    gavetas_text = parts.split(' gaveta(s)')[0].split(' - ')[-1]
+                                    gavetas = int(gavetas_text)
+                                
+                                if 'R$ ' in parts:
+                                    valor_text = parts.split('R$ ')[1].split(' ')[0]
+                                    valor = float(valor_text.replace(',', '.'))
+                                
+                                produtos_parseados.append({
+                                    'descricao': desc_produto,
+                                    'cor': cor,
+                                    'gavetas': gavetas,
+                                    'valor': valor
+                                })
+                            except:
+                                # Se falhar o parse, usar como descrição simples
+                                produtos_parseados.append({
+                                    'descricao': linha,
+                                    'cor': '',
+                                    'gavetas': 0,
+                                    'valor': 0.0
+                                })
+                    
+                    # Adicionar produtos extras se necessário
+                    while len(produtos_parseados) > len(self.produtos_list):
+                        adicionar_produto()
+                    
+                    # Preencher os produtos
+                    for i, produto_data in enumerate(produtos_parseados):
+                        if i < len(self.produtos_list):
+                            produto = self.produtos_list[i]
+                            produto['descricao'].delete(0, 'end')
+                            produto['descricao'].insert(0, produto_data['descricao'])
+                            produto['cor'].set(produto_data['cor'])
+                            produto['gavetas'].set(str(produto_data['gavetas']))
+                            produto['valor'].delete(0, 'end')
+                            produto['valor'].insert(0, str(produto_data['valor']))
+                else:
+                    # Descrição simples, preencher no primeiro produto
+                    if self.produtos_list:
+                        self.produtos_list[0]['descricao'].insert(0, descricao)
+                        self.produtos_list[0]['valor'].insert(0, str(data.get('valor', data.get('valor_produto', ''))))
+            
+            if data.get('observacoes'):
+                obs_text.insert('1.0', data.get('observacoes', ''))
+            
+            # Preencher frete se existir
+            frete_valor = data.get('frete', 0)
+            if frete_valor:
+                frete_entry.delete(0, 'end')
+                frete_entry.insert(0, str(frete_valor))
+        
+        # === BOTÕES DE AÇÃO ===
+        def salvar_pedido():
+            # Validar cliente
+            cliente_nome = cliente_combo.get().strip()
+            if not cliente_nome:
+                messagebox.showerror('Erro', 'Selecione um cliente.')
+                return
+            
+            if cliente_nome not in nomes_clientes:
+                messagebox.showerror('Erro', 'Cliente deve existir no sistema. Use o botão "Adicionar Novo Cliente".')
+                return
+            
+            # Validar produtos
+            if not self.produtos_list:
+                messagebox.showerror('Erro', 'Adicione pelo menos um produto.')
+                return
+            
+            produtos_data = []
+            valor_total = 0
+            
+            for i, produto in enumerate(self.produtos_list):
+                desc = produto['descricao'].get().strip()
+                cor = produto['cor'].get()
+                gavetas = produto['gavetas'].get()
+                valor_str = produto['valor'].get().strip()
+                
+                if not desc:
+                    messagebox.showerror('Erro', f'Descrição do produto {i+1} é obrigatória.')
+                    return
+                
+                try:
+                    valor = float(valor_str) if valor_str else 0.0
+                    valor_total += valor
+                except ValueError:
+                    messagebox.showerror('Erro', f'Valor do produto {i+1} deve ser um número.')
+                    return
+                
+                produtos_data.append({
+                    'descricao': desc,
+                    'cor': cor,
+                    'gavetas': int(gavetas),
+                    'valor': valor
+                })
+            
+            # Montar descrição completa dos produtos
+            descricao_completa = []
+            for i, p in enumerate(produtos_data):
+                desc_produto = f"Produto {i+1}: {p['descricao']}"
+                if p['cor']:
+                    desc_produto += f" - Cor: {p['cor']}"
+                if p['gavetas'] > 0:
+                    desc_produto += f" - {p['gavetas']} gaveta(s)"
+                if p['valor'] > 0:
+                    desc_produto += f" - R$ {p['valor']:.2f}"
+                descricao_completa.append(desc_produto)
+            
+            # Dados do pedido
+            frete_valor = 0.0
+            try:
+                frete_str = frete_entry.get().strip().replace(',', '.')
+                frete_valor = float(frete_str) if frete_str else 0.0
+            except ValueError:
+                pass  # Se não conseguir converter, mantém 0.0
+            
+            pedido_data = {
+                'cliente': cliente_nome,
+                'descricao': '\n'.join(descricao_completa),
+                'valor': valor_total,
+                'frete': frete_valor,
+                'valor_total_com_frete': valor_total + frete_valor,
+                'status': status_combo.get(),
+                'prazo_dias': int(prazo_var.get()),
+                'observacoes': obs_text.get('1.0', 'end-1c').strip()
+            }
+            
+            if data and data.get('id'):
+                pedido_data['id'] = data['id']
+            
+            self._salvar_pedido_form(pedido_data, win)
+        
+        # Frame dos botões
+        btn_frame = tb.Frame(frm)
+        btn_frame.pack(fill='x', pady=20)
+        
+        # Botões com cores modernas
+        tb.Button(btn_frame, text='💾 Salvar Pedido', bootstyle="success", 
+                 command=salvar_pedido, width=20).pack(side='left', padx=10)
+        tb.Button(btn_frame, text='❌ Cancelar', bootstyle="secondary", 
+                 command=win.destroy, width=15).pack(side='left', padx=5)
+        
+        # Função para autocomplete em tempo real com dropdown forçado
+        def on_cliente_change(event=None):
+            valor_digitado = cliente_combo.get().lower().strip()
+            
+            if len(valor_digitado) >= 1:  # Começa a filtrar com 1 caractere
+                # Filtrar clientes que contêm o texto digitado
+                clientes_filtrados = [nome for nome in nomes_clientes if valor_digitado in nome.lower()]
+                
+                # Atualizar valores do combobox
+                cliente_combo['values'] = clientes_filtrados
+                
+                # Forçar abertura do dropdown se há resultados
+                if clientes_filtrados and event and event.keysym not in ['Tab', 'Return', 'Escape']:
+                    cliente_combo.event_generate('<Button-1>')
+                    win.after(10, lambda: cliente_combo.event_generate('<Down>'))
+                
+                # Verificar se cliente existe exatamente
+                cliente_exato = any(nome.lower() == valor_digitado for nome in nomes_clientes)
+                
+                # Mostrar/esconder botão "Novo Cliente" baseado na busca
+                if valor_digitado and not cliente_exato:
+                    btn_novo_cliente.grid(row=0, column=1, sticky='w')
+                    aviso_label.grid(row=1, column=0, columnspan=2, sticky='w', pady=(2, 0))
+                    aviso_label.config(text=f'⚠️ Cliente "{cliente_combo.get()}" não encontrado!')
+                else:
+                    btn_novo_cliente.grid_remove()
+                    aviso_label.grid_remove()
+            else:
+                # Se campo vazio, mostrar todos os clientes
+                cliente_combo['values'] = nomes_clientes
+                btn_novo_cliente.grid_remove()
+                aviso_label.grid_remove()
+        
+        def on_focus_in(event):
+            # Quando o campo ganha foco, mostrar todas as opções
+            if not cliente_combo.get():
+                cliente_combo['values'] = nomes_clientes
+        
+        def on_key_press(event):
+            # Aguardar um pouco após a tecla ser pressionada para processar o novo valor
+            win.after(10, on_cliente_change)
+        
+        # Bind múltiplos eventos para capturar todas as formas de input
+        cliente_combo.bind('<KeyRelease>', on_cliente_change)
+        cliente_combo.bind('<KeyPress>', on_key_press)
+        cliente_combo.bind('<<ComboboxSelected>>', on_cliente_change)
+        cliente_combo.bind('<FocusIn>', on_focus_in)
+        cliente_combo.bind('<Button-1>', lambda e: on_cliente_change())
+
+    def _abrir_novo_cliente_rapido(self, parent_win, cliente_combo, nome_inicial=""):
+        """Abre modal rápido para adicionar novo cliente."""
+        win = tb.Toplevel(parent_win)
+        win.title('Adicionar Novo Cliente')
+        win.transient(parent_win)
+        win.grab_set()
+        win.geometry('450x400')
+        
         frm = tb.Frame(win, padding=10)
         frm.pack(fill='both', expand=True)
-        # Campos básicos
-        labels = ['Cliente','Telefone','Valor (total)','Entrada','Frete','Pagamento','Prazo (dias)']
-        for i, t in enumerate(labels):
-            tb.Label(frm, text=t+':').grid(row=i, column=0, sticky='e', padx=5, pady=5)
-        c_nome = tb.Entry(frm, width=40)
-        c_tel = tb.Entry(frm, width=30)
-        c_val = tb.Entry(frm, width=15)
-        c_ent = tb.Entry(frm, width=15)
-        c_fre = tb.Entry(frm, width=15)
-        c_pag = tb.Entry(frm, width=25)
-        c_pra = tb.Entry(frm, width=10)
-        c_nome.grid(row=0, column=1, sticky='w')
-        c_tel.grid(row=1, column=1, sticky='w')
-        c_val.grid(row=2, column=1, sticky='w')
-        c_ent.grid(row=3, column=1, sticky='w')
-        c_fre.grid(row=4, column=1, sticky='w')
-        c_pag.grid(row=5, column=1, sticky='w')
-        c_pra.grid(row=6, column=1, sticky='w')
+        
+        # Campos obrigatórios e opcionais
+        tb.Label(frm, text='Nome:').grid(row=0, column=0, sticky='e', padx=5, pady=5)
+        tb.Label(frm, text='CPF:').grid(row=1, column=0, sticky='e', padx=5, pady=5)
+        tb.Label(frm, text='Telefone:').grid(row=2, column=0, sticky='e', padx=5, pady=5)
+        tb.Label(frm, text='Email:').grid(row=3, column=0, sticky='e', padx=5, pady=5)
+        tb.Label(frm, text='Endereço:').grid(row=4, column=0, sticky='e', padx=5, pady=5)
+        tb.Label(frm, text='Referência:').grid(row=5, column=0, sticky='e', padx=5, pady=5)
+        
+        nome_e = tb.Entry(frm, width=35)
+        cpf_e = tb.Entry(frm, width=35)
+        tel_e = tb.Entry(frm, width=35)
+        email_e = tb.Entry(frm, width=35)
+        endereco_e = tb.Entry(frm, width=35)
+        referencia_e = tb.Entry(frm, width=35)
+        
+        nome_e.grid(row=0, column=1, sticky='w', padx=5, pady=5)
+        cpf_e.grid(row=1, column=1, sticky='w', padx=5, pady=5)
+        tel_e.grid(row=2, column=1, sticky='w', padx=5, pady=5)
+        email_e.grid(row=3, column=1, sticky='w', padx=5, pady=5)
+        endereco_e.grid(row=4, column=1, sticky='w', padx=5, pady=5)
+        referencia_e.grid(row=5, column=1, sticky='w', padx=5, pady=5)
+        
+        # Labels informativos
+        tb.Label(frm, text='(obrigatório)', font=('Arial', 8), foreground='red').grid(row=0, column=2, sticky='w', padx=5)
+        tb.Label(frm, text='(opcional)', font=('Arial', 8), foreground='gray').grid(row=4, column=2, sticky='w', padx=5)
+        tb.Label(frm, text='(opcional)', font=('Arial', 8), foreground='gray').grid(row=5, column=2, sticky='w', padx=5)
+        
+        # Preenche nome inicial se fornecido
+        if nome_inicial:
+            nome_e.insert(0, nome_inicial)
+        
+        def salvar_e_fechar():
+            nome = nome_e.get().strip()
+            cpf = cpf_e.get().strip() or None
+            tel = tel_e.get().strip() or None
+            email = email_e.get().strip() or None
+            endereco = endereco_e.get().strip() or None
+            referencia = referencia_e.get().strip() or None
+            
+            if not nome:
+                messagebox.showerror('Erro', 'Nome é obrigatório.')
+                return
+            
+            try:
+                cliente_id = db_manager.upsert_cliente(nome, cpf, tel, email, endereco, referencia)
+                if cliente_id:
+                    # Atualizar a lista de clientes no combobox
+                    clientes = db_manager.listar_clientes(1000)
+                    nomes_clientes = [c.get('nome', '') for c in clientes if c.get('nome')]
+                    cliente_combo['values'] = nomes_clientes
+                    cliente_combo.set(nome)  # Selecionar o cliente recém-criado
+                    
+                    self._carregar_grid_clientes()  # Atualizar grid de clientes
+                    messagebox.showinfo('Sucesso', f'Cliente "{nome}" adicionado com sucesso!')
+                    win.destroy()
+                else:
+                    messagebox.showerror('Erro', 'Falha ao salvar cliente.')
+            except Exception as e:
+                messagebox.showerror('Erro', f'Erro ao salvar cliente: {e}')
+        
+        btns = tb.Frame(frm)
+        btns.grid(row=6, column=0, columnspan=3, pady=15)
+        tb.Button(btns, text='Salvar e Usar', bootstyle=SUCCESS, command=salvar_e_fechar).pack(side='left', padx=5)
+        tb.Button(btns, text='Cancelar', command=win.destroy).pack(side='left', padx=5)
 
-        # Pré-carregar tentando buscar OS completa
+    def _salvar_pedido_form(self, data, win):
         try:
-            os_full = db_manager.buscar_ordem_por_numero(int(data['numero_os']))
-        except Exception:
-            os_full = None
-        if os_full:
-            c_nome.insert(0, os_full.get('nome_cliente') or '')
-            c_tel.insert(0, os_full.get('telefone_cliente') or '')
-            c_val.insert(0, str(os_full.get('valor_produto') or ''))
-            c_ent.insert(0, str(os_full.get('valor_entrada') or ''))
-            c_fre.insert(0, str(os_full.get('frete') or ''))
-            c_pag.insert(0, os_full.get('forma_pagamento') or '')
-            c_pra.insert(0, str(os_full.get('prazo') or ''))
+            if data.get('id'):
+                # Editar pedido existente
+                campos = {
+                    'nome_cliente': data['cliente'],
+                    'detalhes_produto': data['descricao'],
+                    'valor_produto': float(data['valor']) if data['valor'] else 0.0
+                }
+                success = db_manager.atualizar_ordem(int(data['id']), campos)
+                # Atualizar status separadamente
+                if success:
+                    db_manager.atualizar_status_pedido(int(data['id']), data['status'])
+            else:
+                # Criar novo pedido
+                from datetime import datetime, timedelta
+                numero_os = Contador.ler_contador()
+                prazo_dias = data.get('prazo_dias', 30)
+                
+                dados_pedido = {
+                    'numero_os': numero_os,
+                    'nome_cliente': data['cliente'],
+                    'detalhes_produto': data['descricao'],
+                    'valor_produto': float(data['valor']) if data['valor'] else 0.0,
+                    'frete': float(data.get('frete', 0.0)),
+                    'data_emissao': datetime.now().strftime('%Y-%m-%d'),
+                    'data_entrega': (datetime.now() + timedelta(days=prazo_dias)).strftime('%Y-%m-%d'),
+                    'status': data['status'],
+                    'observacoes': data.get('observacoes', ''),
+                    'prazo': prazo_dias
+                }
+                
+                # Salvar no banco
+                ordem_id = db_manager.salvar_ordem(dados_pedido, '')
+                if ordem_id:
+                    Contador.salvar_contador(numero_os + 1)
+                    success = True
+                else:
+                    success = False
+            
+            if success:
+                self._carregar_cards_pedidos()
+                messagebox.showinfo('Sucesso', 'Pedido salvo com sucesso!')
+                win.destroy()
+            else:
+                messagebox.showerror('Erro', 'Falha ao salvar pedido.')
+        except Exception as e:
+            import traceback
+            error_details = traceback.format_exc()
+            print(f"Erro detalhado ao salvar pedido: {error_details}")
+            messagebox.showerror('Erro', f'Erro ao salvar: {str(e)}\n\nDetalhes no console.')
+
+    # ===== Ações Produtos (removidos - agora usando Pedidos) =====
+        c_pra.insert(0, str(os_full.get('prazo') or ''))
 
         def salvar():
             campos = {
@@ -788,50 +1709,6 @@ class OrdemServicoApp:
         btns.grid(row=7, column=0, columnspan=2, pady=10)
         tb.Button(btns, text='Salvar', bootstyle=SUCCESS, command=salvar).pack(side='left', padx=5)
         tb.Button(btns, text='Cancelar', command=win.destroy).pack(side='left', padx=5)
-
-    # ===== Ações Produtos =====
-    def _editar_produto(self):
-        _, vals = self._get_selected(self.tree_produtos)
-        if not vals:
-            messagebox.showinfo('Info', 'Selecione um item para editar.')
-            return
-        produto_id = int(vals[0])
-        atual = vals[3]
-        win = tb.Toplevel(self.root)
-        win.title('Editar item')
-        win.transient(self.root)
-        win.grab_set()
-        frm = tb.Frame(win, padding=10)
-        frm.pack(fill='both', expand=True)
-        tb.Label(frm, text='Descrição:').grid(row=0, column=0, sticky='e', padx=5, pady=5)
-        ent = tb.Entry(frm, width=60)
-        ent.grid(row=0, column=1, sticky='w')
-        ent.insert(0, atual)
-        def salvar():
-            desc = ent.get().strip()
-            if not desc:
-                messagebox.showerror('Erro', 'Descrição não pode ser vazia.')
-                return
-            ok = db_manager.atualizar_produto(produto_id, desc)
-            if ok:
-                self._carregar_grid_produtos()
-                win.destroy()
-            else:
-                messagebox.showerror('Erro', 'Falha ao salvar item.')
-        tb.Button(frm, text='Salvar', bootstyle=SUCCESS, command=salvar).grid(row=1, column=0, columnspan=2, pady=10)
-
-    def _excluir_produto(self):
-        _, vals = self._get_selected(self.tree_produtos)
-        if not vals:
-            messagebox.showinfo('Info', 'Selecione um item para excluir.')
-            return
-        if not messagebox.askyesno('Confirmar', f"Excluir item '{vals[3]}'?"):
-            return
-        ok = db_manager.deletar_produto(int(vals[0]))
-        if ok:
-            self._carregar_grid_produtos()
-        else:
-            messagebox.showerror('Erro', 'Não foi possível excluir o item.')
 
     # ===== Helpers =====
     def _to_float_or_none(self, s):
