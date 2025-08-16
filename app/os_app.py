@@ -69,6 +69,7 @@ class OrdemServicoApp:
 
         # Área rolável na aba de formulário
         canvas = tk.Canvas(formulario_tab, highlightthickness=0)
+        self._form_canvas = canvas  # Armazenar referência para scroll global
         vscroll = tb.Scrollbar(formulario_tab, orient="vertical", command=canvas.yview)
         canvas.configure(yscrollcommand=vscroll.set)
         vscroll.pack(side="right", fill="y")
@@ -86,18 +87,6 @@ class OrdemServicoApp:
 
         form_frame.bind("<Configure>", _on_frame_configure)
         canvas.bind("<Configure>", _on_canvas_configure)
-        # Rolagem pelo mouse (Windows/Linux)
-        def _on_mousewheel(event):
-            try:
-                delta = event.delta
-                if delta == 0:
-                    return
-                canvas.yview_scroll(int(-1*(delta/120)), "units")
-            except Exception:
-                pass
-        canvas.bind_all("<MouseWheel>", _on_mousewheel)
-        canvas.bind_all("<Button-4>", lambda e: canvas.yview_scroll(-1, "units"))
-        canvas.bind_all("<Button-5>", lambda e: canvas.yview_scroll(1, "units"))
 
         # Layout: labels acima, campos ocupando toda a largura
         row = 0
@@ -403,15 +392,20 @@ class OrdemServicoApp:
         self.db_inner_nb.add(self.tab_clientes, text="Clientes")
         self.db_inner_nb.add(self.tab_pedidos, text="Pedidos")
 
-        # Clientes
+        # Clientes - com scroll melhorado
         top_c = tb.Frame(self.tab_clientes)
-        top_c.pack(fill="x")
+        top_c.pack(fill="x", padx=5, pady=5)
         tb.Button(top_c, text="Novo", bootstyle=SUCCESS, command=self._novo_cliente).pack(side="left", padx=5, pady=5)
         tb.Button(top_c, text="Editar", command=self._editar_cliente).pack(side="left", padx=5, pady=5)
         tb.Button(top_c, text="Excluir", bootstyle=DANGER, command=self._excluir_cliente).pack(side="left", padx=5, pady=5)
         tb.Button(top_c, text="Recarregar", command=self._carregar_grid_clientes).pack(side="right", padx=5, pady=5)
+        
+        # Frame para treeview com scroll
+        tree_frame = tb.Frame(self.tab_clientes)
+        tree_frame.pack(fill="both", expand=True, padx=5, pady=(0,5))
+        
         cols_c = ("id","nome","cpf","telefone","email","endereco","referencia")
-        self.tree_clientes = tb.Treeview(self.tab_clientes, columns=cols_c, show="headings")
+        self.tree_clientes = tb.Treeview(tree_frame, columns=cols_c, show="headings")
         for col, text, w, anchor in [
             ("id","ID",60,"center"),
             ("nome","Nome",180,"w"),
@@ -423,10 +417,20 @@ class OrdemServicoApp:
         ]:
             self.tree_clientes.heading(col, text=text)
             self.tree_clientes.column(col, width=w, anchor=anchor)
-        ysc = tb.Scrollbar(self.tab_clientes, orient="vertical", command=self.tree_clientes.yview)
-        self.tree_clientes.configure(yscroll=ysc.set)
-        self.tree_clientes.pack(side="left", fill="both", expand=True, padx=(8,0), pady=(0,8))
-        ysc.pack(side="right", fill="y", pady=(0,8))
+        
+        # Scrollbars para clientes
+        ysc_clientes = tb.Scrollbar(tree_frame, orient="vertical", command=self.tree_clientes.yview)
+        xsc_clientes = tb.Scrollbar(tree_frame, orient="horizontal", command=self.tree_clientes.xview)
+        self.tree_clientes.configure(yscrollcommand=ysc_clientes.set, xscrollcommand=xsc_clientes.set)
+        
+        # Layout do grid com scrollbars
+        self.tree_clientes.grid(row=0, column=0, sticky="nsew")
+        ysc_clientes.grid(row=0, column=1, sticky="ns")
+        xsc_clientes.grid(row=1, column=0, sticky="ew")
+        
+        # Configurar expansão
+        tree_frame.grid_rowconfigure(0, weight=1)
+        tree_frame.grid_columnconfigure(0, weight=1)
 
         # Pedidos (Layout Moderno com Cards)
         top_ped = tb.Frame(self.tab_pedidos)
@@ -450,25 +454,57 @@ class OrdemServicoApp:
         self.pedidos_main_frame = tb.Frame(self.tab_pedidos)
         self.pedidos_main_frame.pack(fill="both", expand=True, padx=10, pady=5)
         
-        # Canvas com scrollbar para cards
-        self.pedidos_canvas = tk.Canvas(self.pedidos_main_frame, highlightthickness=0)
+        # Canvas com scrollbar para cards - CORRIGIDO
+        self.pedidos_canvas = tk.Canvas(self.pedidos_main_frame, highlightthickness=0, bg="#2b2b2b")
         self.pedidos_scrollbar = tb.Scrollbar(self.pedidos_main_frame, orient="vertical", command=self.pedidos_canvas.yview)
         self.pedidos_scrollable_frame = tb.Frame(self.pedidos_canvas)
         
-        self.pedidos_scrollable_frame.bind(
-            "<Configure>",
-            lambda e: self.pedidos_canvas.configure(scrollregion=self.pedidos_canvas.bbox("all"))
-        )
-        
-        self.pedidos_canvas.create_window((0, 0), window=self.pedidos_scrollable_frame, anchor="nw")
+        # ID da janela criada no canvas
+        self.pedidos_window_id = self.pedidos_canvas.create_window((0, 0), window=self.pedidos_scrollable_frame, anchor="nw")
         self.pedidos_canvas.configure(yscrollcommand=self.pedidos_scrollbar.set)
         
+        # Função para atualizar scroll region
+        def _update_scroll_region():
+            self.pedidos_canvas.update_idletasks()
+            self.pedidos_canvas.configure(scrollregion=self.pedidos_canvas.bbox("all"))
+        
+        # Bind para atualizar scroll quando frame muda
+        self.pedidos_scrollable_frame.bind(
+            "<Configure>",
+            lambda e: _update_scroll_region()
+        )
+        
+        # Layout dos componentes de scroll
         self.pedidos_canvas.pack(side="left", fill="both", expand=True)
         self.pedidos_scrollbar.pack(side="right", fill="y")
+        
+        # Configurar redimensionamento da janela do canvas
+        def _on_canvas_configure(event):
+            # Atualizar largura da janela interna
+            canvas_width = event.width
+            self.pedidos_canvas.itemconfig(self.pedidos_window_id, width=canvas_width)
+            _update_scroll_region()
+        
+        self.pedidos_canvas.bind('<Configure>', _on_canvas_configure)
 
         # Carregamento inicial (após criar todas as treeviews)
         self._carregar_grid_clientes()
         self._carregar_cards_pedidos()
+        
+        print("Iniciando configuração de scroll...")
+        
+        # TESTE SIMPLES - SÓ FOCUS E BIND BÁSICO
+        def scroll_simples(event):
+            print(f"EVENTO CAPTURADO! Type: {event.type}, Delta: {getattr(event, 'delta', 'N/A')}")
+            return "break"
+        
+        # Focus na aplicação
+        self.root.focus_force()
+        
+        # Bind mais simples possível
+        self.root.bind("<MouseWheel>", scroll_simples)
+        
+        print("Configuração de scroll concluída.")
 
     def _carregar_cards_pedidos(self):
         """Carrega pedidos em formato de cards modernos."""
@@ -496,7 +532,11 @@ class OrdemServicoApp:
             # Criar cards para cada pedido
             for i, pedido in enumerate(pedidos):
                 self._criar_card_pedido(pedido, i)
-                
+            
+            # Atualizar scroll region após carregar todos os cards
+            self.pedidos_canvas.update_idletasks()
+            self.pedidos_canvas.configure(scrollregion=self.pedidos_canvas.bbox("all"))
+            
         except Exception as e:
             tb.Label(
                 self.pedidos_scrollable_frame, 
@@ -504,6 +544,10 @@ class OrdemServicoApp:
                 font=("Arial", 12),
                 foreground="red"
             ).pack(pady=20)
+            
+            # Atualizar scroll region mesmo em caso de erro
+            self.pedidos_canvas.update_idletasks()
+            self.pedidos_canvas.configure(scrollregion=self.pedidos_canvas.bbox("all"))
 
     def _criar_card_pedido(self, pedido, index):
         """Cria um card moderno para exibir um pedido."""

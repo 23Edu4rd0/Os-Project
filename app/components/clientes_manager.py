@@ -60,6 +60,16 @@ class ClientesManager:
         self.tree.pack(side="left", fill="both", expand=True, padx=(8, 0), pady=(0, 8))
         scrollbar.pack(side="right", fill="y", pady=(0, 8))
         
+        # SCROLL COM MOUSE WHEEL - COM DEBUG
+        def on_mousewheel(event):
+            print(f"SCROLL CLIENTES! Delta: {event.delta}")
+            direction = -1 if event.delta > 0 else 1
+            self.tree.yview_scroll(direction, "units")
+        
+        # Bind do scroll
+        self.tree.bind("<MouseWheel>", on_mousewheel)
+        print("Scroll configurado para clientes com debug ativo")
+        
     def carregar_dados(self):
         """Carrega dados dos clientes"""
         # Limpar dados existentes
