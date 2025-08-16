@@ -38,4 +38,4 @@ if __name__ == "__main__":
     root.geometry("1200x800")
     
     app = MainApp(root)
--    root.mainloop()
+    root.mainloop()

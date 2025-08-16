@@ -266,11 +266,6 @@ class PedidosManager:
         scrollbar = tb.Scrollbar(win, orient="vertical", command=canvas.yview)
         scrollable_frame = tb.Frame(canvas)
         
-        scrollable_frame.bind(
-            "<Configure>",
-            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
-        )
-        
         canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
         canvas.configure(yscrollcommand=scrollbar.set)
         
@@ -279,10 +274,22 @@ class PedidosManager:
         
         # SCROLL COM MOUSE WHEEL NO MODAL
         def scroll_modal(event):
-            canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+            # Verificar se há conteúdo para scroll
+            if canvas.bbox("all"):
+                # Scroll mais suave
+                canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+                # Forçar atualização
+                canvas.update_idletasks()
         
+        def configure_scroll_region(event=None):
+            canvas.configure(scrollregion=canvas.bbox("all"))
+            
+        # Bind eventos de scroll
         canvas.bind("<MouseWheel>", scroll_modal)
         scrollable_frame.bind("<MouseWheel>", scroll_modal)
+        
+        # Atualizar scroll region quando necessário
+        scrollable_frame.bind("<Configure>", configure_scroll_region)
         
         # Conteúdo do formulário
         frame = tb.Frame(scrollable_frame, padding=20)
@@ -738,11 +745,14 @@ class PedidosManager:
                  command=calcular_resumo, width=15).pack(side="left", padx=(0, 10))
         tb.Button(btn_frame, text="❌ Cancelar", bootstyle="secondary", 
                  command=win.destroy, width=10).pack(side="left")
-        def aplicar_scroll_completo():
-            aplicar_scroll_widget(frame)
         
-        # Usar after para garantir que todos os widgets foram criados
-        win.after(100, aplicar_scroll_completo)
+        # Configurar scroll region após criar todos os widgets
+        def configurar_scroll_final():
+            canvas.configure(scrollregion=canvas.bbox("all"))
+            canvas.update_idletasks()
+        
+        # Executar após um pequeno delay para garantir que tudo foi renderizado
+        win.after(100, configurar_scroll_final)
     
     def _abrir_novo_cliente_modal(self, parent_win, campos, clientes_dict):
         """Abre modal para adicionar novo cliente rapidamente"""
