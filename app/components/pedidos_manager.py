@@ -1,4 +1,4 @@
-"""
+﻿"""
 Gerenciador de pedidos/ordens de serviço
 """
 
@@ -7,8 +7,13 @@ import ttkbootstrap as tb
 from ttkbootstrap.constants import SUCCESS, DANGER, INFO
 from tkinter import messagebox
 from datetime import datetime
+import sys
+import os
 
-from database.db_manager import db_manager
+# Adicionar o diretório raiz do projeto ao path
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..'))
+
+from database import db_manager
 
 
 class PedidosManager:
@@ -223,10 +228,13 @@ class PedidosManager:
         btn_frame = tb.Frame(card)
         btn_frame.pack(fill="x")
         
-        tb.Button(btn_frame, text="✏️", bootstyle="primary-outline", width=3,
+        tb.Button(btn_frame, text="EDIT", bootstyle="primary-outline", width=4,
                  command=lambda p=pedido: self.editar_pedido(p)).pack(side="left", padx=(0, 2))
         
-        tb.Button(btn_frame, text="🔄", bootstyle="info-outline", width=3,
+        tb.Button(btn_frame, text="�", bootstyle="warning-outline", width=3,
+                 command=lambda p=pedido: self.enviar_whatsapp_card(p)).pack(side="left", padx=(0, 2))
+        
+        tb.Button(btn_frame, text="�🔄", bootstyle="info-outline", width=3,
                  command=lambda p=pedido: self.alterar_status(p)).pack(side="left", padx=(0, 2))
         
         tb.Button(btn_frame, text="🗑️", bootstyle="danger-outline", width=3,
@@ -259,11 +267,19 @@ class PedidosManager:
         win.title("Nova Ordem de Serviço" if not pedido_data else f"Editar OS #{pedido_data.get('numero_os')}")
         win.transient(self.parent)
         win.grab_set()
-        win.geometry("700x800")
+        win.geometry("800x900")
+        win.resizable(True, True)
         
-        # Frame com scroll
-        canvas = tk.Canvas(win)
-        scrollbar = tb.Scrollbar(win, orient="vertical", command=canvas.yview)
+        # Container principal para organizar layout
+        main_container = tb.Frame(win)
+        main_container.pack(fill="both", expand=True, padx=10, pady=10)
+        
+        # Frame com scroll (limitado em altura)
+        scroll_container = tb.Frame(main_container)
+        scroll_container.pack(fill="both", expand=True)
+        
+        canvas = tk.Canvas(scroll_container)
+        scrollbar = tb.Scrollbar(scroll_container, orient="vertical", command=canvas.yview)
         scrollable_frame = tb.Frame(canvas)
         
         canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
@@ -296,16 +312,19 @@ class PedidosManager:
         frame.pack(fill="both", expand=True)
         
         # === CABEÇALHO ===
+        # NÃO reservar/ler o contador ao abrir o modal. Se estamos editando, mostramos o número;
+        # se é novo pedido, deixamos None e apenas atribuímos um número quando o pedido for salvo.
         if not pedido_data:
-            numero_os = Contador.ler_contador()
+            numero_os = None
         else:
-            numero_os = pedido_data.get('numero_os', Contador.ler_contador())
-            
+            numero_os = pedido_data.get('numero_os')
+
         os_frame = tb.Frame(frame)
         os_frame.pack(fill="x", pady=(0, 15))
-        
+
         tb.Label(os_frame, text="Nº OS:", font=("Arial", 14, "bold")).pack(side="left")
-        numero_label = tb.Label(os_frame, text=str(numero_os), 
+        numero_text = str(numero_os) if numero_os is not None else "—"
+        numero_label = tb.Label(os_frame, text=numero_text, 
                                font=("Arial", 14, "bold"), foreground="blue")
         numero_label.pack(side="left", padx=(5, 0))
         
@@ -446,8 +465,7 @@ class PedidosManager:
             tipo_frame.grid(row=0, column=0, sticky="ew", padx=(0, 5))
             tb.Label(tipo_frame, text="Tipo:", font=("Arial", 10, "bold")).pack(anchor="w")
             tipo_var = tb.Combobox(tipo_frame, values=[
-                "Caixa Linda Maravilhosa", "Caixa Suprema", "Caixa Encantada",
-                "Caixa Premium", "Caixa Simples", "Outro"
+                "Caixa Normal", "Caixa Agro", "Outro"
             ])
             tipo_var.pack(fill="x")
             
@@ -707,24 +725,19 @@ class PedidosManager:
                 
                 # Salvar no banco
                 if not pedido_data:  # Novo pedido
-                    db_manager.inserir_pedido(
-                        numero_os=dados['numero_os'],
-                        nome_cliente=dados['nome_cliente'],
-                        cpf_cliente=dados['cpf_cliente'],
-                        telefone_cliente=dados['telefone_cliente'],
-                        detalhes_produto=dados['detalhes_produto'],
-                        valor_produto=dados['valor_produto'],
-                        valor_entrada=dados['valor_entrada'],
-                        frete=dados['frete'],
-                        forma_pagamento=dados['forma_pagamento'],
-                        prazo=dados['prazo'],
-                        caminho_pdf=arquivo_pdf
-                    )
-                    
-                    # Incrementar contador
-                    Contador.salvar_contador(numero_os + 1)
-                    
-                    messagebox.showinfo("Sucesso", f"OS #{numero_os} criada e PDF gerado com sucesso!\n\nTotal: R$ {dados['valor_produto'] + dados['frete']:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.'))
+                    # Atribuir número da OS somente agora, evitando reservar números ao abrir modal
+                    numero_os_atual = Contador.ler_contador()
+                    dados['numero_os'] = numero_os_atual
+
+                    # Salvar usando método central que grava dados JSON e faz rollups
+                    ordem_id = db_manager.salvar_ordem(dados, arquivo_pdf)
+
+                    # Incrementar contador apenas se salvamos com sucesso
+                    if ordem_id:
+                        Contador.salvar_contador(numero_os_atual + 1)
+                        messagebox.showinfo("Sucesso", f"OS #{numero_os_atual} criada e PDF gerado com sucesso!\n\nTotal: R$ {dados['valor_produto'] + dados['frete']:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.'))
+                    else:
+                        messagebox.showerror("Erro", "Falha ao salvar a OS no banco de dados.")
                 
                 # Recarregar dados e fechar modal
                 self.carregar_dados()
@@ -735,16 +748,92 @@ class PedidosManager:
             except Exception as e:
                 messagebox.showerror("Erro", f"Erro ao salvar: {str(e)}")
         
-        # === BOTÕES FINAIS ===
-        btn_frame = tb.Frame(frame)
-        btn_frame.pack(fill="x", pady=(20, 0))
+        def enviar_whatsapp():
+            try:
+                # Verificar se há telefone do cliente
+                telefone = campos['telefone'].get().strip()
+                if not telefone:
+                    messagebox.showerror("Erro", "Telefone do cliente é obrigatório para enviar via WhatsApp!")
+                    return
+                
+                # Limpar e formatar telefone (remover caracteres especiais)
+                telefone_limpo = ''.join(filter(str.isdigit, telefone))
+                
+                # Adicionar código do país se não tiver
+                if len(telefone_limpo) == 11 and telefone_limpo.startswith('11'):
+                    telefone_formatado = f"55{telefone_limpo}"
+                elif len(telefone_limpo) == 10:
+                    telefone_formatado = f"5511{telefone_limpo}"
+                elif len(telefone_limpo) == 11:
+                    telefone_formatado = f"55{telefone_limpo}"
+                else:
+                    telefone_formatado = telefone_limpo
+                
+                # Gerar PDF primeiro se necessário
+                nome_cliente = campos['nome_cliente'].get().strip()
+                if not nome_cliente:
+                    messagebox.showerror("Erro", "Nome do cliente é obrigatório!")
+                    return
+                
+                # Criar mensagem personalizada
+                # NÃO consumir/ler o contador aqui. Use o número existente se estivermos editando;
+                # para pedidos novos (não salvos) não incluir o número e avisar que será atribuído ao salvar.
+                if pedido_data and pedido_data.get('numero_os'):
+                    numero_os = pedido_data.get('numero_os')
+                    mensagem = f"Olá {nome_cliente}! Segue sua Ordem de Serviço #{numero_os:05d}. Obrigado pela preferência!"
+                else:
+                    mensagem = (f"Olá {nome_cliente}! Segue os detalhes do pedido. Obrigado pela preferência!\n\n"
+                                "Obs: o número da OS será atribuído ao salvar o pedido.")
+                
+                # Codificar mensagem para URL
+                import urllib.parse
+                mensagem_encoded = urllib.parse.quote(mensagem)
+                
+                # Abrir WhatsApp Web com a mensagem
+                import webbrowser
+                url_whatsapp = f"https://api.whatsapp.com/send?phone={telefone_formatado}&text={mensagem_encoded}"
+                webbrowser.open(url_whatsapp)
+                
+                messagebox.showinfo("WhatsApp", 
+                                   f"WhatsApp aberto para {nome_cliente}\n"
+                                   f"Telefone: {telefone}\n"
+                                   "Você pode anexar o PDF manualmente na conversa.")
+                
+            except Exception as e:
+                messagebox.showerror("Erro", f"Erro ao abrir WhatsApp: {str(e)}")
         
-        tb.Button(btn_frame, text="💾 Gerar PDF e Salvar", bootstyle="success", 
-                 command=salvar_pedido, width=20).pack(side="left", padx=(0, 10))
-        tb.Button(btn_frame, text="🔄 Calcular Totais", bootstyle="info", 
-                 command=calcular_resumo, width=15).pack(side="left", padx=(0, 10))
-        tb.Button(btn_frame, text="❌ Cancelar", bootstyle="secondary", 
-                 command=win.destroy, width=10).pack(side="left")
+        # === BOTÕES FINAIS (DENTRO DA ÁREA SCROLLABLE) ===
+        # Separador visual
+        separador_final = tb.Separator(frame, orient="horizontal")
+        separador_final.pack(fill="x", pady=(20, 15))
+        
+        # Frame para botões dentro da área scrollable
+        btn_frame = tb.Frame(frame)
+        btn_frame.pack(fill="x", pady=(0, 20))
+        
+        # Centralizar os botões
+        btn_center = tb.Frame(btn_frame)
+        btn_center.pack(anchor="center")
+        
+        # Botão principal de salvar (destacado)
+        btn_salvar = tb.Button(btn_center, text="SALVAR PDF", bootstyle="success", 
+                              command=salvar_pedido, width=15)
+        btn_salvar.pack(side="left", padx=(0, 10))
+        
+        # Botão WhatsApp
+        btn_whatsapp = tb.Button(btn_center, text="WHATSAPP", bootstyle="warning", 
+                                command=enviar_whatsapp, width=12)
+        btn_whatsapp.pack(side="left", padx=(0, 10))
+        
+        # Botão calcular totais
+        btn_calcular = tb.Button(btn_center, text="CALCULAR", bootstyle="info", 
+                                command=calcular_resumo, width=12)
+        btn_calcular.pack(side="left", padx=(0, 10))
+        
+        # Botão cancelar
+        btn_cancelar = tb.Button(btn_center, text="CANCELAR", bootstyle="secondary", 
+                                command=win.destroy, width=10)
+        btn_cancelar.pack(side="left")
         
         # Configurar scroll region após criar todos os widgets
         def configurar_scroll_final():
@@ -1028,6 +1117,64 @@ class PedidosManager:
                  command=salvar_edicao).pack(side='left', padx=(0, 10))
         tb.Button(btn_frame, text='❌ Cancelar', 
                  command=win.destroy).pack(side='left')
+    
+    def enviar_whatsapp_card(self, pedido):
+        """Envia WhatsApp para o cliente do pedido"""
+        try:
+            telefone = pedido.get('telefone_cliente', '').strip()
+            nome_cliente = pedido.get('nome_cliente', '').strip()
+            numero_os = pedido.get('numero_os', '')
+            
+            if not telefone:
+                messagebox.showerror("Erro", "Este pedido não possui telefone do cliente!")
+                return
+            
+            if not nome_cliente:
+                messagebox.showerror("Erro", "Nome do cliente não encontrado!")
+                return
+            
+            # Limpar e formatar telefone
+            telefone_limpo = ''.join(filter(str.isdigit, telefone))
+            
+            # Adicionar código do país se necessário
+            if len(telefone_limpo) == 11 and telefone_limpo.startswith('11'):
+                telefone_formatado = f"55{telefone_limpo}"
+            elif len(telefone_limpo) == 10:
+                telefone_formatado = f"5511{telefone_limpo}"
+            elif len(telefone_limpo) == 11:
+                telefone_formatado = f"55{telefone_limpo}"
+            else:
+                telefone_formatado = telefone_limpo
+            
+            # Criar mensagem personalizada
+            status = pedido.get('status', 'em produção')
+            valor = pedido.get('valor_produto', 0)
+            
+            if status == 'em produção':
+                mensagem = f"Olá {nome_cliente}! Sua OS #{numero_os:05d} está em produção. Em breve entraremos em contato!"
+            elif status == 'enviado':
+                mensagem = f"Olá {nome_cliente}! Sua OS #{numero_os:05d} foi enviada. Acompanhe a entrega!"
+            elif status == 'entregue':
+                mensagem = f"Olá {nome_cliente}! Esperamos que esteja satisfeito com sua OS #{numero_os:05d}. Obrigado!"
+            else:
+                mensagem = f"Olá {nome_cliente}! Atualizações sobre sua OS #{numero_os:05d}."
+            
+            # Codificar mensagem para URL
+            import urllib.parse
+            mensagem_encoded = urllib.parse.quote(mensagem)
+            
+            # Abrir WhatsApp Web
+            import webbrowser
+            url_whatsapp = f"https://api.whatsapp.com/send?phone={telefone_formatado}&text={mensagem_encoded}"
+            webbrowser.open(url_whatsapp)
+            
+            messagebox.showinfo("WhatsApp", 
+                               f"WhatsApp aberto para {nome_cliente}\n"
+                               f"OS: #{numero_os:05d}\n"
+                               f"Telefone: {telefone}")
+            
+        except Exception as e:
+            messagebox.showerror("Erro", f"Erro ao abrir WhatsApp: {str(e)}")
     
     def alterar_status(self, pedido):
         """Altera status do pedido"""

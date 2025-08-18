@@ -2,6 +2,7 @@
 Módulo de inicialização do banco de dados.
 """
 
-from .db_manager import db_manager
+from .db_manager import DatabaseManager
 
-# Inicialização do banco aqui se necessário
+# Criar instância singleton
+db_manager = DatabaseManager()

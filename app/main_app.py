@@ -3,6 +3,16 @@ Aplicação principal de Ordem de Serviço - Versão Modular
 Máximo 200 linhas - Responsabilidades divididas em módulos
 """
 
+import os
+import sys
+
+# Se este módulo for executado diretamente (python app/main_app.py), garantir que a
+# raiz do projeto esteja no sys.path para que `import app.*` funcione.
+if __package__ is None:
+    project_root = os.path.dirname(os.path.dirname(__file__))
+    if project_root not in sys.path:
+        sys.path.insert(0, project_root)
+
 import tkinter as tk
 import ttkbootstrap as tb
 from ttkbootstrap.constants import PRIMARY
@@ -119,7 +129,7 @@ class MainApp:
         """Carrega dados iniciais"""
         try:
             # Testar conexão com banco
-            from database.db_manager import db_manager
+            from database import db_manager
             clientes = db_manager.listar_clientes(1)
             
             if clientes is not None:

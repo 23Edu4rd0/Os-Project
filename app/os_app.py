@@ -19,7 +19,9 @@ from services.impress import imprimir_pdf as imprimir_pdf_service, verificar_dis
 from ttkbootstrap.constants import PRIMARY, SUCCESS, DANGER, INFO, WARNING
 from app.impressApp import ImpressApp
 # Importar o gerenciador do banco de dados
-from database.db_manager import db_manager
+from database import db_manager
+# Importar o gerenciador de contas
+from app.components.contas.contas_manager import ContasManager
 
 # It's good practice to handle platform-specific imports gracefully
 win32print = None
@@ -382,15 +384,39 @@ class OrdemServicoApp:
 
     def _montar_aba_banco(self, parent):
         """Cria a aba Banco de Dados com visualização e CRUD de Clientes, Ordens, Prazos e Produtos."""
+        print("Iniciando montagem da aba banco...")
+        
         # Notebook interno
         self.db_inner_nb = tb.Notebook(parent)
         self.db_inner_nb.pack(fill="both", expand=True, padx=8, pady=8)
 
-        # Tabs - apenas Clientes e Pedidos
+        # Tabs - Clientes, Pedidos e Contas
         self.tab_clientes = tb.Frame(self.db_inner_nb)
         self.tab_pedidos = tb.Frame(self.db_inner_nb)
+        self.tab_contas = tb.Frame(self.db_inner_nb)
         self.db_inner_nb.add(self.tab_clientes, text="Clientes")
         self.db_inner_nb.add(self.tab_pedidos, text="Pedidos")
+        self.db_inner_nb.add(self.tab_contas, text="Contas")
+        
+        # DEBUG: Print para ver se chegou aqui
+        print("*** ATENÇÃO: ABAS CRIADAS! ***")
+        
+        # Conteúdo da aba contas
+        test_label = tb.Label(self.tab_contas, text="CONTAS FUNCIONANDO!", 
+                            font=("Arial", 20, "bold"), foreground="green")
+        test_label.pack(pady=50)
+        
+        print("*** ATENÇÃO: CONTEÚDO CRIADO! ***")
+
+        # Clientes - com scroll melhorado
+        top_c = tb.Frame(self.tab_clientes)
+        top_c.pack(fill="x", padx=5, pady=5)
+        tb.Label(self.tab_contas, text="� SISTEMA DE CONTAS FUNCIONANDO!", 
+                font=("Arial", 20, "bold"), foreground="#4CAF50").pack(pady=50)
+        
+        tb.Label(self.tab_contas, text="Aba de contas criada com sucesso!", 
+                font=("Arial", 14)).pack(pady=20)
+        # ============ FIM CONTEÚDO ABA CONTAS ============
 
         # Clientes - com scroll melhorado
         top_c = tb.Frame(self.tab_clientes)
@@ -488,8 +514,13 @@ class OrdemServicoApp:
         self.pedidos_canvas.bind('<Configure>', _on_canvas_configure)
 
         # Carregamento inicial (após criar todas as treeviews)
+        print("Carregando grid de clientes...")
         self._carregar_grid_clientes()
+        print("Grid de clientes carregado!")
+        
+        print("Carregando cards de pedidos...")
         self._carregar_cards_pedidos()
+        print("Cards de pedidos carregados!")
         
         print("Iniciando configuração de scroll...")
         
@@ -505,6 +536,61 @@ class OrdemServicoApp:
         self.root.bind("<MouseWheel>", scroll_simples)
         
         print("Configuração de scroll concluída.")
+
+    def _criar_conteudo_contas_direto(self):
+        """Cria conteúdo básico para a aba de contas"""
+        try:
+            # Título principal
+            title_frame = tb.Frame(self.tab_contas)
+            title_frame.pack(fill="x", padx=20, pady=20)
+            
+            tb.Label(title_frame, text="💰 Sistema de Contas Financeiras", 
+                    font=("Arial", 16, "bold")).pack()
+            
+            # Resumo simples
+            resumo_frame = tb.LabelFrame(self.tab_contas, text="Resumo Financeiro", padding=15)
+            resumo_frame.pack(fill="x", padx=20, pady=10)
+            
+            tb.Label(resumo_frame, text="📊 Receitas do Mês: R$ 5.240,00", 
+                    font=("Arial", 12, "bold"), foreground="#4CAF50").pack(anchor="w", pady=5)
+            tb.Label(resumo_frame, text="💸 Gastos do Mês: R$ 3.250,00", 
+                    font=("Arial", 12, "bold"), foreground="#F44336").pack(anchor="w", pady=5)
+            tb.Label(resumo_frame, text="💰 Lucro Líquido: R$ 1.990,00", 
+                    font=("Arial", 13, "bold"), foreground="#2196F3").pack(anchor="w", pady=5)
+            
+            # Botões de ação
+            btn_frame = tb.Frame(self.tab_contas)
+            btn_frame.pack(pady=20)
+            
+            tb.Button(btn_frame, text="💸 Gerenciar Gastos", bootstyle=WARNING).pack(side="left", padx=10)
+            tb.Button(btn_frame, text="📊 Ver Relatórios", bootstyle=INFO).pack(side="left", padx=10)
+            tb.Button(btn_frame, text="📈 Análise de Margem", bootstyle=SUCCESS).pack(side="left", padx=10)
+            
+            # Informações adicionais
+            info_frame = tb.LabelFrame(self.tab_contas, text="Informações", padding=15)
+            info_frame.pack(fill="both", expand=True, padx=20, pady=10)
+            
+            info_text = """
+            Esta é a área de controle financeiro do sistema.
+            
+            Funcionalidades disponíveis:
+            • Controle de receitas e despesas
+            • Análise de margem de lucro por produto  
+            • Relatórios financeiros mensais
+            • Comparação gastos x receitas
+            
+            Sistema em desenvolvimento - mais funcionalidades em breve!
+            """
+            
+            tb.Label(info_frame, text=info_text, justify="left", font=("Arial", 10)).pack(anchor="w")
+            
+            print("Conteúdo da aba contas criado com sucesso!")
+            
+        except Exception as e:
+            print(f"Erro ao criar conteúdo da aba contas: {e}")
+            # Criar conteúdo mínimo em caso de erro
+            tb.Label(self.tab_contas, text="💰 Área de Contas", 
+                    font=("Arial", 14, "bold")).pack(pady=50)
 
     def _carregar_cards_pedidos(self):
         """Carrega pedidos em formato de cards modernos."""
@@ -2651,6 +2737,117 @@ class OrdemServicoApp:
             self.prazo_entry,
             "Insira o número de dias. Ex: 30 -> daqui a 30 dias"
         )
+
+    def _criar_aba_contas_simples(self):
+        """Cria uma aba de contas simples com funcionalidades básicas"""
+        # Título principal
+        title_frame = tb.Frame(self.tab_contas)
+        title_frame.pack(fill="x", padx=20, pady=20)
+        
+        tb.Label(title_frame, text="💰 Sistema de Contas Financeiras", 
+                font=("Arial", 16, "bold")).pack()
+        
+        # Notebook para as sub-abas
+        contas_notebook = tb.Notebook(self.tab_contas)
+        contas_notebook.pack(fill="both", expand=True, padx=10, pady=10)
+        
+        # Aba Financeiro
+        tab_financeiro = tb.Frame(contas_notebook)
+        contas_notebook.add(tab_financeiro, text="📊 Financeiro")
+        
+        # Conteúdo da aba financeiro
+        tb.Label(tab_financeiro, text="Análise Financeira", 
+                font=("Arial", 14, "bold")).pack(pady=10)
+        
+        # Frame para resumo
+        resumo_frame = tb.LabelFrame(tab_financeiro, text="Resumo do Mês", padding=15)
+        resumo_frame.pack(fill="x", padx=20, pady=10)
+        
+        # Calcular receitas do mês atual
+        try:
+            vendas = db_manager.listar_pedidos_ordenados_prazo(limite=100)
+            hoje = datetime.datetime.now()
+            total_mes = 0
+            
+            for venda in vendas:
+                # Ignorar pedidos cancelados/excluídos; contar entregues e outros status válidos
+                status = (venda.get('status') or '').strip().lower()
+                if status in ('cancelado', 'cancelada', 'excluido', 'excluida', 'deletado'):
+                    continue
+
+                data_emissao = venda.get('data_emissao', '')
+                if data_emissao:
+                    try:
+                        if isinstance(data_emissao, str):
+                            data_venda = datetime.datetime.strptime(data_emissao[:10], '%Y-%m-%d')
+                        else:
+                            data_venda = data_emissao
+                        
+                        if (data_venda.year == hoje.year and data_venda.month == hoje.month):
+                            valor_produto = float(venda.get('valor_produto', 0) or 0)
+                            frete = float(venda.get('frete', 0) or 0)
+                            total_mes += valor_produto + frete
+                    except Exception:
+                        continue
+            
+            tb.Label(resumo_frame, text=f"Total Receitas (Este Mês): R$ {total_mes:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.'), 
+                    font=("Arial", 12, "bold"), foreground="#4CAF50").pack(anchor="w", pady=5)
+            
+            # Gastos simulados
+            gastos_mes = 3250.00  # Valor simulado
+            tb.Label(resumo_frame, text=f"Total Gastos (Este Mês): R$ {gastos_mes:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.'), 
+                    font=("Arial", 12, "bold"), foreground="#F44336").pack(anchor="w", pady=5)
+            
+            lucro = total_mes - gastos_mes
+            cor_lucro = "#4CAF50" if lucro >= 0 else "#F44336"
+            tb.Label(resumo_frame, text=f"Lucro Líquido: R$ {lucro:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.'), 
+                    font=("Arial", 13, "bold"), foreground=cor_lucro).pack(anchor="w", pady=5)
+            
+        except Exception as e:
+            tb.Label(resumo_frame, text="Erro ao carregar dados financeiros", 
+                    foreground="#F44336").pack(pady=10)
+        
+        # Aba Gastos
+        tab_gastos = tb.Frame(contas_notebook)
+        contas_notebook.add(tab_gastos, text="💸 Gastos")
+        
+        tb.Label(tab_gastos, text="Controle de Gastos", 
+                font=("Arial", 14, "bold")).pack(pady=10)
+        
+        # Botões de ação
+        btn_frame = tb.Frame(tab_gastos)
+        btn_frame.pack(pady=10)
+        
+        tb.Button(btn_frame, text="➕ Novo Gasto", bootstyle=SUCCESS).pack(side="left", padx=5)
+        tb.Button(btn_frame, text="📊 Ver Relatório").pack(side="left", padx=5)
+        
+        # Lista de gastos simulados
+        gastos_frame = tb.LabelFrame(tab_gastos, text="Gastos Recentes", padding=10)
+        gastos_frame.pack(fill="both", expand=True, padx=20, pady=10)
+        
+        gastos_text = "• Salários: R$ 2.000,00\n• Aluguel: R$ 800,00\n• Material: R$ 300,00\n• Energia: R$ 150,00"
+        tb.Label(gastos_frame, text=gastos_text, justify="left", font=("Arial", 11)).pack(anchor="w")
+        
+        # Aba Margem de Lucro
+        tab_margem = tb.Frame(contas_notebook)
+        contas_notebook.add(tab_margem, text="📈 Margem de Lucro")
+        
+        tb.Label(tab_margem, text="Análise de Margem", 
+                font=("Arial", 14, "bold")).pack(pady=10)
+        
+        # Análise por produto
+        produtos_frame = tb.LabelFrame(tab_margem, text="Margem por Produto", padding=15)
+        produtos_frame.pack(fill="x", padx=20, pady=10)
+        
+        # Caixa P
+        tb.Label(produtos_frame, text="Caixa P:", font=("Arial", 11, "bold")).pack(anchor="w")
+        tb.Label(produtos_frame, text="• Custo: R$ 10,00  • Preço Médio: R$ 15,00  • Margem: 33%", 
+                foreground="#4CAF50").pack(anchor="w", padx=20)
+        
+        # Caixa G
+        tb.Label(produtos_frame, text="Caixa G:", font=("Arial", 11, "bold")).pack(anchor="w", pady=(10,0))
+        tb.Label(produtos_frame, text="• Custo: R$ 16,00  • Preço Médio: R$ 25,00  • Margem: 36%", 
+                foreground="#4CAF50").pack(anchor="w", padx=20)
 
     def _ajustar_fontes(self, event):
         """
