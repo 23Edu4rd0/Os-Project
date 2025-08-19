@@ -74,13 +74,14 @@ class DatabaseManager:
             print(f"Erro ao atualizar status: {e}")
             return False
 
-    def listar_pedidos_ordenados_por_prazo(self, limite=200):
-        """Lista pedidos ordenados por prazo com dados JSON - CORRIGIDO"""
+    def listar_pedidos_ordenados_por_prazo(self, limite=50):
+        """Lista pedidos ordenados por prazo - INCLUINDO TODOS OS CAMPOS PARA EDIÇÃO"""
         try:
+            # Query com todos os campos necessários para edição
             query = '''
-            SELECT id, numero_os, nome_cliente, cpf_cliente, telefone_cliente,
-                   detalhes_produto, valor_produto, valor_entrada, frete, 
-                   forma_pagamento, prazo, data_criacao, dados_json
+            SELECT id, numero_os, nome_cliente, telefone_cliente, detalhes_produto, 
+                   valor_produto, valor_entrada, frete, forma_pagamento,
+                   prazo, data_criacao, dados_json
             FROM ordem_servico
             ORDER BY data_criacao DESC
             LIMIT ?
@@ -88,36 +89,39 @@ class DatabaseManager:
             self.cursor.execute(query, (limite,))
             resultados = self.cursor.fetchall()
             
+            # Processamento otimizado
             pedidos = []
             for row in resultados:
-                # Garantir que temos os dados corretos
-                if len(row) >= 13:
-                    (id_, numero_os, nome_cliente, cpf_cliente, telefone_cliente,
-                     detalhes_produto, valor_produto, valor_entrada, frete, 
-                     forma_pagamento, prazo, data_criacao, dados_json) = row
+                if len(row) >= 12:
+                    (id_, numero_os, nome_cliente, telefone_cliente, detalhes_produto,
+                     valor_produto, valor_entrada, frete, forma_pagamento,
+                     prazo, data_criacao, dados_json) = row
                     
-                    # Extrair status do JSON
-                    status = 'em produção'  # Padrão
+                    # Status do JSON (mais rápido)
+                    status = 'em produção'
                     if dados_json:
                         try:
                             dados = json.loads(dados_json)
                             status = dados.get('status', 'em produção')
                         except:
-                            pass
+                            pass  # Usar padrão se falhar
                     
-                    # Garantir que valores não sejam None
+                    # Calcular valor total
+                    valor_total = (valor_produto or 0) + (frete or 0)
+                    
+                    # Objeto pedido completo para edição
                     pedido = {
-                        'id': id_ or 0,
+                        'id': id_,
                         'numero_os': numero_os or 0,
-                        'nome_cliente': nome_cliente or '',
-                        'cpf_cliente': cpf_cliente or '',
+                        'nome_cliente': nome_cliente or 'Cliente não informado',
                         'telefone_cliente': telefone_cliente or '',
                         'detalhes_produto': detalhes_produto or '',
-                        'valor_produto': valor_produto or 0.0,
-                        'valor_entrada': valor_entrada or 0.0,
-                        'frete': frete or 0.0,
+                        'valor_produto': float(valor_produto or 0),
+                        'valor_entrada': float(valor_entrada or 0),
+                        'frete': float(frete or 0),
                         'forma_pagamento': forma_pagamento or '',
-                        'prazo': prazo or 30,
+                        'valor_total': float(valor_total),
+                        'prazo': int(prazo or 30),
                         'data_criacao': data_criacao or '',
                         'status': status
                     }
@@ -127,8 +131,6 @@ class DatabaseManager:
             
         except Exception as e:
             print(f"Erro ao listar pedidos: {e}")
-            import traceback
-            traceback.print_exc()
             return []
 
     def buscar_ordem_por_numero(self, numero_os):

@@ -85,16 +85,19 @@ class PedidosCard:
                 foreground="#ffffff")
         cliente_label.pack(anchor="w", pady=(0, 3))
         
-        # Data
-        data = pedido.get('data_emissao', 'Data não informada')
-        if isinstance(data, str) and len(data) > 10:
-            data = data[:10]  # Apenas a data, sem hora
-        
-        data_label = tb.Label(content_frame, 
-                text=f"Data: {data}", 
-                font=("Arial", 9),
-                foreground="#aaaaaa")
-        data_label.pack(anchor="w", pady=(0, 3))
+        # Data de criação da OS
+        data_criacao = pedido.get('data_criacao', '')
+        if data_criacao:
+            if isinstance(data_criacao, str) and len(data_criacao) > 10:
+                data_criacao_formatada = data_criacao[:10]  # Apenas a data, sem hora
+            else:
+                data_criacao_formatada = str(data_criacao)
+            
+            data_label = tb.Label(content_frame, 
+                    text=f"Criada em: {data_criacao_formatada}", 
+                    font=("Arial", 9),
+                    foreground="#aaaaaa")
+            data_label.pack(anchor="w", pady=(0, 3))
         
         # Valor (destacado)
         valor = pedido.get('valor_total', pedido.get('valor_produto', 0))
@@ -109,29 +112,97 @@ class PedidosCard:
         self._criar_resumo_produtos(content_frame, pedido)
     
     def _criar_resumo_produtos(self, parent, pedido):
-        """Cria resumo dos produtos do pedido"""
+        """Cria resumo dos produtos do pedido com layout otimizado para 2 linhas VISÍVEIS"""
         detalhes = pedido.get('detalhes_produto', pedido.get('descricao', ''))
         
-        if detalhes:
-            resumo_frame = tb.Frame(parent)
-            resumo_frame.pack(fill="x", pady=(3, 0))
+        if not detalhes:
+            return
             
-            produtos_label = tb.Label(resumo_frame, 
-                    text="Produtos:", 
-                    font=("Arial", 9, "bold"),
-                    foreground="#cccccc")
-            produtos_label.pack(anchor="w")
+        # Container principal com altura suficiente para 2 linhas completas
+        resumo_frame = tb.Frame(parent, height=85)
+        resumo_frame.pack(fill="x", pady=(3, 0))
+        resumo_frame.pack_propagate(False)  # Evita expansão automática
+        
+        # Label de produtos
+        produtos_label = tb.Label(resumo_frame, 
+                text="Produtos:", 
+                font=("Arial", 9, "bold"),
+                foreground="#cccccc")
+        produtos_label.pack(anchor="w", pady=(0, 3))
+        
+        # Container dos produtos com scrollbar se necessário
+        produtos_container = tb.Frame(resumo_frame)
+        produtos_container.pack(fill="both", expand=True, padx=5)
+        
+        # Dividir produtos de forma inteligente
+        linhas_produtos = self._dividir_produtos_otimizado(detalhes)
+        
+        # Mostrar até 2 linhas com altura garantida
+        for i, linha in enumerate(linhas_produtos[:2]):
+            if linha.strip():  # Só criar se tem conteúdo
+                # Frame para cada linha de produto
+                linha_frame = tb.Frame(produtos_container, height=22)
+                linha_frame.pack(fill="x", pady=1)
+                linha_frame.pack_propagate(False)
+                
+                desc_label = tb.Label(linha_frame, 
+                        text=f"• {linha}", 
+                        font=("Arial", 8),
+                        foreground="#999999",
+                        anchor="w",
+                        justify="left")
+                desc_label.pack(side="left", anchor="w", padx=3)
+    
+    def _dividir_produtos_otimizado(self, detalhes):
+        """Divisão otimizada de produtos - CORRIGIDO PARA \\n E \n"""
+        MAX_CHARS = 55
+        
+        # Cache para evitar recálculos
+        if not hasattr(self, '_cache_produtos'):
+            self._cache_produtos = {}
+        
+        if detalhes in self._cache_produtos:
+            return self._cache_produtos[detalhes]
+        
+        linhas = []
+        
+        # Quebras de linha naturais - lidar com \\n (escape) e \n (quebra real)
+        if '\\n' in detalhes or '\n' in detalhes:
+            # Primeiro tentar \\n (escape)
+            if '\\n' in detalhes:
+                linhas = [linha.strip() for linha in detalhes.split('\\n')[:2] if linha.strip()]
+            # Senão tentar \n (quebra real)  
+            else:
+                linhas = [linha.strip() for linha in detalhes.split('\n')[:2] if linha.strip()]
+        # Produtos separados por vírgula
+        elif ',' in detalhes and len(detalhes) > MAX_CHARS:
+            produtos = [p.strip() for p in detalhes.split(',')]
+            linha_atual = ""
             
-            # Mostrar resumo truncado
-            resumo_texto = detalhes[:60] + "..." if len(detalhes) > 60 else detalhes
+            for produto in produtos:
+                if len(linha_atual + produto) <= MAX_CHARS:
+                    linha_atual = f"{linha_atual}, {produto}" if linha_atual else produto
+                else:
+                    if linha_atual:
+                        linhas.append(linha_atual)
+                        if len(linhas) >= 2:
+                            break
+                    linha_atual = produto
             
-            desc_label = tb.Label(resumo_frame, 
-                    text=resumo_texto, 
-                    font=("Arial", 8),
-                    foreground="#999999",
-                    wraplength=280,
-                    justify="left")
-            desc_label.pack(anchor="w", padx=8, pady=(2, 0))
+            if linha_atual and len(linhas) < 2:
+                linhas.append(linha_atual)
+        # Texto longo - dividir simples
+        else:
+            if len(detalhes) > MAX_CHARS:
+                linhas = [detalhes[:MAX_CHARS] + "..."]
+                if len(detalhes) > MAX_CHARS * 2:
+                    linhas.append("..." + detalhes[MAX_CHARS:MAX_CHARS*2])
+            else:
+                linhas = [detalhes]
+        
+        # Cache do resultado
+        self._cache_produtos[detalhes] = linhas
+        return linhas
     
     def _calcular_dias_restantes(self, pedido):
         """Calcula quantos dias restam para o prazo de entrega"""

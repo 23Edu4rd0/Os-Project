@@ -21,6 +21,11 @@ class PedidosInterface:
         self.canvas = None
         self.scrollable_frame = None
         
+        # Cache para melhor performance
+        self._cache_pedidos = None
+        self._cache_timestamp = 0
+        self._cache_timeout = 30  # 30 segundos
+        
         # Inicializar módulos
         self.card_manager = PedidosCard(self)
         self.modal_manager = PedidosModal(self)
@@ -72,7 +77,7 @@ class PedidosInterface:
             lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all"))
         )
         
-        self.canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
+        self.canvas.create_window((25, 0), window=self.scrollable_frame, anchor="nw")
         self.canvas.configure(yscrollcommand=scrollbar.set)
         
         self.canvas.pack(side="left", fill="both", expand=True)
@@ -88,43 +93,48 @@ class PedidosInterface:
         
         print("Scroll configurado para pedidos com debug ativo")
     
-    def carregar_dados(self):
-        """Carrega os dados dos pedidos"""
-        # Limpar canvas
-        for widget in self.scrollable_frame.winfo_children():
-            widget.destroy()
+    def carregar_dados(self, force_refresh=False):
+        """Carrega os dados dos pedidos com cache otimizado"""
+        import time
         
-        try:
-            # Criar dados de teste se necessário
-            db_manager.criar_dados_teste()
-            
-            # Buscar pedidos do banco
-            status_filtro = self.status_var.get()
-            
-            # Usar o método correto do db_manager
-            pedidos = db_manager.listar_pedidos_ordenados_por_prazo(limite=100)
-            
-            # Filtrar por status se necessário
-            if status_filtro != "todos":
-                pedidos_filtrados = []
-                for p in pedidos:
-                    status_pedido = p.get('status', '').lower()
-                    if status_pedido == status_filtro.lower():
-                        pedidos_filtrados.append(p)
-                pedidos = pedidos_filtrados
-            
-            if not pedidos:
-                self._mostrar_sem_pedidos()
+        # Verificar cache
+        current_time = time.time()
+        if (not force_refresh and 
+            self._cache_pedidos and 
+            current_time - self._cache_timestamp < self._cache_timeout):
+            pedidos = self._cache_pedidos
+        else:
+            # Buscar dados do banco
+            try:
+                pedidos = db_manager.listar_pedidos_ordenados_por_prazo(limite=25)  # Reduzido para melhor performance
+                self._cache_pedidos = pedidos
+                self._cache_timestamp = current_time
+            except Exception as e:
+                print(f"Erro ao carregar pedidos: {e}")
+                self._mostrar_erro()
                 return
-            
-            # Criar grid de cards (3 colunas)
-            self._criar_grid_pedidos(pedidos)
-            
-        except Exception as e:
-            print(f"Erro ao carregar pedidos: {e}")
-            import traceback
-            traceback.print_exc()
-            self._mostrar_erro()
+        
+        # Limpar canvas de forma eficiente
+        self._limpar_canvas()
+        
+        # Filtrar por status
+        status_filtro = self.status_var.get()
+        if status_filtro != "todos":
+            pedidos = [p for p in pedidos if p.get('status', '').lower() == status_filtro.lower()]
+        
+        if not pedidos:
+            self._mostrar_sem_pedidos()
+            return
+        
+        # Criar grid de cards (3 colunas)
+        self._criar_grid_pedidos(pedidos)
+    
+    def _limpar_canvas(self):
+        """Limpa o canvas de forma otimizada"""
+        if hasattr(self, 'scrollable_frame') and self.scrollable_frame:
+            children = self.scrollable_frame.winfo_children()
+            for widget in children:
+                widget.destroy()
     
     def _mostrar_sem_pedidos(self):
         """Mostra mensagem quando não há pedidos"""
@@ -141,33 +151,53 @@ class PedidosInterface:
                 foreground="red").pack(pady=50)
     
     def _criar_grid_pedidos(self, pedidos):
-        """Cria o grid de pedidos em 3 colunas"""
-        # Configurar grid com weights para melhor distribuição
-        for i in range(3):
-            self.scrollable_frame.columnconfigure(i, weight=1, minsize=300)
+        """Cria o grid de pedidos de forma otimizada"""
+        colunas = 3
         
-        # Configurar altura uniforme das linhas
-        max_row = (len(pedidos) - 1) // 3
-        for i in range(max_row + 1):
-            self.scrollable_frame.rowconfigure(i, weight=1)
+        # Configurar grid uma única vez - largura otimizada para eliminar espaço branco excessivo
+        for i in range(colunas):
+            self.scrollable_frame.columnconfigure(i, weight=1, minsize=430)
         
-        # Criar cards
+        # Criar cards de forma eficiente
         for i, pedido in enumerate(pedidos):
-            row = i // 3
-            col = i % 3
-            self.card_manager.criar_card(pedido, row, col)
+            row = i // colunas
+            col = i % colunas
+            
+            try:
+                self.card_manager.criar_card(pedido, row, col)
+            except Exception as e:
+                print(f"Erro ao criar card {i}: {e}")
+                continue
+        
+        # Atualizar layout apenas uma vez no final
+        self.scrollable_frame.update_idletasks()
     
     def novo_pedido(self):
         """Abre modal para novo pedido"""
         self.modal_manager.abrir_modal_novo()
+        # Invalidar cache após operação
+        self._invalidar_cache()
     
     def editar_pedido(self, pedido):
         """Abre modal para editar pedido"""
         self.modal_manager.abrir_modal_edicao(pedido)
+        # Invalidar cache após operação
+        self._invalidar_cache()
     
     def alterar_status(self, pedido):
         """Altera status do pedido"""
         self.actions_manager.alterar_status(pedido)
+        # Invalidar cache após operação
+        self._invalidar_cache()
+    
+    def _invalidar_cache(self):
+        """Invalida o cache para forçar refresh na próxima consulta"""
+        self._cache_pedidos = None
+        self._cache_timestamp = 0
+    
+    def atualizar(self):
+        """Método público para atualizar dados forçando refresh"""
+        self.carregar_dados(force_refresh=True)
     
     def excluir_pedido(self, pedido):
         """Exclui um pedido"""

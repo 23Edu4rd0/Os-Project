@@ -64,12 +64,22 @@ class OrderCRUD:
     def atualizar_ordem(self, pedido_id, campos):
         """Atualiza campos específicos da ordem"""
         try:
+            print(f"=== ATUALIZANDO ORDEM ===")
+            print(f"Pedido ID: {pedido_id}")
+            print(f"Campos: {campos}")
+            
             set_clause = ', '.join([f'{campo} = ?' for campo in campos.keys()])
             query = f'UPDATE ordem_servico SET {set_clause} WHERE id = ?'
             
+            print(f"Query: {query}")
+            
             valores = list(campos.values()) + [pedido_id]
+            print(f"Valores: {valores}")
+            
             self.cursor.execute(query, valores)
             self.conn.commit()
+            
+            print("Atualização realizada com sucesso!")
             return True
             
         except Exception as e:

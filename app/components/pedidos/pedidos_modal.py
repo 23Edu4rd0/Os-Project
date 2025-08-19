@@ -271,62 +271,71 @@ class PedidosModal:
         btn_adicionar.pack(anchor="e")
     
     def _carregar_produtos_existentes(self, pedido_data):
-        """Carrega produtos existentes na edição"""
+        """Carrega produtos existentes na edição - VERSÃO CORRIGIDA PARA MÚLTIPLOS PRODUTOS"""
         detalhes_produto = pedido_data.get('detalhes_produto', '')
-        valor_produto = pedido_data.get('valor_produto', 0)
         
         if detalhes_produto:
-            # Se tem detalhes, criar um produto com essas informações
-            produto = self._adicionar_produto()
+            # Dividir os detalhes em linhas - cada linha é um produto
+            linhas_produtos = detalhes_produto.split('\\n')
+            print(f"DEBUG: Carregando {len(linhas_produtos)} produtos:")
             
-            # Tentar extrair informações do texto dos detalhes
-            if 'Caixa Linda Maravilhosa' in detalhes_produto:
-                produto['tipo'].set('Caixa Linda Maravilhosa')
-            elif 'Caixa Suprema' in detalhes_produto:
-                produto['tipo'].set('Caixa Suprema')
-            elif 'Caixa Encantada' in detalhes_produto:
-                produto['tipo'].set('Caixa Encantada')
-            elif 'Caixa Premium' in detalhes_produto:
-                produto['tipo'].set('Caixa Premium')
-            elif 'Caixa Simples' in detalhes_produto:
-                produto['tipo'].set('Caixa Simples')
-            
-            # Extrair cor se possível
-            if 'Carvalho' in detalhes_produto:
-                produto['cor'].set('Carvalho')
-            elif 'Cinza' in detalhes_produto:
-                produto['cor'].set('Cinza')
-            elif 'Branco' in detalhes_produto:
-                produto['cor'].set('Branco')
-            elif 'Preto' in detalhes_produto:
-                produto['cor'].set('Preto')
-            elif 'Amadeirado' in detalhes_produto:
-                produto['cor'].set('Amadeirado')
-            
-            # Extrair número de gavetas se possível
-            import re
-            gavetas_match = re.search(r'(\d+)\s*gaveta', detalhes_produto)
-            if gavetas_match:
-                produto['gavetas'].delete(0, 'end')
-                produto['gavetas'].insert(0, gavetas_match.group(1))
-            
-            # Verificar se tem reforço
-            if 'reforço' in detalhes_produto.lower() or 'reforco' in detalhes_produto.lower():
-                produto['reforco_var'].set(True)
-                valor_base = float(valor_produto) - 15 if valor_produto > 15 else valor_produto
-            else:
-                valor_base = float(valor_produto) if valor_produto else 0
-            
-            # Definir valor
-            if valor_base > 0:
-                produto['valor'].delete(0, 'end')
-                produto['valor'].insert(0, f"{valor_base:.2f}")
-            
-            # Calcular total
-            produto['calcular_total']()
+            for i, linha in enumerate(linhas_produtos):
+                if linha.strip():  # Ignorar linhas vazias
+                    print(f"  Linha {i+1}: {linha}")
+                    produto = self._adicionar_produto()
+                    self._parsear_produto_da_linha(produto, linha)
         else:
             # Se não tem detalhes, criar produto vazio
             self._adicionar_produto()
+    
+    def _parsear_produto_da_linha(self, produto, linha):
+        """Parseia uma linha de detalhes e preenche os campos do produto"""
+        import re
+        
+        # Extrair tipo do produto
+        tipos = ['Caixa Linda Maravilhosa', 'Caixa Suprema', 'Caixa Encantada', 'Caixa Premium', 'Caixa Simples']
+        for tipo in tipos:
+            if tipo in linha:
+                produto['tipo'].set(tipo)
+                break
+        
+        # Extrair cor
+        cores = ['Carvalho', 'Cinza', 'Branco', 'Preto', 'Amadeirado', 'Personalizada']
+        for cor in cores:
+            if f'Cor: {cor}' in linha:
+                produto['cor'].set(cor)
+                break
+        
+        # Extrair número de gavetas
+        gavetas_match = re.search(r'(\d+)\s*gaveta', linha)
+        if gavetas_match:
+            produto['gavetas'].delete(0, 'end')
+            produto['gavetas'].insert(0, gavetas_match.group(1))
+        
+        # Extrair valor (buscar o valor em R$)
+        valor_match = re.search(r'R\$\s*([\d.,]+)', linha)
+        if valor_match:
+            valor_str = valor_match.group(1).replace('.', '').replace(',', '.')
+            try:
+                valor_total = float(valor_str)
+                
+                # Verificar se tem reforço para calcular valor base
+                if 'Com reforço' in linha:
+                    produto['reforco_var'].set(True)
+                    valor_base = valor_total - 15
+                else:
+                    produto['reforco_var'].set(False)
+                    valor_base = valor_total
+                
+                # Definir valor base
+                produto['valor'].delete(0, 'end')
+                produto['valor'].insert(0, f"{valor_base:.2f}")
+                
+            except ValueError:
+                print(f"Erro ao converter valor: {valor_str}")
+        
+        # Calcular total do produto
+        produto['calcular_total']()
     
     def _adicionar_produto(self):
         """Adiciona um novo produto ao formulário"""
@@ -620,13 +629,18 @@ class PedidosModal:
                 return
             
             cpf = campos['cpf'].get().strip()
-            if len(cpf) != 11 or not cpf.isdigit():
+            # Remover formatação do CPF para validação
+            cpf_numeros = cpf.replace('-', '').replace('.', '')
+            if cpf and (len(cpf_numeros) != 11 or not cpf_numeros.isdigit()):
                 messagebox.showerror("Erro", "CPF deve ter 11 dígitos!")
                 return
             
             if not self.produtos_list:
                 messagebox.showerror("Erro", "Adicione pelo menos um produto!")
                 return
+            
+            print(f"=== PRODUTOS LIST DEBUG ===")
+            print(f"Número de produtos: {len(self.produtos_list)}")
             
             # Processar produtos
             produtos_dados = []
@@ -638,6 +652,8 @@ class PedidosModal:
                 gavetas = produto['gavetas'].get() or "1"
                 valor = float(produto['valor'].get().replace(',', '.') or '0')
                 reforco = produto['reforco_var'].get()
+                
+                print(f"  Produto {i+1}: Tipo='{tipo}', Cor='{cor}', Gavetas='{gavetas}', Valor={valor}, Reforço={reforco}")
                 
                 if not tipo or valor <= 0:
                     messagebox.showerror("Erro", f"Produto {i+1}: Tipo e valor são obrigatórios!")
@@ -666,6 +682,13 @@ class PedidosModal:
                 'prazo': int(campos['prazo'].get() or '30')
             }
             
+            print(f"=== DADOS FINAIS ===")
+            print(f"Detalhes do produto: {dados['detalhes_produto']}")
+            print(f"Valor entrada: {dados['valor_entrada']}")
+            print(f"Frete: {dados['frete']}")
+            print(f"Forma pagamento: '{dados['forma_pagamento']}'")
+            print(f"Prazo: {dados['prazo']}")
+            
             if not pedido_data:  # NOVO PEDIDO
                 # Salvar no banco (sem gerar PDF)
                 db_manager.salvar_ordem(dados, "")
@@ -689,8 +712,13 @@ class PedidosModal:
                     'prazo': dados['prazo']
                 }
                 
+                print(f"=== EDITANDO PEDIDO ID: {pedido_id} ===")
+                print(f"Campos para atualização: {campos_atualizacao}")
+                
                 if pedido_id:
                     sucesso = db_manager.atualizar_pedido(pedido_id, campos_atualizacao)
+                    
+                    print(f"Resultado da atualização: {sucesso}")
                     
                     if sucesso:
                         messagebox.showinfo("Sucesso", f"OS #{numero_os} atualizada com sucesso!")
@@ -798,9 +826,11 @@ class PedidosModal:
                     messagebox.showerror("Erro", "Nome é obrigatório!")
                     return
                 
-                if cpf and (len(cpf) != 11 or not cpf.isdigit()):
-                    messagebox.showerror("Erro", "CPF deve ter 11 dígitos!")
-                    return
+                if cpf:
+                    cpf_numeros = cpf.replace('-', '').replace('.', '')
+                    if len(cpf_numeros) != 11 or not cpf_numeros.isdigit():
+                        messagebox.showerror("Erro", "CPF deve ter 11 dígitos!")
+                        return
                 
                 # Salvar no banco
                 numero = cliente_campos['numero'].get().strip()
