@@ -2,48 +2,51 @@
 Módulo de gerenciamento de pedidos em PyQt6
 """
 
+# Deprecated legacy module: use app.components.pedidos instead
+raise ImportError("'app.components.pedidos_pyqt' was removed. Use 'app.components.pedidos'.")
+
 from PyQt6.QtWidgets import QWidget, QVBoxLayout
 
-from .pedidos_interface import PedidosInterface
-from .pedidos_modal import PedidosModal
-from .pedidos_card import PedidosCard
-from .pedidos_actions import PedidosActions
+from .pedidos_interface_pyqt import PedidosInterface
+from .pedidos_modal_pyqt import PedidosModal
+from .pedidos_card_pyqt import PedidosCard
+from .pedidos_actions_pyqt import PedidosActions
 
-__all__ = ['PedidosInterface', 'PedidosModal', 'PedidosCard', 'PedidosActions', 'PedidosManager']
+__all__ = ['PedidosInterface', 'PedidosModal', 'PedidosCard', 'PedidosActions']
 
 # Classe principal que substitui o PedidosManager
 class PedidosManager(QWidget):
     """Classe principal que coordena todos os módulos de pedidos"""
-
+    
     def __init__(self, parent):
         super().__init__(parent)
         self.parent = parent
-
+        
         # Layout para o manager
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
-
+        
         # Criar e adicionar interface
         self.interface = PedidosInterface(self)
         layout.addWidget(self.interface)
-
+    
     # Métodos proxy para manter compatibilidade
     def carregar_dados(self):
         """Carrega os dados dos pedidos"""
         return self.interface.carregar_dados()
-
+    
     def novo_pedido(self):
         """Abre modal para novo pedido"""
         return self.interface.novo_pedido()
-
+    
     def editar_pedido(self, pedido_id):
         """Abre modal para editar pedido"""
         return self.interface.editar_pedido(pedido_id)
-
+    
     def excluir_pedido(self, pedido_id):
         """Exclui um pedido"""
         return self.interface.excluir_pedido(pedido_id)
-
+    
     def atualizar_status(self, pedido_id, novo_status):
         """Atualiza o status de um pedido"""
         return self.interface.atualizar_status(pedido_id, novo_status)

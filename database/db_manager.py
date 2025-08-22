@@ -10,6 +10,7 @@ from datetime import datetime
 from .db_setup import DatabaseSetup
 from .order_crud import OrderCRUD
 from .report_queries import ReportQueries
+from .products_crud import ProductsCRUD
 
 
 class DatabaseManager:
@@ -30,6 +31,7 @@ class DatabaseManager:
             # Inicializar módulos especializados
             self.order_crud = OrderCRUD(self.cursor, self.conn)
             self.reports = ReportQueries(self.cursor)
+            self.products = ProductsCRUD(self.cursor, self.conn)
             
             # Criar tabelas
             DatabaseSetup.criar_tabelas(self.cursor)
@@ -96,19 +98,21 @@ class DatabaseManager:
                     (id_, numero_os, nome_cliente, telefone_cliente, detalhes_produto,
                      valor_produto, valor_entrada, frete, forma_pagamento,
                      prazo, data_criacao, dados_json) = row
-                    
-                    # Status do JSON (mais rápido)
+
+                    # Campos do JSON (status, desconto, etc.)
                     status = 'em produção'
+                    desconto = 0.0
                     if dados_json:
                         try:
                             dados = json.loads(dados_json)
                             status = dados.get('status', 'em produção')
+                            desconto = float(dados.get('desconto', 0) or 0)
                         except:
                             pass  # Usar padrão se falhar
-                    
-                    # Calcular valor total
-                    valor_total = (valor_produto or 0) + (frete or 0)
-                    
+
+                    # Calcular valor total (produtos + frete - desconto)
+                    valor_total = (valor_produto or 0) + (frete or 0) - (desconto or 0)
+
                     # Objeto pedido completo para edição
                     pedido = {
                         'id': id_,
@@ -123,7 +127,10 @@ class DatabaseManager:
                         'valor_total': float(valor_total),
                         'prazo': int(prazo or 30),
                         'data_criacao': data_criacao or '',
-                        'status': status
+                        'status': status,
+                        'desconto': float(desconto or 0),
+                        'cor': (dados.get('cor') if 'dados' in locals() else ''),
+                        'reforco': bool(dados.get('reforco')) if 'dados' in locals() else False
                     }
                     pedidos.append(pedido)
             
@@ -132,6 +139,25 @@ class DatabaseManager:
         except Exception as e:
             print(f"Erro ao listar pedidos: {e}")
             return []
+
+    def atualizar_json_campos(self, pedido_id, updates: dict) -> bool:
+        """Atualiza campos específicos dentro de dados_json da ordem."""
+        try:
+            self.cursor.execute('SELECT dados_json FROM ordem_servico WHERE id = ?', (pedido_id,))
+            row = self.cursor.fetchone()
+            dados = {}
+            if row and row[0]:
+                try:
+                    dados = json.loads(row[0])
+                except Exception:
+                    dados = {}
+            dados.update(updates or {})
+            self.cursor.execute('UPDATE ordem_servico SET dados_json = ? WHERE id = ?', (json.dumps(dados), pedido_id))
+            self.conn.commit()
+            return True
+        except Exception as e:
+            print(f"Erro ao atualizar JSON da OS: {e}")
+            return False
 
     def buscar_ordem_por_numero(self, numero_os):
         """Busca ordem por número usando módulo CRUD"""
@@ -179,6 +205,51 @@ class DatabaseManager:
         except Exception as e:
             print(f"Erro ao listar clientes: {e}")
             return []
+
+    def atualizar_cliente(self, cliente_id, nome, cpf=None, telefone=None, email=None,
+                          endereco=None, referencia=None, rua=None, numero=None,
+                          bairro=None, cidade=None, estado=None):
+        """Atualiza um cliente existente na tabela de clientes.
+        Parâmetro 'endereco' mantido para compatibilidade e é ignorado, pois os campos estão normalizados.
+        """
+        try:
+            self.cursor.execute(
+                """
+                UPDATE clientes
+                SET nome = ?, cpf = ?, telefone = ?, email = ?,
+                    rua = ?, numero = ?, bairro = ?, cidade = ?, estado = ?, referencia = ?
+                WHERE id = ?
+                """,
+                (nome, cpf, telefone, email, rua, numero, bairro, cidade, estado, referencia, int(cliente_id))
+            )
+            self.conn.commit()
+            return True
+        except Exception as e:
+            print(f"Erro ao atualizar cliente: {e}")
+            return False
+
+    def deletar_cliente(self, cliente_id):
+        """Exclui um cliente pelo ID."""
+        try:
+            self.cursor.execute("DELETE FROM clientes WHERE id = ?", (int(cliente_id),))
+            self.conn.commit()
+            return True
+        except Exception as e:
+            print(f"Erro ao deletar cliente: {e}")
+            return False
+
+    # ---------- Produtos (Catálogo) ----------
+    def inserir_produto(self, nome, preco, descricao="", categoria=""):
+        return self.products.inserir_produto(nome, preco, descricao, categoria)
+
+    def listar_produtos(self, busca="", limite=200):
+        return self.products.listar_produtos(busca, limite)
+
+    def atualizar_produto(self, produto_id, nome, preco, descricao="", categoria=""):
+        return self.products.atualizar_produto(produto_id, nome, preco, descricao, categoria)
+
+    def deletar_produto(self, produto_id):
+        return self.products.deletar_produto(produto_id)
 
     def obter_resumo_mes(self, ano, mes):
         """Obtém resumo de vendas do mês"""

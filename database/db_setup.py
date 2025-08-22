@@ -77,16 +77,23 @@ class DatabaseSetup:
             cursor.execute('''
             CREATE INDEX IF NOT EXISTS idx_cliente_cpf ON clientes(cpf)
             ''')
-            
-        except Exception as e:
-            print(f"Erro ao criar tabelas: {e}")
-            raise
-            
+
+            # Tabela de produtos (catálogo)
             cursor.execute('''
-            CREATE INDEX IF NOT EXISTS idx_nome_cliente ON ordem_servico(nome_cliente)
+            CREATE TABLE IF NOT EXISTS produtos (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                nome TEXT NOT NULL,
+                preco REAL NOT NULL DEFAULT 0,
+                descricao TEXT,
+                categoria TEXT,
+                criado_em TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(nome) ON CONFLICT IGNORE
+            )
             ''')
-            
-            return True
+
+            cursor.execute('''
+            CREATE INDEX IF NOT EXISTS idx_produtos_nome ON produtos(nome)
+            ''')
             
         except Exception as e:
             print(f"Erro ao criar tabelas: {e}")

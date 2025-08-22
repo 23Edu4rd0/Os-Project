@@ -1,910 +1,1030 @@
 """
-Gerenciamento de modais de pedidos
+Modal de pedidos em PyQt6
 """
 
-import tkinter as tk
-import ttkbootstrap as tb
-from ttkbootstrap.constants import SUCCESS, INFO, SECONDARY
-from tkinter import messagebox
+from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel, 
+                             QPushButton, QLineEdit, QTextEdit, QComboBox,
+                             QGroupBox, QFormLayout, QScrollArea, QWidget,
+                             QFrame, QMessageBox, QCompleter, QListWidget,
+                             QListWidgetItem)
+from PyQt6.QtCore import Qt, QStringListModel, pyqtSignal
+from PyQt6.QtGui import QFont
 
 from database import db_manager
 from documents.os_pdf import OrdemServicoPDF
 from app.numero_os import Contador
 
 
-class PedidosModal:
-    """Gerencia modais de criação e edição de pedidos"""
+class PedidosModal(QDialog):
+    """Gerencia os modais de pedidos"""
+    
+    # Sinal para notificar quando um pedido foi salvo
+    pedido_salvo = pyqtSignal()
     
     def __init__(self, interface):
+        super().__init__()
         self.interface = interface
-        self.produtos_list = []
-    
+        # Inicializações de estado devem ficar dentro do __init__
+        self.produtos_list = []  # [{"descricao": str, "valor": float}]
+        self.clientes_dict = {}
+        self.produtos_dict = {}
+        
     def abrir_modal_novo(self):
         """Abre modal para novo pedido"""
-        self._abrir_modal_pedido_completo()
-    
-    def abrir_modal_edicao(self, pedido):
+        self._carregar_clientes()
+        self._criar_modal_completo()
+        
+    def abrir_modal_edicao(self, pedido_id):
         """Abre modal para editar pedido"""
-        self._abrir_modal_pedido_completo(pedido)
+        # Buscar dados do pedido
+        try:
+            pedidos = db_manager.listar_pedidos_ordenados_por_prazo()
+            pedido_data = None
+            for pedido in pedidos:
+                if pedido.get('id') == pedido_id:
+                    pedido_data = pedido
+                    break
+            
+            if pedido_data:
+                self._carregar_clientes()
+                self._criar_modal_completo(pedido_data)
+            else:
+                QMessageBox.warning(self, "Erro", "Pedido não encontrado!")
+                
+        except Exception as e:
+            QMessageBox.critical(self, "Erro", f"Erro ao carregar pedido: {e}")
     
-    def _abrir_modal_pedido_completo(self, pedido_data=None):
+    def _carregar_clientes(self):
+        """Carrega lista de clientes do banco de dados"""
+        try:
+            clientes = db_manager.listar_clientes()
+            self.clientes_dict = {}
+            
+            for cliente in clientes:
+                if len(cliente) >= 7:
+                    cliente_id = cliente[0]
+                    nome = cliente[1] or ''
+                    cpf = cliente[2] or ''
+                    telefone = cliente[3] or ''
+                    email = cliente[4] or ''
+                    rua = cliente[5] or ''
+                    numero = cliente[6] or ''
+                    
+                    if nome:
+                        # Exibir como: Nome | (Telefone)
+                        telefone_fmt = self._format_phone(telefone)
+                        nome_exibicao = f"{nome} | {telefone_fmt}" if telefone_fmt else nome
+                        
+                        self.clientes_dict[nome_exibicao] = {
+                            'id': cliente_id,
+                            'nome': nome,
+                            'cpf': cpf,
+                            'telefone': telefone,
+                            'email': email,
+                            'rua': rua,
+                            'numero': numero
+                        }
+                        
+        except Exception as e:
+            print(f"Erro ao carregar clientes: {e}")
+            self.clientes_dict = {}
+    
+    def _criar_modal_completo(self, pedido_data=None):
         """Cria modal completo para pedido"""
-        # Criar janela
-        win = tb.Toplevel(self.interface.parent)
-        titulo = f"Editar OS #{pedido_data.get('numero_os')}" if pedido_data else "Nova Ordem de Serviço"
-        win.title(titulo)
-        win.transient(self.interface.parent)
-        win.grab_set()
-        win.geometry("900x700")
-
-        # Setup do scroll
-        canvas, scrollable_frame = self._setup_modal_scroll(win)
-
-        # Criar formulário
-        frame = tb.Frame(scrollable_frame, padding=20)
-        frame.pack(fill="both", expand=True)
-
-        # Número da OS: NÃO reservar número para pedidos novos aqui.
-        # Se for edição, usamos o número existente; se for novo, deixamos None
-        # e só geramos/salvamos o número no momento em que o pedido for efetivamente gravado.
+        # Configurar janela
+        is_edit = pedido_data is not None
         numero_os = pedido_data.get('numero_os') if pedido_data else None
+        
+        titulo = f"Editar OS #{numero_os}" if is_edit else "Nova Ordem de Serviço"
+        self.setWindowTitle(titulo)
+        self.setFixedSize(900, 700)
+        
+        # Layout principal com scroll
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(10, 10, 10, 10)
+        
+        # Área de scroll
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        
+        # Configurar scroll suave para modal
+        scroll_area.verticalScrollBar().setSingleStep(15)
+        scroll_area.verticalScrollBar().setPageStep(60)
+
+        # Widget de conteúdo
+        content_widget = QWidget()
+        content_layout = QVBoxLayout(content_widget)
+        content_layout.setContentsMargins(20, 20, 20, 20)
+        content_layout.setSpacing(15)
 
         # Header
-        self._criar_header(frame, numero_os, pedido_data is not None)
+        self._criar_header(content_layout, numero_os, is_edit)
 
         # Formulário
-        campos = self._criar_formulario_cliente(frame, pedido_data)
-        self._criar_secao_produtos(frame, pedido_data)
-        self._criar_secao_pagamento(frame, campos, pedido_data)
-        self._criar_resumo_financeiro(frame, campos)
-        self._criar_botoes_finais(frame, win, campos, numero_os, pedido_data)
+        self.campos = {}
+        self._criar_secao_cliente(content_layout, pedido_data)
+        self._criar_secao_produtos(content_layout, pedido_data)
+        self._criar_secao_pagamento(content_layout, pedido_data)
+        self._criar_secao_resumo(content_layout)
 
-        # Configurar scroll final
-        win.after(100, lambda: canvas.configure(scrollregion=canvas.bbox("all")))
+        # Botões finais
+        self._criar_botoes(content_layout, numero_os, pedido_data)
+
+        # Configurar scroll
+        try:
+            scroll_area.setStyleSheet("QScrollArea{background:#2d2d2d;border:none;} QScrollArea > QWidget > QWidget {background:#2d2d2d;}")
+            scroll_area.viewport().setStyleSheet("background:#2d2d2d;")
+            content_widget.setStyleSheet("background:#2d2d2d;")
+        except Exception:
+            pass
+        scroll_area.setWidget(content_widget)
+        main_layout.addWidget(scroll_area)
+
+        # Aplicar estilo
+        self._aplicar_estilo()
+
+        # Executar modal
+        self.exec()
     
-    def _setup_modal_scroll(self, win):
-        """Configura scroll no modal"""
-        canvas = tk.Canvas(win)
-        scrollbar = tb.Scrollbar(win, orient="vertical", command=canvas.yview)
-        scrollable_frame = tb.Frame(canvas)
-        
-        scrollable_frame.bind(
-            "<Configure>",
-            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
-        )
-        
-        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
-        canvas.configure(yscrollcommand=scrollbar.set)
-        
-        canvas.pack(side="left", fill="both", expand=True)
-        scrollbar.pack(side="right", fill="y")
-        
-        # Scroll com mouse
-        def scroll_mouse(event):
-            canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
-        
-        canvas.bind("<MouseWheel>", scroll_mouse)
-        scrollable_frame.bind("<MouseWheel>", scroll_mouse)
-        
-        return canvas, scrollable_frame
-    
-    def _criar_header(self, parent, numero_os, is_edit):
+    def _criar_header(self, layout, numero_os, is_edit):
         """Cria header do modal"""
-        header_frame = tb.Frame(parent)
-        header_frame.pack(fill="x", pady=(0, 20))
-        # Se não for edição (novo pedido) e numero_os for None, não mostrar número ainda
+        header_frame = QFrame()
+        header_layout = QVBoxLayout(header_frame)
+        header_layout.setContentsMargins(0, 0, 0, 10)
+        
         if is_edit and numero_os is not None:
             titulo = f"Editar Ordem de Serviço #{numero_os:05d}"
         elif is_edit:
             titulo = "Editar Ordem de Serviço"
         else:
             titulo = f"Nova Ordem de Serviço" if numero_os is None else f"Nova Ordem de Serviço #{numero_os:05d}"
-        tb.Label(header_frame, text=titulo, 
-                font=("Arial", 16, "bold")).pack()
+            
+        titulo_label = QLabel(titulo)
+        titulo_label.setFont(QFont("Segoe UI", 16, QFont.Weight.Bold))
+        titulo_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        titulo_label.setStyleSheet("color: #ffffff; padding: 10px;")
+        header_layout.addWidget(titulo_label)
+        
+        layout.addWidget(header_frame)
     
-    def _criar_formulario_cliente(self, parent, pedido_data):
-        """Cria formulário de dados do cliente"""
-        cliente_frame = tb.LabelFrame(parent, text="👤 Dados do Cliente", padding=15)
-        cliente_frame.pack(fill="x", pady=(0, 15))
-        
-        campos = {}
-        
-        # Buscar clientes para autocomplete
-        try:
-            clientes = db_manager.listar_clientes()
-            # clientes são tuplas: (id, nome, cpf, telefone, email, rua, numero, bairro, cidade, estado, referencia)
-            clientes_dict = {}
-            nomes_clientes = []
-            for cliente in clientes:
-                if len(cliente) >= 7:  # Precisa ter pelo menos 7 campos para acessar numero
-                    cliente_id = cliente[0]
-                    nome = cliente[1] or ''
-                    cpf = cliente[2] or ''
-                    telefone = cliente[3] or ''
-                    numero = cliente[6] or ''  # campo numero do endereço
-                    
-                    if nome:
-                        # Criar nome de exibição com últimos 2 dígitos do TELEFONE
-                        nome_exibicao = nome
-                        if telefone and str(telefone).isdigit():
-                            # Pegar apenas os dígitos do telefone
-                            telefone_digitos = ''.join(filter(str.isdigit, str(telefone)))
-                            if len(telefone_digitos) >= 2:
-                                ultimos_digitos = telefone_digitos[-2:]
-                                nome_exibicao = f"{nome} {ultimos_digitos}"
-                        
-                        clientes_dict[nome_exibicao] = {
-                            'id': cliente_id,
-                            'nome': nome,
-                            'cpf': cpf,
-                            'telefone': telefone,
-                            'numero': numero
-                        }
-                        nomes_clientes.append(nome_exibicao)
-        except Exception as e:
-            print(f"Erro ao carregar clientes: {e}")
-            clientes_dict = {}
-            nomes_clientes = []
+    def _criar_secao_cliente(self, layout, pedido_data):
+        """Cria seção de dados do cliente"""
+        cliente_group = QGroupBox("👤 Dados do Cliente")
+        cliente_group.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
+        cliente_layout = QFormLayout(cliente_group)
         
         # Nome do cliente com autocomplete
-        tb.Label(cliente_frame, text="Nome do Cliente:", font=("Arial", 11, "bold")).pack(anchor="w")
-        cliente_frame_nome = tb.Frame(cliente_frame)
-        cliente_frame_nome.pack(fill="x", pady=(0, 10))
+        self.campos['nome_cliente'] = QLineEdit()
+        self.campos['nome_cliente'].setPlaceholderText("Digite o nome do cliente...")
         
-        campos['nome_cliente'] = tb.Combobox(cliente_frame_nome, values=nomes_clientes, font=("Arial", 11))
-        campos['nome_cliente'].pack(side="left", fill="x", expand=True, padx=(0, 5))
-        
-        # Botão para novo cliente
-        btn_novo_cliente = tb.Button(cliente_frame_nome, text="➕", bootstyle=SUCCESS,
-                                    command=lambda: self._abrir_novo_cliente_modal(parent.winfo_toplevel(), campos, clientes_dict, None))
-        btn_novo_cliente.pack(side="right")
-        
-        # Seção de sugestão para novo cliente (inicialmente oculta)
-        self.sugestao_frame = tb.Frame(cliente_frame)
-        self.sugestao_label = tb.Label(self.sugestao_frame, 
-                                      text="", 
-                                      font=("Arial", 10), 
-                                      foreground="#ff6b35",
-                                      background="#fff3e0")
-        self.sugestao_label.pack(side="left", padx=5, pady=3)
-        
-        self.btn_criar_cliente = tb.Button(self.sugestao_frame, 
-                                          text="Criar Cliente", 
-                                          bootstyle="warning-outline",
-                                          command=lambda: self._criar_cliente_da_sugestao(parent.winfo_toplevel(), campos, clientes_dict))
-        self.btn_criar_cliente.pack(side="right", padx=5)
-        
-        self.btn_ignorar = tb.Button(self.sugestao_frame, 
-                                    text="Ignorar", 
-                                    bootstyle="secondary-outline",
-                                    command=self._ocultar_sugestao)
-        self.btn_ignorar.pack(side="right")
-        
-        # Inicialmente oculta
-        self.sugestao_frame.pack_forget()
-        
-        # Bind para preencher dados automaticamente
-        def preencher_dados_cliente(event):
-            nome_selecionado = campos['nome_cliente'].get()
-            if nome_selecionado in clientes_dict:
-                cliente = clientes_dict[nome_selecionado]
-                campos['cpf'].delete(0, 'end')
-                campos['cpf'].insert(0, cliente.get('cpf', ''))
-                campos['telefone'].delete(0, 'end')
-                campos['telefone'].insert(0, cliente.get('telefone', ''))
-                # Ocultar sugestão se cliente válido for selecionado
-                self._ocultar_sugestao()
-        
-        def verificar_cliente_inexistente(event):
-            """Verifica se o cliente digitado não existe e mostra sugestão inline"""
-            nome_digitado = campos['nome_cliente'].get().strip()
-            if nome_digitado and nome_digitado not in clientes_dict and len(nome_digitado) > 2:
-                # Extrair apenas o nome (sem dígitos) se o usuário digitou algo
-                nome_limpo = nome_digitado
-                if nome_digitado and len(nome_digitado.split()) > 1:
-                    partes = nome_digitado.split()
-                    ultima_parte = partes[-1]
-                    # Se a última parte são apenas dígitos, remover
-                    if ultima_parte.isdigit():
-                        nome_limpo = ' '.join(partes[:-1])
-                
-                # Mostrar sugestão inline apenas no FocusOut
-                if event.type == '10':  # FocusOut event
-                    self._mostrar_sugestao(nome_limpo)
-            else:
-                # Se o cliente existe ou campo está vazio, ocultar sugestão
-                self._ocultar_sugestao()
-        
-        campos['nome_cliente'].bind('<<ComboboxSelected>>', preencher_dados_cliente)
-        campos['nome_cliente'].bind('<FocusOut>', verificar_cliente_inexistente)
-        
-        # CPF e Telefone
-        cpf_tel_frame = tb.Frame(cliente_frame)
-        cpf_tel_frame.pack(fill="x", pady=(0, 10))
-        cpf_tel_frame.columnconfigure(0, weight=1)
-        cpf_tel_frame.columnconfigure(1, weight=1)
-        
-        # CPF
-        cpf_frame = tb.Frame(cpf_tel_frame)
-        cpf_frame.grid(row=0, column=0, sticky="ew", padx=(0, 10))
-        tb.Label(cpf_frame, text="CPF:", font=("Arial", 11, "bold")).pack(anchor="w")
-        campos['cpf'] = tb.Entry(cpf_frame, font=("Arial", 11))
-        campos['cpf'].pack(fill="x")
-        
-        # Telefone
-        tel_frame = tb.Frame(cpf_tel_frame)
-        tel_frame.grid(row=0, column=1, sticky="ew")
-        tb.Label(tel_frame, text="Telefone:", font=("Arial", 11, "bold")).pack(anchor="w")
-        campos['telefone'] = tb.Entry(tel_frame, font=("Arial", 11))
-        campos['telefone'].pack(fill="x")
-        
-        # Preencher dados se editando
-        if pedido_data:
-            campos['nome_cliente'].set(pedido_data.get('nome_cliente', ''))
-            campos['cpf'].insert(0, pedido_data.get('cpf_cliente', ''))
-            campos['telefone'].insert(0, pedido_data.get('telefone_cliente', ''))
-        
-        return campos
-    
-    def _criar_secao_produtos(self, parent, pedido_data):
-        """Cria seção de produtos"""
-        produtos_frame = tb.LabelFrame(parent, text="📦 Produtos", padding=15)
-        produtos_frame.pack(fill="x", pady=(0, 15))
-        
-        # Container para lista de produtos
-        produtos_container = tb.Frame(produtos_frame)
-        produtos_container.pack(fill="x", pady=(0, 10))
-        
-        self.produtos_list = []
-        self.produtos_container = produtos_container
-        
-        # Se é edição, carregar dados dos produtos
-        if pedido_data:
-            self._carregar_produtos_existentes(pedido_data)
-        else:
-            # Adicionar primeiro produto vazio
-            self._adicionar_produto()
-        
-        # Botão para adicionar mais produtos
-        btn_adicionar = tb.Button(produtos_frame, text="➕ Adicionar Produto", 
-                                 bootstyle="info-outline", command=self._adicionar_produto)
-        btn_adicionar.pack(anchor="e")
-    
-    def _carregar_produtos_existentes(self, pedido_data):
-        """Carrega produtos existentes na edição - VERSÃO CORRIGIDA PARA MÚLTIPLOS PRODUTOS"""
-        detalhes_produto = pedido_data.get('detalhes_produto', '')
-        
-        if detalhes_produto:
-            # Dividir os detalhes em linhas - cada linha é um produto
-            linhas_produtos = detalhes_produto.split('\\n')
-            print(f"DEBUG: Carregando {len(linhas_produtos)} produtos:")
-            
-            for i, linha in enumerate(linhas_produtos):
-                if linha.strip():  # Ignorar linhas vazias
-                    print(f"  Linha {i+1}: {linha}")
-                    produto = self._adicionar_produto()
-                    self._parsear_produto_da_linha(produto, linha)
-        else:
-            # Se não tem detalhes, criar produto vazio
-            self._adicionar_produto()
-    
-    def _parsear_produto_da_linha(self, produto, linha):
-        """Parseia uma linha de detalhes e preenche os campos do produto"""
-        import re
-        
-        # Extrair tipo do produto
-        tipos = ['Caixa Linda Maravilhosa', 'Caixa Suprema', 'Caixa Encantada', 'Caixa Premium', 'Caixa Simples']
-        for tipo in tipos:
-            if tipo in linha:
-                produto['tipo'].set(tipo)
-                break
-        
-        # Extrair cor
-        cores = ['Carvalho', 'Cinza', 'Branco', 'Preto', 'Amadeirado', 'Personalizada']
-        for cor in cores:
-            if f'Cor: {cor}' in linha:
-                produto['cor'].set(cor)
-                break
-        
-        # Extrair número de gavetas
-        gavetas_match = re.search(r'(\d+)\s*gaveta', linha)
-        if gavetas_match:
-            produto['gavetas'].delete(0, 'end')
-            produto['gavetas'].insert(0, gavetas_match.group(1))
-        
-        # Extrair valor (buscar o valor em R$)
-        valor_match = re.search(r'R\$\s*([\d.,]+)', linha)
-        if valor_match:
-            valor_str = valor_match.group(1).replace('.', '').replace(',', '.')
+        # Configurar autocomplete
+        if self.clientes_dict:
+            self.clientes_completer = QCompleter(list(self.clientes_dict.keys()))
+            self.clientes_completer.setCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
+            self.clientes_completer.setFilterMode(Qt.MatchFlag.MatchContains)
+            self.campos['nome_cliente'].setCompleter(self.clientes_completer)
+            # Preenche campos ao escolher opção do autocomplete
             try:
-                valor_total = float(valor_str)
-                
-                # Verificar se tem reforço para calcular valor base
-                if 'Com reforço' in linha:
-                    produto['reforco_var'].set(True)
-                    valor_base = valor_total - 15
-                else:
-                    produto['reforco_var'].set(False)
-                    valor_base = valor_total
-                
-                # Definir valor base
-                produto['valor'].delete(0, 'end')
-                produto['valor'].insert(0, f"{valor_base:.2f}")
-                
-            except ValueError:
-                print(f"Erro ao converter valor: {valor_str}")
-        
-        # Calcular total do produto
-        produto['calcular_total']()
-    
-    def _adicionar_produto(self):
-        """Adiciona um novo produto ao formulário"""
-        produto_idx = len(self.produtos_list)
-        
-        # Separador se não for o primeiro
-        if produto_idx > 0:
-            separador = tb.Separator(self.produtos_container, orient="horizontal")
-            separador.pack(fill="x", pady=10)
-        
-        # Frame do produto
-        produto_frame = tb.Frame(self.produtos_container)
-        produto_frame.pack(fill="x", pady=(0, 10))
-        
-        # Header do produto
-        titulo_frame = tb.Frame(produto_frame)
-        titulo_frame.pack(fill="x", pady=(0, 5))
-        
-        tb.Label(titulo_frame, text=f"Produto {produto_idx + 1}", 
-                font=("Arial", 11, "bold")).pack(side="left")
-        
-        # Botão remover (só se não for o primeiro)
-        if produto_idx > 0:
-            btn_remover = tb.Button(titulo_frame, text="❌", bootstyle="danger-outline",
-                                   command=lambda pf=produto_frame: self._remover_produto(pf))
-            btn_remover.pack(side="right")
-        
-        # Linha 1: Tipo e Cor
-        linha1 = tb.Frame(produto_frame)
-        linha1.pack(fill="x", pady=(0, 5))
-        linha1.columnconfigure(0, weight=1)
-        linha1.columnconfigure(1, weight=1)
-        
-        # Tipo
-        tipo_frame = tb.Frame(linha1)
-        tipo_frame.grid(row=0, column=0, sticky="ew", padx=(0, 5))
-        tb.Label(tipo_frame, text="Tipo:", font=("Arial", 10, "bold")).pack(anchor="w")
-        tipo_var = tb.Combobox(tipo_frame, values=[
-            "Caixa Linda Maravilhosa", "Caixa Suprema", "Caixa Encantada",
-            "Caixa Premium", "Caixa Simples", "Outro"
-        ])
-        tipo_var.pack(fill="x")
-        
-        # Cor
-        cor_frame = tb.Frame(linha1)
-        cor_frame.grid(row=0, column=1, sticky="ew", padx=(5, 0))
-        tb.Label(cor_frame, text="Cor:", font=("Arial", 10, "bold")).pack(anchor="w")
-        cor_var = tb.Combobox(cor_frame, values=[
-            "Carvalho", "Cinza", "Branco", "Preto", "Amadeirado", "Personalizada"
-        ])
-        cor_var.pack(fill="x")
-        
-        # Linha 2: Gavetas, Valor e Reforço
-        linha2 = tb.Frame(produto_frame)
-        linha2.pack(fill="x", pady=(0, 5))
-        linha2.columnconfigure(0, weight=1)
-        linha2.columnconfigure(1, weight=1)
-        linha2.columnconfigure(2, weight=1)
-        
-        # Gavetas
-        gavetas_frame = tb.Frame(linha2)
-        gavetas_frame.grid(row=0, column=0, sticky="ew", padx=(0, 5))
-        tb.Label(gavetas_frame, text="Gavetas:", font=("Arial", 10, "bold")).pack(anchor="w")
-        gavetas_var = tb.Spinbox(gavetas_frame, from_=1, to=20)
-        gavetas_var.pack(fill="x")
-        gavetas_var.set("1")
-        
-        # Valor
-        valor_frame = tb.Frame(linha2)
-        valor_frame.grid(row=0, column=1, sticky="ew", padx=(5, 5))
-        tb.Label(valor_frame, text="Valor (R$):", font=("Arial", 10, "bold")).pack(anchor="w")
-        valor_var = tb.Entry(valor_frame)
-        valor_var.pack(fill="x")
-        valor_var.insert(0, "0,00")
-        
-        # Reforço
-        reforco_frame = tb.Frame(linha2)
-        reforco_frame.grid(row=0, column=2, sticky="ew", padx=(5, 0))
-        tb.Label(reforco_frame, text="Extras:", font=("Arial", 10, "bold")).pack(anchor="w")
-        reforco_var = tk.BooleanVar()
-        reforco_check = tb.Checkbutton(reforco_frame, text="Reforço (+R$15)", 
-                                      variable=reforco_var, bootstyle="success")
-        reforco_check.pack(anchor="w")
-        
-        # Label total do produto
-        total_label = tb.Label(linha2, text="Total: R$ 0,00", 
-                              font=("Arial", 10, "bold"), foreground="#2E8B57")
-        total_label.grid(row=1, column=0, columnspan=3, sticky="ew", pady=(5, 0))
-        
-        # Função para calcular total do produto
-        def calcular_total_produto():
+                self.clientes_completer.activated[str].connect(self._on_cliente_completer_activated)
+            except Exception:
+                pass
+            # Atualiza endereço conforme digita/nome bate uma chave
+            self.campos['nome_cliente'].textChanged.connect(self._on_cliente_selecionado)
+            # Também tentar preencher ao terminar a edição
             try:
-                valor_base = float(valor_var.get().replace(',', '.') or '0')
-                reforco = 15.0 if reforco_var.get() else 0.0
-                total = valor_base + reforco
-                total_label.config(text=f"Total: R$ {total:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.'))
-                if hasattr(self, 'calcular_resumo'):
-                    self.calcular_resumo()
-            except:
-                total_label.config(text="Total: R$ 0,00")
-        
-        # Binds
-        valor_var.bind('<KeyRelease>', lambda e: calcular_total_produto())
-        reforco_var.trace('w', lambda *args: calcular_total_produto())
-        
-        # Dados do produto
-        produto_data = {
-            'frame': produto_frame,
-            'tipo': tipo_var,
-            'cor': cor_var,
-            'gavetas': gavetas_var,
-            'valor': valor_var,
-            'reforco_var': reforco_var,
-            'total_label': total_label,
-            'calcular_total': calcular_total_produto
-        }
-        
-        self.produtos_list.append(produto_data)
-        
-        return produto_data
-    
-    def _remover_produto(self, produto_frame):
-        """Remove um produto da lista"""
-        for i, produto in enumerate(self.produtos_list):
-            if produto['frame'] == produto_frame:
-                self.produtos_list.pop(i)
-                produto_frame.destroy()
-                break
-        
-        # Renumerar produtos
-        for i, produto in enumerate(self.produtos_list):
-            titulo_frame = produto['frame'].winfo_children()[0]
-            titulo_label = titulo_frame.winfo_children()[0]
-            titulo_label.config(text=f"Produto {i + 1}")
-        
-        if hasattr(self, 'calcular_resumo'):
-            self.calcular_resumo()
-    
-    def _criar_secao_pagamento(self, parent, campos, pedido_data):
-        """Cria seção de pagamento"""
-        pagamento_frame = tb.LabelFrame(parent, text="💰 Pagamento e Entrega", padding=15)
-        pagamento_frame.pack(fill="x", pady=(0, 15))
-        
-        # Linha 1: Entrada e Frete
-        linha1 = tb.Frame(pagamento_frame)
-        linha1.pack(fill="x", pady=(0, 8))
-        linha1.columnconfigure(0, weight=1)
-        linha1.columnconfigure(1, weight=1)
-        
-        # Entrada
-        entrada_frame = tb.Frame(linha1)
-        entrada_frame.grid(row=0, column=0, sticky="ew", padx=(0, 10))
-        tb.Label(entrada_frame, text="Valor da Entrada (R$):", font=("Arial", 11, "bold")).pack(anchor="w")
-        campos['valor_entrada'] = tb.Entry(entrada_frame, font=("Arial", 11))
-        campos['valor_entrada'].pack(fill="x")
-        
-        # Frete
-        frete_frame = tb.Frame(linha1)
-        frete_frame.grid(row=0, column=1, sticky="ew")
-        tb.Label(frete_frame, text="Frete (R$):", font=("Arial", 11, "bold")).pack(anchor="w")
-        campos['frete'] = tb.Entry(frete_frame, font=("Arial", 11))
-        campos['frete'].pack(fill="x")
-        
-        # Linha 2: Forma de pagamento e Prazo
-        linha2 = tb.Frame(pagamento_frame)
-        linha2.pack(fill="x", pady=(0, 8))
-        linha2.columnconfigure(0, weight=1)
-        linha2.columnconfigure(1, weight=1)
-        
-        # Forma de pagamento
-        pagamento_forma_frame = tb.Frame(linha2)
-        pagamento_forma_frame.grid(row=0, column=0, sticky="ew", padx=(0, 10))
-        tb.Label(pagamento_forma_frame, text="Forma de Pagamento:", font=("Arial", 11, "bold")).pack(anchor="w")
-        campos['pagamento'] = tb.Combobox(pagamento_forma_frame, values=["Pix", "Crédito", "Débito", "Dinheiro"], 
-                                         font=("Arial", 11), state="readonly")
-        campos['pagamento'].pack(fill="x")
-        
-        # Prazo
-        prazo_frame = tb.Frame(linha2)
-        prazo_frame.grid(row=0, column=1, sticky="ew")
-        tb.Label(prazo_frame, text="Prazo (dias):", font=("Arial", 11, "bold")).pack(anchor="w")
-        campos['prazo'] = tb.Entry(prazo_frame, font=("Arial", 11))
-        campos['prazo'].pack(fill="x")
-        
-        # Preencher dados se editando
-        if pedido_data:
-            campos['valor_entrada'].insert(0, str(pedido_data.get('valor_entrada', '0')))
-            campos['frete'].insert(0, str(pedido_data.get('frete', '0')))
-            campos['pagamento'].set(pedido_data.get('forma_pagamento', ''))
-            campos['prazo'].insert(0, str(pedido_data.get('prazo', '30')))
-    
-    def _criar_resumo_financeiro(self, parent, campos):
-        """Cria resumo financeiro"""
-        resumo_frame = tb.LabelFrame(parent, text="💲 Resumo Financeiro", padding=15)
-        resumo_frame.pack(fill="x", pady=(0, 15))
-        
-        # Labels de totais
-        self.total_produtos_label = tb.Label(resumo_frame, text="Total Produtos: R$ 0,00", 
-                                            font=("Arial", 12, "bold"), foreground="#2196F3")
-        self.total_produtos_label.pack(anchor="w")
-        
-        self.total_geral_label = tb.Label(resumo_frame, text="Total Geral: R$ 0,00", 
-                                         font=("Arial", 14, "bold"), foreground="#4CAF50")
-        self.total_geral_label.pack(anchor="w", pady=(5, 0))
-        
-        # Função para calcular resumo
-        def calcular_resumo():
-            try:
-                total_produtos = 0
-                for produto in self.produtos_list:
-                    try:
-                        valor_base = float(produto['valor'].get().replace(',', '.') or '0')
-                        reforco = 15.0 if produto['reforco_var'].get() else 0.0
-                        total_produtos += valor_base + reforco
-                    except:
-                        pass
-                
-                frete = float(campos['frete'].get().replace(',', '.') or '0')
-                total_geral = total_produtos + frete
-                
-                self.total_produtos_label.config(text=f"Total Produtos: R$ {total_produtos:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.'))
-                self.total_geral_label.config(text=f"Total Geral: R$ {total_geral:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.'))
-            except:
+                self.campos['nome_cliente'].editingFinished.connect(lambda: self._on_cliente_selecionado(self.campos['nome_cliente'].text()))
+            except Exception:
                 pass
         
-        self.calcular_resumo = calcular_resumo
-        
-        # Bind para recalcular
-        campos['frete'].bind('<KeyRelease>', lambda e: calcular_resumo())
-        
-        # Botão atualizar
-        tb.Button(resumo_frame, text="🔄 Atualizar Totais", bootstyle="info-outline", 
-                 command=calcular_resumo).pack(anchor="e", pady=(10, 0))
-    
-    def _criar_botoes_finais(self, parent, win, campos, numero_os, pedido_data):
-        """Cria botões finais do modal"""
-        # Separador
-        separador = tb.Separator(parent, orient="horizontal")
-        separador.pack(fill="x", pady=(20, 15))
-        
-        # Frame dos botões
-        btn_frame = tb.Frame(parent)
-        btn_frame.pack(fill="x", pady=(0, 20))
-        
-        btn_center = tb.Frame(btn_frame)
-        btn_center.pack(anchor="center")
-        
-        # Botão salvar
-        btn_salvar = tb.Button(btn_center, text="💾 SALVAR", bootstyle=SUCCESS, 
-                              command=lambda: self._salvar_pedido(campos, numero_os, pedido_data, win), 
-                              width=15)
-        btn_salvar.pack(side="left", padx=(0, 10))
-        
-        # Botão calcular
-        btn_calcular = tb.Button(btn_center, text="🔄 CALCULAR", bootstyle=INFO, 
-                                command=self.calcular_resumo, width=12)
-        btn_calcular.pack(side="left", padx=(0, 10))
-        
-        # Botão cancelar
-        btn_cancelar = tb.Button(btn_center, text="❌ CANCELAR", bootstyle=SECONDARY, 
-                                command=win.destroy, width=10)
-        btn_cancelar.pack(side="left")
-    
-    def _salvar_pedido(self, campos, numero_os, pedido_data, win):
-        """Salva o pedido no banco e gera PDF apenas se for novo pedido"""
-        try:
-            # Debug: verificar estrutura do pedido_data
-            print(f"DEBUG: pedido_data = {pedido_data}")
-            print(f"DEBUG: tipo = {type(pedido_data)}")
-            
-            # Gerar número da OS se for novo pedido
-            if not pedido_data:
-                contador = Contador()
-                numero_os = contador.proximo_numero()
-                pedido_id = None
-            else:
-                # pedido_data pode ser tuple ou dict
-                if isinstance(pedido_data, dict):
-                    numero_os = pedido_data.get('numero_os', 0)
-                    pedido_id = pedido_data.get('id')
-                    print(f"DEBUG: dict - numero_os={numero_os}, id={pedido_id}")
-                else:
-                    # Se for tupla, o primeiro elemento pode ser numero_os ou id
-                    numero_os = pedido_data[0] if len(pedido_data) > 0 else 0
-                    pedido_id = pedido_data[0] if len(pedido_data) > 0 else None  # Assumindo que o primeiro é o ID
-                    print(f"DEBUG: tuple - numero_os={numero_os}, id={pedido_id}")
-            
-            # Validações
-            if not campos['nome_cliente'].get().strip():
-                messagebox.showerror("Erro", "Nome do cliente é obrigatório!")
-                return
-            
-            cpf = campos['cpf'].get().strip()
-            # Remover formatação do CPF para validação
-            cpf_numeros = cpf.replace('-', '').replace('.', '')
-            if cpf and (len(cpf_numeros) != 11 or not cpf_numeros.isdigit()):
-                messagebox.showerror("Erro", "CPF deve ter 11 dígitos!")
-                return
-            
-            if not self.produtos_list:
-                messagebox.showerror("Erro", "Adicione pelo menos um produto!")
-                return
-            
-            print(f"=== PRODUTOS LIST DEBUG ===")
-            print(f"Número de produtos: {len(self.produtos_list)}")
-            
-            # Processar produtos
-            produtos_dados = []
-            total_produtos = 0
-            
-            for i, produto in enumerate(self.produtos_list):
-                tipo = produto['tipo'].get().strip()
-                cor = produto['cor'].get().strip()
-                gavetas = produto['gavetas'].get() or "1"
-                valor = float(produto['valor'].get().replace(',', '.') or '0')
-                reforco = produto['reforco_var'].get()
-                
-                print(f"  Produto {i+1}: Tipo='{tipo}', Cor='{cor}', Gavetas='{gavetas}', Valor={valor}, Reforço={reforco}")
-                
-                if not tipo or valor <= 0:
-                    messagebox.showerror("Erro", f"Produto {i+1}: Tipo e valor são obrigatórios!")
-                    return
-                
-                valor_final = valor + (15.0 if reforco else 0.0)
-                total_produtos += valor_final
-                
-                desc = f"{tipo} - Cor: {cor} - {gavetas} gaveta(s)"
-                if reforco:
-                    desc += " - Com reforço"
-                desc += f" - R$ {valor_final:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
-                produtos_dados.append(desc)
-            
-            # Dados finais
-            dados = {
-                'numero_os': numero_os,
-                'nome_cliente': campos['nome_cliente'].get().strip(),
-                'cpf_cliente': cpf,
-                'telefone_cliente': campos['telefone'].get().strip(),
-                'detalhes_produto': '\\n'.join(produtos_dados),
-                'valor_produto': total_produtos,
-                'valor_entrada': float(campos['valor_entrada'].get().replace(',', '.') or '0'),
-                'frete': float(campos['frete'].get().replace(',', '.') or '0'),
-                'forma_pagamento': campos['pagamento'].get().strip(),
-                'prazo': int(campos['prazo'].get() or '30')
-            }
-            
-            print(f"=== DADOS FINAIS ===")
-            print(f"Detalhes do produto: {dados['detalhes_produto']}")
-            print(f"Valor entrada: {dados['valor_entrada']}")
-            print(f"Frete: {dados['frete']}")
-            print(f"Forma pagamento: '{dados['forma_pagamento']}'")
-            print(f"Prazo: {dados['prazo']}")
-            
-            if not pedido_data:  # NOVO PEDIDO
-                # Salvar no banco (sem gerar PDF)
-                db_manager.salvar_ordem(dados, "")
-                
-                total_final = dados['valor_produto'] + dados['frete']
-                messagebox.showinfo("Sucesso", 
-                    f"OS #{numero_os} criada com sucesso!\\n\\n"
-                    f"Total: R$ {total_final:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.'))
-            
-            else:  # EDITANDO PEDIDO EXISTENTE
-                # Apenas atualizar banco de dados (sem gerar PDF)
-                campos_atualizacao = {
-                    'nome_cliente': dados['nome_cliente'],
-                    'cpf_cliente': dados['cpf_cliente'],
-                    'telefone_cliente': dados['telefone_cliente'],
-                    'detalhes_produto': dados['detalhes_produto'],
-                    'valor_produto': dados['valor_produto'],
-                    'valor_entrada': dados['valor_entrada'],
-                    'frete': dados['frete'],
-                    'forma_pagamento': dados['forma_pagamento'],
-                    'prazo': dados['prazo']
-                }
-                
-                print(f"=== EDITANDO PEDIDO ID: {pedido_id} ===")
-                print(f"Campos para atualização: {campos_atualizacao}")
-                
-                if pedido_id:
-                    sucesso = db_manager.atualizar_pedido(pedido_id, campos_atualizacao)
-                    
-                    print(f"Resultado da atualização: {sucesso}")
-                    
-                    if sucesso:
-                        messagebox.showinfo("Sucesso", f"OS #{numero_os} atualizada com sucesso!")
-                    else:
-                        messagebox.showerror("Erro", "Falha ao atualizar no banco de dados!")
-                        return
-                else:
-                    messagebox.showerror("Erro", "ID do pedido não encontrado!")
-                    return
-            
-            # Recarregar dados e fechar
-            self.interface.carregar_dados()
-            win.destroy()
-            
-        except ValueError:
-            messagebox.showerror("Erro", "Verifique os valores numéricos inseridos!")
-        except Exception as e:
-            messagebox.showerror("Erro", f"Erro ao salvar: {str(e)}")
-    
-    def _abrir_novo_cliente_modal(self, parent_win, campos, clientes_dict, nome_pre_preenchido=None):
-        """Abre modal para cadastrar novo cliente"""
-        cliente_win = tb.Toplevel(parent_win)
-        cliente_win.title("Adicionar Novo Cliente")
-        cliente_win.transient(parent_win)
-        cliente_win.grab_set()
-        cliente_win.geometry("450x500")
-        
-        # Scroll para o modal de cliente
-        canvas_cliente = tk.Canvas(cliente_win)
-        scrollbar_cliente = tb.Scrollbar(cliente_win, orient="vertical", command=canvas_cliente.yview)
-        scrollable_frame_cliente = tb.Frame(canvas_cliente)
-        
-        scrollable_frame_cliente.bind(
-            "<Configure>",
-            lambda e: canvas_cliente.configure(scrollregion=canvas_cliente.bbox("all"))
-        )
-        
-        canvas_cliente.create_window((0, 0), window=scrollable_frame_cliente, anchor="nw")
-        canvas_cliente.configure(yscrollcommand=scrollbar_cliente.set)
-        
-        canvas_cliente.pack(side="left", fill="both", expand=True)
-        scrollbar_cliente.pack(side="right", fill="y")
-        
-        # Scroll com mouse
-        def scroll_modal_cliente(event):
-            canvas_cliente.yview_scroll(int(-1 * (event.delta / 120)), "units")
-        
-        canvas_cliente.bind("<MouseWheel>", scroll_modal_cliente)
-        scrollable_frame_cliente.bind("<MouseWheel>", scroll_modal_cliente)
-        
-        frame = tb.Frame(scrollable_frame_cliente, padding=20)
-        frame.pack(fill="both", expand=True)
-        
-        tb.Label(frame, text="Cadastrar Novo Cliente", font=("Arial", 14, "bold")).pack(pady=(0, 20))
-        
-        # Campos do cliente
-        cliente_campos = {}
-        
-        # Nome
-        tb.Label(frame, text="Nome:", font=("Arial", 11, "bold")).pack(anchor="w", pady=(0, 2))
-        cliente_campos['nome'] = tb.Entry(frame, font=("Arial", 11))
-        cliente_campos['nome'].pack(fill="x", pady=(0, 10))
-        
-        # Pré-preencher nome se fornecido
-        if nome_pre_preenchido:
-            cliente_campos['nome'].insert(0, nome_pre_preenchido)
-        
-        # CPF
-        tb.Label(frame, text="CPF:", font=("Arial", 11, "bold")).pack(anchor="w", pady=(0, 2))
-        cliente_campos['cpf'] = tb.Entry(frame, font=("Arial", 11))
-        cliente_campos['cpf'].pack(fill="x", pady=(0, 10))
+        cliente_layout.addRow("Nome do Cliente:", self.campos['nome_cliente'])
         
         # Telefone
-        tb.Label(frame, text="Telefone:", font=("Arial", 11, "bold")).pack(anchor="w", pady=(0, 2))
-        cliente_campos['telefone'] = tb.Entry(frame, font=("Arial", 11))
-        cliente_campos['telefone'].pack(fill="x", pady=(0, 10))
+        self.campos['telefone_cliente'] = QLineEdit()
+        self.campos['telefone_cliente'].setPlaceholderText("(11) 99999-9999")
+        try:
+            self.campos['telefone_cliente'].setInputMask("(00) 00000-0000;_")
+        except Exception:
+            pass
+        cliente_layout.addRow("Telefone:", self.campos['telefone_cliente'])
         
-        # Email
-        tb.Label(frame, text="Email (opcional):", font=("Arial", 11)).pack(anchor="w", pady=(0, 2))
-        cliente_campos['email'] = tb.Entry(frame, font=("Arial", 11))
-        cliente_campos['email'].pack(fill="x", pady=(0, 10))
+        # CPF
+        self.campos['cpf_cliente'] = QLineEdit()
+        self.campos['cpf_cliente'].setPlaceholderText("000.000.000-00")
+        try:
+            self.campos['cpf_cliente'].setInputMask("000.000.000-00;_")
+        except Exception:
+            pass
+        cliente_layout.addRow("CPF:", self.campos['cpf_cliente'])
         
         # Endereço
-        tb.Label(frame, text="Rua (opcional):", font=("Arial", 11)).pack(anchor="w", pady=(0, 2))
-        cliente_campos['rua'] = tb.Entry(frame, font=("Arial", 11))
-        cliente_campos['rua'].pack(fill="x", pady=(0, 10))
+        self.campos['endereco_cliente'] = QLineEdit()
+        self.campos['endereco_cliente'].setPlaceholderText("Rua, número, bairro, cidade")
+        cliente_layout.addRow("Endereço:", self.campos['endereco_cliente'])
         
-        # Número
-        tb.Label(frame, text="Número:", font=("Arial", 11, "bold")).pack(anchor="w", pady=(0, 2))
-        cliente_campos['numero'] = tb.Entry(frame, font=("Arial", 11))
-        cliente_campos['numero'].pack(fill="x", pady=(0, 10))
+        # Preencher dados se for edição
+        if pedido_data:
+            self.campos['nome_cliente'].setText(pedido_data.get('nome_cliente', ''))
+            self.campos['telefone_cliente'].setText(pedido_data.get('telefone_cliente', ''))
+            self.campos['cpf_cliente'].setText(pedido_data.get('cpf_cliente', ''))
+            self.campos['endereco_cliente'].setText(pedido_data.get('endereco_cliente', ''))
         
-        # Referência
-        tb.Label(frame, text="Referência (opcional):", font=("Arial", 11)).pack(anchor="w", pady=(0, 2))
-        cliente_campos['referencia'] = tb.Entry(frame, font=("Arial", 11))
-        cliente_campos['referencia'].pack(fill="x", pady=(0, 15))
-        
-        def salvar_novo_cliente():
-            try:
-                nome = cliente_campos['nome'].get().strip()
-                cpf = cliente_campos['cpf'].get().strip()
-                telefone = cliente_campos['telefone'].get().strip()
-                
-                if not nome:
-                    messagebox.showerror("Erro", "Nome é obrigatório!")
-                    return
-                
-                if cpf:
-                    cpf_numeros = cpf.replace('-', '').replace('.', '')
-                    if len(cpf_numeros) != 11 or not cpf_numeros.isdigit():
-                        messagebox.showerror("Erro", "CPF deve ter 11 dígitos!")
-                        return
-                
-                # Salvar no banco
-                numero = cliente_campos['numero'].get().strip()
-                novo_cliente_id = db_manager.inserir_cliente(
-                    nome=nome,
-                    cpf=cpf,
-                    telefone=telefone,
-                    email=cliente_campos['email'].get().strip(),
-                    endereco=cliente_campos['rua'].get().strip(),
-                    referencia=cliente_campos['referencia'].get().strip(),
-                    numero=numero
-                )
-                
-                if novo_cliente_id:
-                    # Criar nome de exibição com últimos 2 dígitos do TELEFONE
-                    nome_exibicao = nome
-                    if telefone:
-                        # Pegar apenas os dígitos do telefone
-                        telefone_digitos = ''.join(filter(str.isdigit, str(telefone)))
-                        if len(telefone_digitos) >= 2:
-                            ultimos_digitos = telefone_digitos[-2:]
-                            nome_exibicao = f"{nome} {ultimos_digitos}"
-                    
-                    # Atualizar formulário principal com nome de exibição
-                    campos['nome_cliente'].set(nome_exibicao)
-                    campos['cpf'].delete(0, 'end')
-                    campos['cpf'].insert(0, cpf)
-                    campos['telefone'].delete(0, 'end')
-                    campos['telefone'].insert(0, telefone)
-                    
-                    # Atualizar lista de clientes
-                    clientes_dict[nome_exibicao] = {
-                        'id': novo_cliente_id,
-                        'nome': nome,
-                        'cpf': cpf,
-                        'telefone': telefone,
-                        'numero': numero
-                    }
-                    
-                    # Atualizar combobox
-                    current_values = list(campos['nome_cliente']['values'])
-                    current_values.append(nome_exibicao)
-                    campos['nome_cliente']['values'] = sorted(current_values)
-                    
-                    messagebox.showinfo("Sucesso", f"Cliente '{nome}' cadastrado com sucesso!")
-                    cliente_win.destroy()
-                else:
-                    messagebox.showerror("Erro", "Erro ao salvar cliente no banco de dados!")
-                    
-            except Exception as e:
-                messagebox.showerror("Erro", f"Erro ao salvar cliente: {str(e)}")
-        
-        # Botões
-        btn_cliente_frame = tb.Frame(frame)
-        btn_cliente_frame.pack(fill="x", pady=(10, 0))
-        
-        tb.Button(btn_cliente_frame, text="💾 Salvar Cliente", bootstyle=SUCCESS, 
-                 command=salvar_novo_cliente).pack(side="left", padx=(0, 10))
-        tb.Button(btn_cliente_frame, text="❌ Cancelar", bootstyle=SECONDARY, 
-                 command=cliente_win.destroy).pack(side="left")
+        layout.addWidget(cliente_group)
+    
+    def _criar_secao_produtos(self, layout, pedido_data):
+        """Cria seção de produtos com adição múltipla"""
+        produtos_group = QGroupBox("📦 Produtos")
+        produtos_group.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
+        produtos_vbox = QVBoxLayout(produtos_group)
 
-    def _mostrar_sugestao(self, nome_cliente):
-        """Mostra a seção de sugestão para criar novo cliente"""
-        self.nome_sugerido = nome_cliente
-        self.sugestao_label.config(text=f"👤 Cliente '{nome_cliente}' não encontrado.")
-        self.sugestao_frame.pack(fill="x", pady=(5, 10))
+        # Linha de inputs (categoria + descrição + valor + botão adicionar)
+        linha_inputs = QHBoxLayout()
+        self.input_categoria = QComboBox()
+        self.input_categoria.setMinimumWidth(140)
+        self.input_categoria.addItem("Todas")
+        self.input_desc = QLineEdit()
+        self.input_desc.setPlaceholderText("Produto (catálogo)")
+        self.input_valor = QLineEdit()
+        self.input_valor.setPlaceholderText("Valor (R$)")
+        self.input_valor.setMaximumWidth(120)
+        btn_add = QPushButton("+ Adicionar")
+        btn_add.clicked.connect(self._add_produto)
+
+        # Enter adiciona quando foco está no campo valor
+        try:
+            self.input_valor.returnPressed.connect(self._add_produto)
+        except Exception:
+            pass
+        # Autocomplete de produtos do catálogo
+        try:
+            self._carregar_produtos()
+            # categorias
+            if hasattr(self, '_produtos_categorias'):
+                self.input_categoria.addItems(sorted(self._produtos_categorias))
+                self.input_categoria.currentTextChanged.connect(self._filtrar_produtos_por_categoria)
+            self._montar_produtos_completer()
+        except Exception as _e:
+            pass
+
+        # Preencher automaticamente valor ao digitar nome de produto do catálogo
+        try:
+            self.input_desc.textChanged.connect(self._on_produto_text_changed)
+        except Exception:
+            pass
+
+        linha_inputs.addWidget(self.input_categoria)
+        linha_inputs.addWidget(self.input_desc, stretch=1)
+        linha_inputs.addWidget(self.input_valor)
+        linha_inputs.addWidget(btn_add)
+        produtos_vbox.addLayout(linha_inputs)
+
+        # Opções gerais do pedido: Cor e Reforço
+        opcoes_row = QHBoxLayout()
+        lbl_cor = QLabel("Cor:")
+        self.campos['cor'] = QComboBox()
+        self.campos['cor'].addItems([
+            "",
+            "Preto","Branco","Azul","Vermelho","Verde",
+            "Amarelo","Cinza","Marrom","Rosa","Roxo",
+        ])
+        lbl_ref = QLabel("Reforço:")
+        self.campos['reforco'] = QComboBox()
+        self.campos['reforco'].addItems(["não", "sim"])
+        opcoes_row.addWidget(lbl_cor)
+        opcoes_row.addWidget(self.campos['cor'])
+        opcoes_row.addSpacing(16)
+        opcoes_row.addWidget(lbl_ref)
+        opcoes_row.addWidget(self.campos['reforco'])
+        opcoes_row.addStretch()
+        produtos_vbox.addLayout(opcoes_row)
+
+        # Lista de produtos inseridos
+        self.lista_produtos_container = QVBoxLayout()
+        self.lista_produtos_container.setSpacing(6)
+        produtos_vbox.addLayout(self.lista_produtos_container)
+
+        # Observações removidas conforme solicitado
+
+        # Valor total (somado automaticamente)
+        self.campos['valor_total'] = QLineEdit()
+        self.campos['valor_total'].setReadOnly(True)
+        self.campos['valor_total'].setPlaceholderText("0.00")
+        total_row = QHBoxLayout()
+        total_row.addWidget(QLabel("Valor Total (R$):"))
+        total_row.addWidget(self.campos['valor_total'])
+        produtos_vbox.addLayout(total_row)
+
+        # Se for edição, tentar reconstruir lista a partir do texto/valor e preencher cor/reforço
+        if pedido_data:
+            # Tenta ler itens do campo 'detalhes_produto'
+            detalhes = pedido_data.get('detalhes_produto', '') or ''
+            for linha in [l.strip() for l in detalhes.replace('\\n', '\n').split('\n') if l.strip() and not l.strip().startswith('-')]:
+                # Heurística simples: separador " - R$ "
+                if ' - R$ ' in linha:
+                    try:
+                        desc, valtxt = linha.rsplit(' - R$ ', 1)
+                        valor = float(valtxt.replace('.', '').replace(',', '.')) if valtxt else 0.0
+                        self.produtos_list.append({"descricao": desc.strip('• ').strip(), "valor": valor})
+                    except Exception:
+                        self.produtos_list.append({"descricao": linha.strip('• ').strip(), "valor": 0.0})
+                else:
+                    self.produtos_list.append({"descricao": linha.strip('• ').strip(), "valor": 0.0})
+            self._refresh_produtos_ui()
+            valor = pedido_data.get('valor_total', pedido_data.get('valor_produto', 0))
+            try:
+                self.campos['valor_total'].setText(f"{float(valor or 0):.2f}")
+            except Exception:
+                self.campos['valor_total'].setText("0.00")
+            # Prefill cor/reforço
+            try:
+                cor = pedido_data.get('cor', '') or ''
+                if cor:
+                    idx = self.campos['cor'].findText(cor)
+                    if idx >= 0:
+                        self.campos['cor'].setCurrentIndex(idx)
+            except Exception:
+                pass
+            try:
+                reforco_val = pedido_data.get('reforco', False)
+                reforco_txt = 'sim' if (str(reforco_val).lower() in ('1','true','sim','yes')) else 'não'
+                idx = self.campos['reforco'].findText(reforco_txt)
+                if idx >= 0:
+                    self.campos['reforco'].setCurrentIndex(idx)
+            except Exception:
+                pass
+
+        layout.addWidget(produtos_group)
+
+    def _carregar_produtos(self):
+        """Carrega produtos do catálogo e prepara dicionário para autocomplete"""
+        try:
+            rows = db_manager.listar_produtos()
+            self._produtos_rows = rows
+            self._produtos_categorias = set([r[4] for r in rows if r[4]])
+            self.produtos_dict = {}
+            for r in rows:
+                # r: (id, nome, preco, descricao, categoria, criado_em)
+                nome = (r[1] or '').strip()
+                preco = float(r[2] or 0)
+                display = f"{nome} | R$ {preco:.2f}"
+                self.produtos_dict[display] = {"id": r[0], "nome": nome, "preco": preco, "categoria": (r[4] or '')}
+        except Exception as e:
+            print(f"Erro ao carregar produtos: {e}")
+            self.produtos_dict = {}
+
+    def _montar_produtos_completer(self, categoria: str | None = None):
+        try:
+            dic = {}
+            source = getattr(self, '_produtos_rows', [])
+            for r in source:
+                if categoria and categoria != "Todas" and (r[4] or "") != categoria:
+                    continue
+                nome = (r[1] or '').strip()
+                preco = float(r[2] or 0)
+                display = f"{nome} | R$ {preco:.2f}"
+                dic[display] = {"id": r[0], "nome": nome, "preco": preco, "categoria": (r[4] or '')}
+            self.produtos_dict = dic
+            if dic:
+                self.produtos_completer = QCompleter(list(dic.keys()))
+                self.produtos_completer.setCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
+                self.produtos_completer.setFilterMode(Qt.MatchFlag.MatchContains)
+                self.input_desc.setCompleter(self.produtos_completer)
+                try:
+                    self.produtos_completer.activated[str].disconnect()
+                except Exception:
+                    pass
+                self.produtos_completer.activated[str].connect(self._on_produto_completer_activated)
+        except Exception:
+            pass
+
+    def _filtrar_produtos_por_categoria(self, cat: str):
+        self._montar_produtos_completer(cat)
+
+    def _on_produto_completer_activated(self, texto: str):
+        if texto in self.produtos_dict:
+            p = self.produtos_dict[texto]
+            # Preenche descrição com o nome e valor com o preço
+            self.input_desc.setText(p.get('nome', ''))
+            self.input_valor.setText(f"{float(p.get('preco', 0)):.2f}")
+            # Ajusta categoria, se houver
+            try:
+                cat = p.get('categoria') or 'Todas'
+                idx = self.input_categoria.findText(cat)
+                if idx >= 0:
+                    self.input_categoria.setCurrentIndex(idx)
+            except Exception:
+                pass
     
-    def _ocultar_sugestao(self):
-        """Oculta a seção de sugestão"""
-        self.sugestao_frame.pack_forget()
-        self.nome_sugerido = None
+    def _on_produto_text_changed(self, texto: str):
+        """Ao digitar, se corresponder a um produto do catálogo, preencher valor."""
+        if not texto:
+            return
+        # 1) Match direto por display text
+        if texto in self.produtos_dict:
+            p = self.produtos_dict.get(texto, {})
+            self.input_valor.setText(f"{float(p.get('preco', 0)):.2f}")
+            return
+        # 2) Match por nome (case-insensitive)
+        try:
+            low = texto.strip().lower()
+            # Exact, then startswith, then contains
+            best = None
+            for _, pdata in self.produtos_dict.items():
+                nome = pdata.get('nome', '').strip()
+                nlow = nome.lower()
+                if nlow == low:
+                    best = pdata
+                    break
+                if best is None and nlow.startswith(low):
+                    best = pdata
+            if best is None:
+                for _, pdata in self.produtos_dict.items():
+                    if low in pdata.get('nome', '').strip().lower():
+                        best = pdata
+                        break
+            if best:
+                self.input_valor.setText(f"{float(best.get('preco', 0)):.2f}")
+                try:
+                    cat = best.get('categoria') or 'Todas'
+                    idx = self.input_categoria.findText(cat)
+                    if idx >= 0:
+                        self.input_categoria.setCurrentIndex(idx)
+                except Exception:
+                    pass
+        except Exception:
+            pass
     
-    def _criar_cliente_da_sugestao(self, parent_win, campos, clientes_dict):
-        """Abre modal para criar cliente a partir da sugestão"""
-        if hasattr(self, 'nome_sugerido') and self.nome_sugerido:
-            self._abrir_novo_cliente_modal(parent_win, campos, clientes_dict, self.nome_sugerido)
-            self._ocultar_sugestao()
+    def _criar_secao_pagamento(self, layout, pedido_data):
+        """Cria seção de pagamento"""
+        pagamento_group = QGroupBox("💳 Dados de Pagamento")
+        pagamento_group.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
+        pagamento_layout = QFormLayout(pagamento_group)
+
+        # Entrada (R$)
+        self.campos['entrada'] = QLineEdit()
+        self.campos['entrada'].setPlaceholderText("0.00")
+        self.campos['entrada'].setMaximumWidth(150)
+        pagamento_layout.addRow("Entrada (R$):", self.campos['entrada'])
+
+        # Frete (R$)
+        self.campos['frete'] = QLineEdit()
+        self.campos['frete'].setPlaceholderText("0.00")
+        self.campos['frete'].setMaximumWidth(150)
+        pagamento_layout.addRow("Frete (R$):", self.campos['frete'])
+
+        # Desconto (R$)
+        self.campos['desconto'] = QLineEdit()
+        self.campos['desconto'].setPlaceholderText("0.00")
+        self.campos['desconto'].setMaximumWidth(150)
+        pagamento_layout.addRow("Desconto (R$):", self.campos['desconto'])
+
+        # Status
+        self.campos['status'] = QComboBox()
+        self.campos['status'].addItems(["em produção", "enviado", "entregue", "cancelado"])
+        pagamento_layout.addRow("Status:", self.campos['status'])
+
+        # Forma de pagamento
+        self.campos['forma_pagamento'] = QComboBox()
+        self.campos['forma_pagamento'].addItems(["pix", "cartão de crédito", "cartão de débito", "dinheiro", "transferência", "boleto"])
+        pagamento_layout.addRow("Forma de Pagamento:", self.campos['forma_pagamento'])
+
+        # Prazo de entrega
+        self.campos['prazo_entrega'] = QLineEdit()
+        self.campos['prazo_entrega'].setPlaceholderText("YYYY-MM-DD")
+        pagamento_layout.addRow("Prazo de Entrega:", self.campos['prazo_entrega'])
+
+    # (Cor e Reforço movidos para seção de Produtos)
+
+        # Preencher dados se for edição
+        if pedido_data:
+            # Valores financeiros
+            try:
+                self.campos['entrada'].setText(f"{float(pedido_data.get('valor_entrada', 0) or 0):.2f}")
+            except Exception:
+                pass
+            try:
+                self.campos['frete'].setText(f"{float(pedido_data.get('frete', 0) or 0):.2f}")
+            except Exception:
+                pass
+            try:
+                self.campos['desconto'].setText(f"{float(pedido_data.get('desconto', 0) or 0):.2f}")
+            except Exception:
+                pass
+            status = pedido_data.get('status', 'em produção')
+            index = self.campos['status'].findText(status)
+            if index >= 0:
+                self.campos['status'].setCurrentIndex(index)
+
+            forma_pag = pedido_data.get('forma_pagamento', 'pix')
+            index = self.campos['forma_pagamento'].findText(forma_pag)
+            if index >= 0:
+                self.campos['forma_pagamento'].setCurrentIndex(index)
+
+            self.campos['prazo_entrega'].setText(pedido_data.get('prazo_entrega', ''))
+            # (cor/reforço já preenchidos na seção Produtos)
+
+        # Sempre que mudar, recalcula total
+        try:
+            self.campos['entrada'].textChanged.connect(self._recalcular_total)
+            self.campos['frete'].textChanged.connect(self._recalcular_total)
+            self.campos['desconto'].textChanged.connect(self._recalcular_total)
+        except Exception:
+            pass
+
+        layout.addWidget(pagamento_group)
+    
+    def _criar_secao_resumo(self, layout):
+        """Cria seção de resumo financeiro"""
+        resumo_group = QGroupBox("💰 Resumo Financeiro")
+        resumo_group.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
+        resumo_layout = QHBoxLayout(resumo_group)
+        
+        self.label_resumo = QLabel("Valor Total: R$ 0,00")
+        self.label_resumo.setFont(QFont("Segoe UI", 12, QFont.Weight.Bold))
+        self.label_resumo.setStyleSheet("color: #00ff88;")
+        resumo_layout.addWidget(self.label_resumo)
+        
+        # Conectar eventos para atualizar resumo
+        self.campos['valor_total'].textChanged.connect(self._atualizar_resumo)
+        
+        layout.addWidget(resumo_group)
+    
+    def _criar_botoes(self, layout, numero_os, pedido_data):
+        """Cria botões do modal"""
+        botoes_frame = QFrame()
+        botoes_layout = QHBoxLayout(botoes_frame)
+        botoes_layout.setContentsMargins(0, 10, 0, 0)
+
+        # Botão Cancelar
+        btn_cancelar = QPushButton("❌ Cancelar")
+        btn_cancelar.setMinimumWidth(120)
+        btn_cancelar.clicked.connect(self.reject)
+        botoes_layout.addWidget(btn_cancelar)
+
+        botoes_layout.addStretch()
+
+        # Botão Salvar
+        btn_salvar = QPushButton("💾 Salvar")
+        btn_salvar.setMinimumWidth(120)
+        btn_salvar.clicked.connect(lambda: self._salvar_pedido(numero_os, pedido_data))
+        botoes_layout.addWidget(btn_salvar)
+
+        # Botão Gerar PDF (apenas para edição)
+        if pedido_data:
+            btn_pdf = QPushButton("📄 Gerar PDF")
+            btn_pdf.setMinimumWidth(120)
+            btn_pdf.clicked.connect(lambda: self._gerar_pdf(pedido_data))
+            botoes_layout.addWidget(btn_pdf)
+
+        layout.addWidget(botoes_frame)
+    
+    # === Clientes: helpers ===
+    def _format_phone(self, telefone: str) -> str:
+        if not telefone:
+            return ""
+        dig = ''.join(filter(str.isdigit, str(telefone)))
+        # Formatos simples: 11 dígitos -> (11) 9xxxx-xxxx, 10 -> (xx) xxxx-xxxx
+        if len(dig) == 11:
+            return f"({dig[:2]}) {dig[2:7]}-{dig[7:]}"
+        if len(dig) == 10:
+            return f"({dig[:2]}) {dig[2:6]}-{dig[6:]}"
+        return telefone
+
+    def _on_cliente_completer_activated(self, texto: str):
+        # Após selecionar no autocomplete, preencher CPF/telefone e endereço
+        key_cli = self._resolver_cliente(texto)
+        if key_cli:
+            key, cli = key_cli
+            # Ajusta campo do nome para o formato "Nome | (Telefone)"
+            try:
+                telefone_fmt = self._format_phone(cli.get('telefone', ''))
+                display = f"{cli.get('nome','')} | {telefone_fmt}" if telefone_fmt else cli.get('nome','')
+                self.campos['nome_cliente'].setText(display)
+            except Exception:
+                pass
+            self._preencher_dados_cliente(cli)
+
+    # === Produtos: UI e lógica ===
+    def _refresh_produtos_ui(self):
+        # Limpar UI
+        while self.lista_produtos_container.count():
+            item = self.lista_produtos_container.takeAt(0)
+            w = item.widget()
+            if w:
+                w.deleteLater()
+        # Recriar linhas
+        for idx, prod in enumerate(self.produtos_list):
+            row = QHBoxLayout()
+            cor_txt = prod.get('cor') or ''
+            reforco_txt = 'sim' if prod.get('reforco') else 'não'
+            extras = []
+            if cor_txt:
+                extras.append(f"Cor: {cor_txt}")
+            if 'reforco' in prod:
+                extras.append(f"Reforço: {reforco_txt}")
+            extras_txt = ("  —  " + "  |  ".join(extras)) if extras else ""
+            lbl = QLabel(f"• {prod['descricao']}{extras_txt}")
+            lbl.setStyleSheet("color: #cccccc")
+            val = QLabel(f"R$ {prod['valor']:.2f}")
+            val.setStyleSheet("color: #00ff88; font-weight: bold;")
+            btn_rem = QPushButton("Remover")
+            btn_rem.setMaximumWidth(90)
+            btn_rem.clicked.connect(lambda _, i=idx: self._remove_produto(i))
+            row.addWidget(lbl, stretch=1)
+            row.addWidget(val)
+            row.addWidget(btn_rem)
+            row_w = QWidget()
+            row_w.setLayout(row)
+            row_w.setStyleSheet("QWidget { background: #3a3a3a; border: 1px solid #505050; border-radius: 6px; padding: 6px; }")
+            self.lista_produtos_container.addWidget(row_w)
+        self.lista_produtos_container.addStretch()
+        self._recalcular_total()
+
+    def _add_produto(self):
+        desc = (self.input_desc.text() or '').strip()
+        val_text = (self.input_valor.text() or '').strip().replace(',', '.')
+        # Se descrição coincide com um item do catálogo (por nome), e não há valor, usar preço do catálogo
+        if (not val_text) and self.produtos_dict:
+            # procurar por nome exato entre valores do dict
+            try:
+                for display, pdata in self.produtos_dict.items():
+                    if pdata.get('nome', '').lower() == desc.lower():
+                        val_text = str(pdata.get('preco', 0.0))
+                        break
+            except Exception:
+                pass
+        if not desc:
+            return
+        try:
+            valor = float(val_text) if val_text else 0.0
+        except Exception:
+            valor = 0.0
+        # Capturar cor/reforço atuais (por item)
+        try:
+            cor_sel = (self.campos.get('cor').currentText() if 'cor' in self.campos else '').strip()
+        except Exception:
+            cor_sel = ''
+        try:
+            reforco_sel = (self.campos.get('reforco').currentText() if 'reforco' in self.campos else '').strip().lower() == 'sim'
+        except Exception:
+            reforco_sel = False
+        self.produtos_list.append({"descricao": desc, "valor": valor, "cor": cor_sel, "reforco": reforco_sel})
+        self.input_desc.clear()
+        self.input_valor.clear()
+        self._refresh_produtos_ui()
+
+    def _remove_produto(self, index: int):
+        if 0 <= index < len(self.produtos_list):
+            self.produtos_list.pop(index)
+            self._refresh_produtos_ui()
+
+    def _recalcular_total(self):
+        total_produtos = sum([p.get('valor', 0.0) for p in self.produtos_list])
+        def _f(txt):
+            try:
+                return float((txt or '').replace(',', '.'))
+            except Exception:
+                return 0.0
+        frete = _f(self.campos.get('frete').text()) if 'frete' in self.campos else 0.0
+        desconto = _f(self.campos.get('desconto').text()) if 'desconto' in self.campos else 0.0
+        total = total_produtos + frete - desconto
+        if total < 0:
+            total = 0.0
+        self.campos['valor_total'].setText(f"{total:.2f}")
+        # Atualiza rótulo do resumo, se existir
+        try:
+            self.label_resumo.setText(f"Valor Total: R$ {total:.2f}")
+        except Exception:
+            pass
+
+    def _on_cliente_selecionado(self, texto):
+        """Callback quando cliente é selecionado no autocomplete ou ao finalizar edição."""
+        key_cli = self._resolver_cliente(texto)
+        if not key_cli:
+            return
+        key, cliente = key_cli
+        # Padroniza exibição do campo
+        try:
+            telefone_fmt = self._format_phone(cliente.get('telefone', ''))
+            display = f"{cliente.get('nome','')} | {telefone_fmt}" if telefone_fmt else cliente.get('nome','')
+            self.campos['nome_cliente'].setText(display)
+        except Exception:
+            pass
+        self._preencher_dados_cliente(cliente)
+
+    def _preencher_dados_cliente(self, cli: dict):
+        """Preenche telefone, CPF e endereço com base no dict do cliente."""
+        try:
+            self.campos['telefone_cliente'].setText(cli.get('telefone', ''))
+        except Exception:
+            pass
+        try:
+            self.campos['cpf_cliente'].setText(cli.get('cpf', ''))
+        except Exception:
+            pass
+        try:
+            rua = cli.get('rua', '')
+            numero = cli.get('numero', '')
+            endereco = f"{rua}, {numero}" if rua and numero else (rua or numero or '')
+            self.campos['endereco_cliente'].setText(endereco)
+        except Exception:
+            pass
+
+    def _resolver_cliente(self, texto: str):
+        """Tenta resolver o cliente a partir do texto digitado (nome, telefone, ou chave exata)."""
+        if not texto:
+            return None
+        # Match exato da chave
+        if texto in self.clientes_dict:
+            cli = self.clientes_dict[texto]
+            return (texto, cli)
+        low = texto.strip().lower()
+        # Se contiver só o nome (antes de "|")
+        nome_parte = low.split('|')[0].strip()
+        # Telefone (apenas dígitos)
+        digitos = ''.join(ch for ch in texto if ch.isdigit())
+        candidatos = []
+        for k, v in self.clientes_dict.items():
+            k_low = k.lower()
+            if k_low == low:
+                return (k, v)
+            # por nome
+            nome_cli = (v.get('nome') or '').lower()
+            if nome_parte and (nome_cli == nome_parte or nome_cli.startswith(nome_parte)):
+                candidatos.append((k, v))
+                continue
+            # por telefone
+            if digitos and ''.join(ch for ch in str(v.get('telefone','')) if ch.isdigit()).endswith(digitos):
+                candidatos.append((k, v))
+        if len(candidatos) == 1:
+            return candidatos[0]
+        # tentar contains por nome
+        if not candidatos and nome_parte:
+            for k, v in self.clientes_dict.items():
+                if nome_parte in (v.get('nome') or '').lower():
+                    candidatos.append((k, v))
+        if len(candidatos) == 1:
+            return candidatos[0]
+        return None
+    
+    def _atualizar_resumo(self):
+        """Atualiza resumo financeiro"""
+        try:
+            valor_texto = self.campos['valor_total'].text().replace(',', '.')
+            valor = float(valor_texto) if valor_texto else 0.0
+            self.label_resumo.setText(f"Valor Total: R$ {valor:.2f}")
+        except ValueError:
+            self.label_resumo.setText("Valor Total: R$ 0,00")
+    
+    def _salvar_pedido(self, numero_os_atual, pedido_data):
+        """Salva o pedido no banco de dados"""
+        try:
+            # Validações básicas
+            if not self.campos['nome_cliente'].text().strip():
+                QMessageBox.warning(self, "Erro", "Nome do cliente é obrigatório!")
+                return
+            
+            # Exigir ao menos um item: lista de produtos ou texto livre
+            if not self.produtos_list:
+                QMessageBox.warning(self, "Erro", "Adicione ao menos 1 produto.")
+                return
+            
+            # Montar detalhes a partir dos produtos adicionados
+            def _fmt_ref(p):
+                return 'sim' if p.get('reforco') else 'não'
+            linhas = [
+                (
+                    f"• {p['descricao']}"
+                    + (f" - Cor: {p.get('cor')}" if p.get('cor') else "")
+                    + (f" - Reforço: {_fmt_ref(p)}" if 'reforco' in p else "")
+                    + f" - R$ {p['valor']:.2f}"
+                )
+                for p in self.produtos_list
+            ]
+            detalhes_txt = "\n".join(linhas)
+
+            # Calcular totais
+            try:
+                valor_total = float(self.campos['valor_total'].text().replace(',', '.')) if self.campos['valor_total'].text() else 0.0
+            except Exception:
+                valor_total = sum([p.get('valor', 0.0) for p in self.produtos_list])
+            def _f(v):
+                try:
+                    return float((v or '').replace(',', '.'))
+                except Exception:
+                    return 0.0
+            frete_v = _f(self.campos.get('frete').text()) if 'frete' in self.campos else 0.0
+            entrada_v = _f(self.campos.get('entrada').text()) if 'entrada' in self.campos else 0.0
+            desconto_v = _f(self.campos.get('desconto').text()) if 'desconto' in self.campos else 0.0
+
+            # Calcular prazo (dias) a partir de data, se informada
+            from datetime import datetime, timedelta
+            prazo = 30
+            prazo_str = self.campos['prazo_entrega'].text().strip()
+            if prazo_str:
+                if prazo_str.isdigit():
+                    try:
+                        days = int(prazo_str)
+                        prazo = max(0, days)
+                    except Exception:
+                        prazo = 30
+                else:
+                    try:
+                        data_ent = datetime.strptime(prazo_str, '%Y-%m-%d').date()
+                        hoje = datetime.now().date()
+                        prazo = max(0, (data_ent - hoje).days)
+                    except Exception:
+                        prazo = 30
+
+            # Preparar dados
+            dados = {
+                'nome_cliente': self.campos['nome_cliente'].text().strip(),
+                'telefone_cliente': self.campos['telefone_cliente'].text().strip(),
+                'cpf_cliente': self.campos['cpf_cliente'].text().strip(),
+                'detalhes_produto': detalhes_txt,
+                # valor_produto representa somente o somatório dos itens (total - frete + desconto)
+                'valor_produto': float(f"{(valor_total - frete_v + desconto_v):.2f}"),
+                'valor_entrada': float(f"{entrada_v:.2f}"),
+                'frete': float(f"{frete_v:.2f}"),
+                'forma_pagamento': self.campos['forma_pagamento'].currentText(),
+                'prazo': prazo,
+                'status': self.campos['status'].currentText(),
+                'desconto': float(f"{desconto_v:.2f}"),
+                'cor': self.campos['cor'].currentText().strip(),
+                'reforco': (self.campos['reforco'].currentText().strip().lower() == 'sim')
+            }
+            
+            if pedido_data:
+                # Edição - manter número OS existente
+                dados['numero_os'] = pedido_data['numero_os']
+                dados['id'] = pedido_data['id']
+
+                # Atualizar colunas reais
+                update_cols = {k: dados[k] for k in (
+                    'numero_os','nome_cliente','cpf_cliente','telefone_cliente',
+                    'detalhes_produto','valor_produto','valor_entrada','frete',
+                    'forma_pagamento','prazo') if k in dados}
+                db_manager.atualizar_pedido(dados['id'], update_cols)
+                # Atualizar JSON
+                db_manager.atualizar_json_campos(dados['id'], {
+                    'status': dados['status'],
+                    'desconto': dados['desconto'],
+                    'cor': dados.get('cor', ''),
+                    'reforco': dados.get('reforco', False)
+                })
+                QMessageBox.information(self, "Sucesso", "Pedido atualizado com sucesso!")
+
+            else:
+                # Novo pedido - gerar número OS
+                contador = Contador()
+                numero_os = contador.get_proximo_numero()
+                dados['numero_os'] = numero_os
+
+                # Salvar no banco
+                db_manager.salvar_ordem(dados, "")
+                QMessageBox.information(self, "Sucesso", f"Pedido criado com sucesso! OS #{numero_os:05d}")
+            
+            # Notificar interface para atualizar
+            self.pedido_salvo.emit()
+            self.accept()
+            
+        except Exception as e:
+            QMessageBox.critical(self, "Erro", f"Erro ao salvar pedido: {e}")
+            print(f"Erro detalhado: {e}")
+            import traceback
+            traceback.print_exc()
+    
+    def _gerar_pdf(self, pedido_data):
+        """Gera PDF da ordem de serviço"""
+        try:
+            pdf_generator = OrdemServicoPDF()
+            pdf_path = pdf_generator.gerar_pdf(pedido_data)
+            QMessageBox.information(self, "PDF Gerado", f"PDF salvo em: {pdf_path}")
+        except Exception as e:
+            QMessageBox.critical(self, "Erro", f"Erro ao gerar PDF: {e}")
+    
+    def _aplicar_estilo(self):
+        """Aplica estilo moderno ao modal"""
+        self.setStyleSheet("""
+            QDialog {
+                background-color: #2d2d2d;
+                color: #ffffff;
+            }
+            /* Garante que todos os widgets filhos mantenham o fundo escuro */
+            QDialog QWidget {
+                background-color: #2d2d2d;
+                color: #ffffff;
+            }
+            /* Viewport do scroll escura (evita fundo branco) */
+            QScrollArea { background: transparent; border: none; }
+            QScrollArea > QWidget > QWidget { background: #2d2d2d; }
+            QFrame { background: transparent; }
+            
+            QGroupBox {
+                font-weight: bold;
+                border: 1px solid #404040;
+                border-radius: 8px;
+                margin-top: 10px;
+                padding-top: 15px;
+                background-color: #353535;
+            }
+            
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                left: 10px;
+                padding: 0 10px 0 10px;
+                color: #ffffff;
+                background-color: #353535;
+            }
+            
+            QLabel {
+                color: #ffffff;
+                background-color: transparent;
+            }
+            
+            QLineEdit, QTextEdit {
+                background-color: #404040;
+                color: #ffffff;
+                border: 1px solid #606060;
+                border-radius: 5px;
+                padding: 8px;
+                font-size: 12px;
+            }
+            
+            QLineEdit:focus, QTextEdit:focus {
+                border: 2px solid #0d7377;
+            }
+            
+            QComboBox {
+                background-color: #404040;
+                color: #ffffff;
+                border: 1px solid #606060;
+                border-radius: 5px;
+                padding: 8px;
+                font-size: 12px;
+            }
+            
+            QComboBox::drop-down {
+                border: none;
+                background-color: #505050;
+            }
+            
+            QComboBox QAbstractItemView {
+                background-color: #404040;
+                color: #ffffff;
+                border: 1px solid #606060;
+                selection-background-color: #0d7377;
+            }
+            
+            QPushButton {
+                background-color: #0d7377;
+                color: #ffffff;
+                border: none;
+                border-radius: 6px;
+                padding: 10px 15px;
+                font-weight: 500;
+                font-size: 12px;
+            }
+            
+            QPushButton:hover {
+                background-color: #0a5d61;
+            }
+            
+            QPushButton:pressed {
+                background-color: #084a4d;
+            }
+            
+            QScrollBar:vertical {
+                background-color: #404040;
+                width: 14px;
+                border-radius: 7px;
+                margin: 0px;
+            }
+            
+            QScrollBar::handle:vertical {
+                background-color: #606060;
+                border-radius: 7px;
+                min-height: 30px;
+                margin: 2px;
+            }
+            
+            QScrollBar::handle:vertical:hover {
+                background-color: #707070;
+            }
+            
+            QScrollBar::handle:vertical:pressed {
+                background-color: #808080;
+            }
+            
+            QScrollBar::add-line:vertical,
+            QScrollBar::sub-line:vertical {
+                height: 0px;
+                background: transparent;
+            }
+            
+            QScrollBar::add-page:vertical,
+            QScrollBar::sub-page:vertical {
+                background: transparent;
+            }
+        """)

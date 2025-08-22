@@ -22,9 +22,11 @@ class OrderCRUD:
             '''
             
             dados_json = json.dumps({
-                'status': 'Em andamento',
-                'observacoes': '',
-                'data_entrega': None
+                'status': dados.get('status', 'em produção'),
+                'data_entrega': None,
+                'desconto': float(dados.get('desconto', 0) or 0),
+                'cor': dados.get('cor', ''),
+                'reforco': bool(dados.get('reforco', False))
             })
             
             valores = (

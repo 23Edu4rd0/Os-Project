@@ -1,89 +1,107 @@
 """
-Gerenciamento de cards de pedidos
+Gerenciamento de cards de pedidos em PyQt6
 """
 
-import tkinter as tk
-import ttkbootstrap as tb
-from ttkbootstrap.constants import INFO, WARNING, SUCCESS, DANGER, SECONDARY
 from datetime import datetime, timedelta
+from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
+                             QPushButton, QFrame)
+from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtGui import QFont, QPalette, QFontMetrics
 
 
-class PedidosCard:
+class PedidosCard(QWidget):
     """Gerencia a criação e exibição de cards de pedidos"""
     
+    # Sinais para comunicação
+    editar_clicked = pyqtSignal(int)  # pedido_id
+    excluir_clicked = pyqtSignal(int)  # pedido_id
+    status_changed = pyqtSignal(int, str)  # pedido_id, novo_status
+    
     def __init__(self, interface):
+        super().__init__()
         self.interface = interface
         
-    def criar_card(self, pedido, row, col):
-        """Cria um card para o pedido"""
-        # Frame do card com estilo mais clean
-        card_frame = tb.Frame(self.interface.scrollable_frame, bootstyle="dark", relief="solid", borderwidth=1)
-        card_frame.grid(row=row, column=col, padx=6, pady=6, sticky="nsew", ipadx=5, ipady=5)
+    def criar_card(self, pedido):
+        """Cria um widget card para o pedido"""
+        # Frame principal do card
+        card_widget = QFrame()
+        card_widget.setFixedWidth(430)
+        card_widget.setMinimumHeight(300)
+        card_widget.setMaximumHeight(400)
+        
+        # Layout principal do card
+        card_layout = QVBoxLayout(card_widget)
+        card_layout.setContentsMargins(12, 12, 12, 12)
+        card_layout.setSpacing(8)
         
         # Header do card
-        self._criar_header(card_frame, pedido)
+        self._criar_header(card_layout, pedido)
         
         # Conteúdo do card
-        self._criar_conteudo(card_frame, pedido)
+        self._criar_conteudo(card_layout, pedido)
         
         # Botões do card
-        self._criar_botoes(card_frame, pedido)
+        self._criar_botoes(card_layout, pedido)
         
-        return card_frame
+        # Aplicar estilo do card
+        self._aplicar_estilo_card(card_widget, pedido)
+        
+        return card_widget
     
-    def _criar_header(self, parent, pedido):
+    def _criar_header(self, layout, pedido):
         """Cria o header do card"""
-        header_frame = tb.Frame(parent)
-        header_frame.pack(fill="x", padx=8, pady=(8, 5))
+        header_frame = QFrame()
+        header_layout = QVBoxLayout(header_frame)
+        header_layout.setContentsMargins(0, 0, 0, 0)
+        header_layout.setSpacing(3)
         
         # Número da OS (destacado)
-        numero_label = tb.Label(header_frame, 
-                text=f"OS #{pedido.get('numero_os', 'N/A')}", 
-                font=("Arial", 13, "bold"),
-                foreground="#ffffff")
-        numero_label.pack(anchor="w")
+        numero_os = pedido.get('numero_os', 'N/A')
+        numero_label = QLabel(f"OS #{numero_os}")
+        numero_label.setFont(QFont("Segoe UI", 13, QFont.Weight.Bold))
+        numero_label.setStyleSheet("color: #ffffff; background: transparent;")
+        header_layout.addWidget(numero_label)
         
         # Status com cor
         status = pedido.get('status', 'desconhecido')
         status_color = self._get_status_color(status)
         
-        status_label = tb.Label(header_frame, 
-                text=f"Status: {status.upper()}", 
-                font=("Arial", 9, "bold"),
-                foreground=status_color)
-        status_label.pack(anchor="w", pady=(3, 0))
+        status_label = QLabel(f"Status: {status.upper()}")
+        status_label.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
+        status_label.setStyleSheet(f"color: {status_color}; background: transparent;")
+        header_layout.addWidget(status_label)
         
         # Dias restantes para entrega
         dias_restantes = self._calcular_dias_restantes(pedido)
         if dias_restantes is not None:
             if dias_restantes > 0:
                 prazo_text = f"⏰ {dias_restantes} dias restantes"
-                prazo_color = "#ffaa00" if dias_restantes <= 7 else "#00ff88"
             elif dias_restantes == 0:
                 prazo_text = "⚠️ Entrega hoje!"
-                prazo_color = "#ff6600"
             else:
-                prazo_text = f"🔴 Atrasado {abs(dias_restantes)} dias"
-                prazo_color = "#ff4444"
+                prazo_text = f"Atrasado {abs(dias_restantes)} dias"
             
-            prazo_label = tb.Label(header_frame, 
-                    text=prazo_text, 
-                    font=("Arial", 9, "bold"), 
-                    foreground=prazo_color)
-            prazo_label.pack(anchor="w", pady=(2, 0))
+            prazo_label = QLabel(prazo_text)
+            prazo_label.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
+            prazo_label.setStyleSheet("color: #cccccc; background: transparent;")
+            header_layout.addWidget(prazo_label)
+        
+        layout.addWidget(header_frame)
     
-    def _criar_conteudo(self, parent, pedido):
+    def _criar_conteudo(self, layout, pedido):
         """Cria o conteúdo do card"""
-        content_frame = tb.Frame(parent)
-        content_frame.pack(fill="x", padx=8, pady=5)
+        content_frame = QFrame()
+        content_layout = QVBoxLayout(content_frame)
+        content_layout.setContentsMargins(0, 0, 0, 0)
+        content_layout.setSpacing(5)
         
         # Cliente (destacado)
         cliente = pedido.get('nome_cliente', 'Cliente não informado')
-        cliente_label = tb.Label(content_frame, 
-                text=f"Cliente: {cliente}", 
-                font=("Arial", 10, "bold"),
-                foreground="#ffffff")
-        cliente_label.pack(anchor="w", pady=(0, 3))
+        cliente_label = QLabel(f"Cliente: {cliente}")
+        cliente_label.setFont(QFont("Segoe UI", 10, QFont.Weight.Bold))
+        cliente_label.setStyleSheet("color: #ffffff; background: transparent;")
+        cliente_label.setWordWrap(True)
+        content_layout.addWidget(cliente_label)
         
         # Data de criação da OS
         data_criacao = pedido.get('data_criacao', '')
@@ -93,141 +111,268 @@ class PedidosCard:
             else:
                 data_criacao_formatada = str(data_criacao)
             
-            data_label = tb.Label(content_frame, 
-                    text=f"Criada em: {data_criacao_formatada}", 
-                    font=("Arial", 9),
-                    foreground="#aaaaaa")
-            data_label.pack(anchor="w", pady=(0, 3))
+            data_label = QLabel(f"Criada em: {data_criacao_formatada}")
+            data_label.setFont(QFont("Segoe UI", 9))
+            data_label.setStyleSheet("color: #aaaaaa; background: transparent;")
+            content_layout.addWidget(data_label)
         
         # Valor (destacado)
         valor = pedido.get('valor_total', pedido.get('valor_produto', 0))
         if valor and valor > 0:
-            valor_label = tb.Label(content_frame, 
-                    text=f"Valor: R$ {valor:.2f}", 
-                    font=("Arial", 10, "bold"),
-                    foreground="#00ff88")
-            valor_label.pack(anchor="w", pady=(3, 5))
+            valor_label = QLabel(f"Valor: R$ {valor:.2f}")
+            valor_label.setFont(QFont("Segoe UI", 10, QFont.Weight.Bold))
+            valor_label.setStyleSheet("color: #cccccc; background: transparent;")
+            content_layout.addWidget(valor_label)
         
         # Resumo dos produtos
-        self._criar_resumo_produtos(content_frame, pedido)
-    
-    def _criar_resumo_produtos(self, parent, pedido):
-        """Cria resumo dos produtos do pedido com layout otimizado para 2 linhas VISÍVEIS"""
-        detalhes = pedido.get('detalhes_produto', pedido.get('descricao', ''))
+        self._criar_resumo_produtos(content_layout, pedido)
         
+        layout.addWidget(content_frame)
+    
+    def _criar_resumo_produtos(self, layout, pedido):
+        """Cria resumo dos produtos com no máximo 2 linhas, sem quebra; reduz fonte e elide quando necessário.
+        Exibe todos os itens via tooltip ao passar o mouse."""
+        detalhes = pedido.get('detalhes_produto', pedido.get('descricao', ''))
+
         if not detalhes:
             return
-            
-        # Container principal com altura suficiente para 2 linhas completas
-        resumo_frame = tb.Frame(parent, height=85)
-        resumo_frame.pack(fill="x", pady=(3, 0))
-        resumo_frame.pack_propagate(False)  # Evita expansão automática
-        
-        # Label de produtos
-        produtos_label = tb.Label(resumo_frame, 
-                text="Produtos:", 
-                font=("Arial", 9, "bold"),
-                foreground="#cccccc")
-        produtos_label.pack(anchor="w", pady=(0, 3))
-        
-        # Container dos produtos com scrollbar se necessário
-        produtos_container = tb.Frame(resumo_frame)
-        produtos_container.pack(fill="both", expand=True, padx=5)
-        
-        # Dividir produtos de forma inteligente
-        linhas_produtos = self._dividir_produtos_otimizado(detalhes)
-        
-        # Mostrar até 2 linhas com altura garantida
-        for i, linha in enumerate(linhas_produtos[:2]):
-            if linha.strip():  # Só criar se tem conteúdo
-                # Frame para cada linha de produto
-                linha_frame = tb.Frame(produtos_container, height=22)
-                linha_frame.pack(fill="x", pady=1)
-                linha_frame.pack_propagate(False)
-                
-                desc_label = tb.Label(linha_frame, 
-                        text=f"• {linha}", 
-                        font=("Arial", 8),
-                        foreground="#999999",
-                        anchor="w",
-                        justify="left")
-                desc_label.pack(side="left", anchor="w", padx=3)
+
+        # Título de produtos (apenas label, sem clique/expansão)
+        produtos_label = QLabel("Produtos:")
+        produtos_label.setStyleSheet("color: #cccccc; background: transparent; font-weight: bold;")
+        produtos_label.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
+        layout.addWidget(produtos_label)
+
+        # Container RESUMO com tooltip (hover mostra tudo)
+        produtos_container = QFrame()
+        produtos_container.setFixedHeight(85)
+        produtos_container.setStyleSheet("background: transparent; border: none;")
+        produtos_layout = QVBoxLayout(produtos_container)
+        produtos_layout.setContentsMargins(5, 0, 5, 0)
+        produtos_layout.setSpacing(2)
+
+        # Linhas originais: respeita os \n (não quebrar produto)
+        detalhes_norm = detalhes.replace('\\n', '\n')
+        linhas_produtos = [l.strip('• ').strip() for l in detalhes_norm.split('\n') if l.strip()]
+
+        # Tooltip com a lista completa
+        try:
+            # Tooltip compacto para não cobrir a UI
+            full_text = '\n'.join([f"• {l}" for l in linhas_produtos])
+            produtos_container.setToolTip(full_text)
+        except Exception:
+            pass
+
+        # Mostrar até 2 linhas, cada uma forçada a caber em uma linha
+        MAX_VISIBLE = 2
+        for i, linha in enumerate(linhas_produtos[:MAX_VISIBLE]):
+            if not linha:
+                continue
+            lbl = self._make_single_line_label(f"• {linha}", max_width=380)
+            produtos_layout.addWidget(lbl)
+
+        # Indicador de mais itens
+        mais_label = None
+        if len(linhas_produtos) > MAX_VISIBLE:
+            mais_label = QLabel(f"... e mais {len(linhas_produtos) - MAX_VISIBLE} itens")
+            mais_label.setFont(QFont("Segoe UI", 8, QFont.Weight.Bold))
+            mais_label.setStyleSheet("color: #666666; background: transparent;")
+            produtos_layout.addWidget(mais_label)
+
+        produtos_layout.addStretch()
+        layout.addWidget(produtos_container)
+
+        # Removida a área expansível e qualquer comportamento de clique; o hover já mostra tudo via tooltip
+
+    def _make_single_line_label(self, text: str, max_width: int = 380) -> QLabel:
+        """Cria um QLabel de linha única; diminui a fonte até min 7 e elide se ainda exceder."""
+        lbl = QLabel(text)
+        lbl.setStyleSheet("color: #999999; background: transparent;")
+        lbl.setWordWrap(False)
+        lbl.setFixedHeight(20)
+        # Tentar ajustar fonte
+        font_size = 9
+        min_size = 7
+        font = QFont("Segoe UI", font_size)
+        fm = None
+        while font_size >= min_size:
+            font.setPointSize(font_size)
+            fm = QFontMetrics(font)
+            if fm.horizontalAdvance(text) <= max_width:
+                break
+            font_size -= 1
+        lbl.setFont(font)
+        # Se ainda passa, elide
+        if fm and fm.horizontalAdvance(text) > max_width:
+            elided = fm.elidedText(text, Qt.TextElideMode.ElideRight, max_width)
+            lbl.setText(elided)
+        return lbl
     
     def _dividir_produtos_otimizado(self, detalhes):
         """Divisão otimizada de produtos - CORRIGIDO PARA \\n E \n"""
         MAX_CHARS = 55
         
-        # Cache para evitar recálculos
-        if not hasattr(self, '_cache_produtos'):
-            self._cache_produtos = {}
+        if not detalhes:
+            return []
         
-        if detalhes in self._cache_produtos:
-            return self._cache_produtos[detalhes]
+        # Normalizar quebras de linha
+        detalhes_norm = detalhes.replace('\\n', '\n')
         
-        linhas = []
+        # Dividir por quebras de linha primeiro
+        linhas_base = [linha.strip() for linha in detalhes_norm.split('\n') if linha.strip()]
         
-        # Quebras de linha naturais - lidar com \\n (escape) e \n (quebra real)
-        if '\\n' in detalhes or '\n' in detalhes:
-            # Primeiro tentar \\n (escape)
-            if '\\n' in detalhes:
-                linhas = [linha.strip() for linha in detalhes.split('\\n')[:2] if linha.strip()]
-            # Senão tentar \n (quebra real)  
+        linhas_finais = []
+        
+        for linha in linhas_base:
+            if len(linha) <= MAX_CHARS:
+                linhas_finais.append(linha)
             else:
-                linhas = [linha.strip() for linha in detalhes.split('\n')[:2] if linha.strip()]
-        # Produtos separados por vírgula
-        elif ',' in detalhes and len(detalhes) > MAX_CHARS:
-            produtos = [p.strip() for p in detalhes.split(',')]
-            linha_atual = ""
-            
-            for produto in produtos:
-                if len(linha_atual + produto) <= MAX_CHARS:
-                    linha_atual = f"{linha_atual}, {produto}" if linha_atual else produto
-                else:
-                    if linha_atual:
-                        linhas.append(linha_atual)
-                        if len(linhas) >= 2:
-                            break
-                    linha_atual = produto
-            
-            if linha_atual and len(linhas) < 2:
-                linhas.append(linha_atual)
-        # Texto longo - dividir simples
-        else:
-            if len(detalhes) > MAX_CHARS:
-                linhas = [detalhes[:MAX_CHARS] + "..."]
-                if len(detalhes) > MAX_CHARS * 2:
-                    linhas.append("..." + detalhes[MAX_CHARS:MAX_CHARS*2])
-            else:
-                linhas = [detalhes]
+                # Quebrar linha longa em múltiplas linhas
+                palavras = linha.split()
+                linha_atual = ""
+                
+                for palavra in palavras:
+                    if len(linha_atual + " " + palavra) <= MAX_CHARS:
+                        if linha_atual:
+                            linha_atual += " " + palavra
+                        else:
+                            linha_atual = palavra
+                    else:
+                        if linha_atual:
+                            linhas_finais.append(linha_atual)
+                        linha_atual = palavra
+                
+                if linha_atual:
+                    linhas_finais.append(linha_atual)
         
-        # Cache do resultado
-        self._cache_produtos[detalhes] = linhas
-        return linhas
+        return linhas_finais
+    
+    def _criar_botoes(self, layout, pedido):
+        """Cria os botões do card"""
+        botoes_frame = QFrame()
+        botoes_layout = QHBoxLayout(botoes_frame)
+        botoes_layout.setContentsMargins(0, 5, 0, 0)
+        botoes_layout.setSpacing(8)
+        
+        pedido_id = pedido.get('id')
+        
+        # Botão Editar
+        btn_editar = QPushButton("✏️ Editar")
+        btn_editar.setMinimumWidth(80)
+        btn_editar.clicked.connect(lambda: self.editar_clicked.emit(pedido_id))
+        botoes_layout.addWidget(btn_editar)
+        
+        # Botão Excluir
+        btn_excluir = QPushButton("🗑️ Excluir")
+        btn_excluir.setMinimumWidth(80)
+        btn_excluir.clicked.connect(lambda: self.excluir_clicked.emit(pedido_id))
+        botoes_layout.addWidget(btn_excluir)
+        
+        # Botão WhatsApp (se houver telefone)
+        telefone = pedido.get('telefone_cliente', '')
+        if telefone:
+            btn_whatsapp = QPushButton("📱 WhatsApp")
+            btn_whatsapp.setMinimumWidth(90)
+            btn_whatsapp.clicked.connect(lambda: self._abrir_whatsapp(pedido))
+            botoes_layout.addWidget(btn_whatsapp)
+        
+        botoes_layout.addStretch()
+        layout.addWidget(botoes_frame)
+        
+        # Aplicar estilo aos botões
+        self._aplicar_estilo_botoes(botoes_frame)
+    
+    def _aplicar_estilo_card(self, card_widget, pedido):
+        """Aplica estilo moderno ao card (neutro; apenas o status é colorido)."""
+        card_widget.setStyleSheet("""
+            QFrame {
+                background-color: #3a3a3a;
+                border: 1px solid #505050;
+                border-radius: 12px;
+                padding: 5px;
+            }
+            QFrame:hover {
+                background-color: #404040;
+                border-color: #6a6a6a;
+            }
+        """)
+    
+    def _aplicar_estilo_botoes(self, botoes_frame):
+        """Aplica estilo aos botões do card"""
+        botoes_frame.setStyleSheet("""
+            QPushButton {
+                background-color: #0d7377;
+                color: #ffffff;
+                border: none;
+                border-radius: 6px;
+                padding: 6px 12px;
+                font-weight: 500;
+                font-size: 11px;
+            }
+            
+            QPushButton:hover {
+                background-color: #0a5d61;
+            }
+            
+            QPushButton:pressed {
+                background-color: #084a4d;
+            }
+        """)
+    
+    def _get_status_color(self, status):
+        """Retorna a cor do status"""
+        colors = {
+            'em produção': '#ffaa00',
+            'enviado': '#00aaff',
+            'entregue': '#00ff88',
+            'cancelado': '#ff4444',
+            'pendente': '#888888'
+        }
+        return colors.get(status.lower(), '#cccccc')
+    
+    def _get_status_border_color(self, status):
+        """Retorna a cor da borda baseada no status"""
+        colors = {
+            'em produção': '#ffaa00',
+            'enviado': '#00aaff',
+            'entregue': '#00ff88',
+            'cancelado': '#ff4444',
+            'pendente': '#888888'
+        }
+        return colors.get(status.lower(), '#606060')
+    
+    def _lighten_color(self, color):
+        """Clareia uma cor hexadecimal"""
+        if color.startswith('#'):
+            color = color[1:]
+        
+        # Converter para RGB
+        r = int(color[0:2], 16)
+        g = int(color[2:4], 16)
+        b = int(color[4:6], 16)
+        
+        # Clarear (adicionar 30 a cada componente, máximo 255)
+        r = min(255, r + 30)
+        g = min(255, g + 30)
+        b = min(255, b + 30)
+        
+        return f"#{r:02x}{g:02x}{b:02x}"
     
     def _calcular_dias_restantes(self, pedido):
-        """Calcula quantos dias restam para o prazo de entrega"""
+        """Calcula os dias restantes até a entrega"""
+        data_entrega = pedido.get('data_entrega')
+        
+        if not data_entrega:
+            return None
+        
         try:
-            # Obter data de criação e prazo
-            data_criacao = pedido.get('data_criacao', '')
-            prazo_dias = pedido.get('prazo', 30)
+            if isinstance(data_entrega, str):
+                data_entrega = datetime.strptime(data_entrega, '%Y-%m-%d').date()
+            elif hasattr(data_entrega, 'date'):
+                data_entrega = data_entrega.date()
             
-            if not data_criacao or not prazo_dias:
-                return None
-            
-            # Converter data de criação para datetime
-            if isinstance(data_criacao, str):
-                # Formato esperado: "2025-08-17 10:30:45" ou "2025-08-17"
-                data_base = data_criacao[:10]  # Pegar apenas a data
-                data_criacao_dt = datetime.strptime(data_base, '%Y-%m-%d')
-            else:
-                data_criacao_dt = data_criacao
-            
-            # Calcular data de entrega prevista
-            data_entrega_prevista = data_criacao_dt + timedelta(days=int(prazo_dias))
-            
-            # Calcular diferença com hoje
-            hoje = datetime.now()
-            diferenca = (data_entrega_prevista.date() - hoje.date()).days
+            hoje = datetime.now().date()
+            diferenca = (data_entrega - hoje).days
             
             return diferenca
             
@@ -235,73 +380,45 @@ class PedidosCard:
             print(f"Erro ao calcular dias restantes: {e}")
             return None
     
-    def _criar_botoes(self, parent, pedido):
-        """Cria os botões do card"""
-        btn_frame = tb.Frame(parent)
-        btn_frame.pack(fill="x", padx=8, pady=(8, 8))
+    def _abrir_whatsapp(self, pedido):
+        """Abre o WhatsApp com mensagem pré-formatada"""
+        import webbrowser
+        import urllib.parse
         
-        # Primeira linha de botões
-        btn_row1 = tb.Frame(btn_frame)
-        btn_row1.pack(fill="x", pady=(0, 4))
+        telefone = pedido.get('telefone_cliente', '').strip()
+        numero_os = pedido.get('numero_os', 'N/A')
+        cliente = pedido.get('nome_cliente', 'Cliente')
         
-        # Botão Editar
-        btn_editar = tb.Button(btn_row1, 
-                 text="✏️ Editar", 
-                 command=lambda: self.interface.editar_pedido(pedido),
-                 bootstyle="info", 
-                 width=10)
-        btn_editar.pack(side="left", fill="x", expand=True, padx=(0, 2))
+        if not telefone:
+            return
         
-        # Botão Status
-        status_text = self._get_status_button_text(pedido.get('status'))
-        btn_status = tb.Button(btn_row1, 
-                 text=status_text, 
-                 command=lambda: self.interface.alterar_status(pedido),
-                 bootstyle="warning", 
-                 width=10)
-        btn_status.pack(side="left", fill="x", expand=True, padx=(2, 0))
+        # Remover caracteres não numéricos
+        telefone_limpo = ''.join(filter(str.isdigit, telefone))
         
-        # Segunda linha de botões
-        btn_row2 = tb.Frame(btn_frame)
-        btn_row2.pack(fill="x")
+        # Adicionar código do país se necessário
+        if len(telefone_limpo) == 11 and telefone_limpo.startswith('55'):
+            pass  # Já tem código do país
+        elif len(telefone_limpo) == 11:
+            telefone_limpo = '55' + telefone_limpo
+        elif len(telefone_limpo) == 10:
+            telefone_limpo = '5511' + telefone_limpo
         
-        # Botão WhatsApp (se houver telefone)
-        telefone = pedido.get('telefone_cliente')
-        if telefone:
-            btn_whatsapp = tb.Button(btn_row2, 
-                     text="📱 WhatsApp", 
-                     command=lambda: self.interface.enviar_whatsapp_card(pedido),
-                     bootstyle="success", 
-                     width=10)
-            btn_whatsapp.pack(side="left", fill="x", expand=True, padx=(0, 2))
+        # Mensagem pré-formatada
+        mensagem = f"""Olá {cliente}!
         
-        # Botão Excluir
-        btn_excluir = tb.Button(btn_row2, 
-                 text="🗑️ Excluir", 
-                 command=lambda: self.interface.excluir_pedido(pedido),
-                 bootstyle="danger", 
-                 width=10)
-        if telefone:
-            btn_excluir.pack(side="left", fill="x", expand=True, padx=(2, 0))
-        else:
-            btn_excluir.pack(fill="x")
-    
-    def _get_status_color(self, status):
-        """Retorna a cor para o status"""
-        cores = {
-            'em produção': '#e74c3c',
-            'enviado': '#3498db', 
-            'entregue': '#27ae60',
-            'cancelado': '#95a5a6'
-        }
-        return cores.get(status.lower(), '#95a5a6')
-    
-    def _get_status_button_text(self, status):
-        """Retorna o texto do botão de status"""
-        proximos = {
-            'em produção': '📦 Enviar',
-            'enviado': '✅ Entregar',
-            'entregue': '🔄 Status',
-            'cancelado': '🔄 Status'
-        }
-        return proximos.get(status, '🔄 Status')
+Tudo bem? Aqui é sobre sua Ordem de Serviço #{numero_os}.
+
+Gostaria de passar uma atualização sobre o andamento do seu pedido.
+
+Qualquer dúvida, estou à disposição!"""
+        
+        # Codificar mensagem para URL
+        mensagem_encoded = urllib.parse.quote(mensagem)
+        
+        # Criar URL do WhatsApp
+        url = f"https://wa.me/{telefone_limpo}?text={mensagem_encoded}"
+        
+        try:
+            webbrowser.open(url)
+        except Exception as e:
+            print(f"Erro ao abrir WhatsApp: {e}")

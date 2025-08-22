@@ -1,43 +1,36 @@
 """
 Módulo para validação de dados de pedidos
 """
-from tkinter import messagebox
 
 def validar_dados_cliente(campos):
     """Valida dados do cliente"""
     if not campos['nome_cliente'].get().strip():
-        messagebox.showerror("Erro", "Nome do cliente é obrigatório!")
-        return False
+        raise ValueError("Nome do cliente é obrigatório!")
     
     cpf = campos['cpf'].get().strip()
     if len(cpf) != 11 or not cpf.isdigit():
-        messagebox.showerror("Erro", "CPF deve ter 11 dígitos!")
-        return False
+        raise ValueError("CPF deve ter 11 dígitos!")
     
     return True
 
 def validar_produtos(produtos_list):
     """Valida lista de produtos"""
     if not produtos_list:
-        messagebox.showerror("Erro", "Adicione pelo menos um produto!")
-        return False
+        raise ValueError("Adicione pelo menos um produto!")
     
     for i, produto in enumerate(produtos_list):
         tipo = produto['tipo'].get().strip()
         valor = produto['valor'].get().replace(',', '.') or '0'
         
         if not tipo:
-            messagebox.showerror("Erro", f"Produto {i+1}: Tipo é obrigatório!")
-            return False
+            raise ValueError(f"Produto {i+1}: Tipo é obrigatório!")
         
         try:
             valor_float = float(valor)
             if valor_float <= 0:
-                messagebox.showerror("Erro", f"Produto {i+1}: Valor deve ser maior que zero!")
-                return False
+                raise ValueError(f"Produto {i+1}: Valor deve ser maior que zero!")
         except ValueError:
-            messagebox.showerror("Erro", f"Produto {i+1}: Valor inválido!")
-            return False
+            raise ValueError(f"Produto {i+1}: Valor inválido!")
     
     return True
 
