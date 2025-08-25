@@ -1,18 +1,21 @@
+# -*- coding: utf-8 -*-
 """
 Modal de pedidos em PyQt6
 """
 
-from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel, 
-                             QPushButton, QLineEdit, QTextEdit, QComboBox,
-                             QGroupBox, QFormLayout, QScrollArea, QWidget,
-                             QFrame, QMessageBox, QCompleter, QListWidget,
-                             QListWidgetItem)
-from PyQt6.QtCore import Qt, QStringListModel, pyqtSignal
-from PyQt6.QtGui import QFont
 
-from database import db_manager
-from documents.os_pdf import OrdemServicoPDF
-from app.numero_os import Contador
+# Refatoração: importa funções da pasta pedidosModal
+from .pedidosModal import (
+    abrir_modal_novo, abrir_modal_edicao, _carregar_clientes, _criar_modal_completo, _criar_header,
+    _criar_secao_cliente, _criar_secao_produtos, _carregar_produtos, _montar_produtos_completer,
+    _filtrar_produtos_por_categoria, _on_produto_completer_activated, _on_produto_text_changed,
+    _criar_secao_pagamento, _criar_secao_resumo, _criar_botoes, _format_phone, _on_cliente_completer_activated,
+    _refresh_produtos_ui, _add_produto, _limpar_campos_cliente, _remove_produto, _recalcular_total,
+    _on_cliente_selecionado, _preencher_dados_cliente, _resolver_cliente, _gerar_pdf, _aplicar_estilo
+)
+from .pedidosModal import PedidosModal
+
+# O resto do arquivo pode ser removido, pois a classe e métodos agora estão na pasta pedidosModal
 
 
 class PedidosModal(QDialog):
@@ -24,8 +27,7 @@ class PedidosModal(QDialog):
     def __init__(self, interface):
         super().__init__()
         self.interface = interface
-        # Inicializações de estado devem ficar dentro do __init__
-        self.produtos_list = []  # [{"descricao": str, "valor": float}]
+        self.model = PedidoFormModel()
         self.clientes_dict = {}
         self.produtos_dict = {}
         
@@ -91,24 +93,27 @@ class PedidosModal(QDialog):
     
     def _criar_modal_completo(self, pedido_data=None):
         """Cria modal completo para pedido"""
-        # Configurar janela
         is_edit = pedido_data is not None
+        if is_edit:
+            self.model.reset()
+            self.model.preencher(pedido_data)
+        else:
+            self.model.reset()
         numero_os = pedido_data.get('numero_os') if pedido_data else None
-        
         titulo = f"Editar OS #{numero_os}" if is_edit else "Nova Ordem de Serviço"
         self.setWindowTitle(titulo)
         self.setFixedSize(900, 700)
-        
+
         # Layout principal com scroll
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(10, 10, 10, 10)
-        
+
         # Área de scroll
         scroll_area = QScrollArea()
         scroll_area.setWidgetResizable(True)
         scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        
+
         # Configurar scroll suave para modal
         scroll_area.verticalScrollBar().setSingleStep(15)
         scroll_area.verticalScrollBar().setPageStep(60)
@@ -123,7 +128,8 @@ class PedidosModal(QDialog):
         self._criar_header(content_layout, numero_os, is_edit)
 
         # Formulário
-        self.campos = {}
+        self.campos = self.model.campos
+        self.produtos_list = self.model.produtos_list
         self._criar_secao_cliente(content_layout, pedido_data)
         self._criar_secao_produtos(content_layout, pedido_data)
         self._criar_secao_pagamento(content_layout, pedido_data)
@@ -171,14 +177,18 @@ class PedidosModal(QDialog):
     
     def _criar_secao_cliente(self, layout, pedido_data):
         """Cria seção de dados do cliente"""
+        if _criar_secao_cliente_part:
+            _criar_secao_cliente_part(self, layout, pedido_data)
+            return
+        from PyQt6.QtWidgets import QLineEdit
         cliente_group = QGroupBox("👤 Dados do Cliente")
         cliente_group.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
         cliente_layout = QFormLayout(cliente_group)
-        
-        # Nome do cliente com autocomplete
+
+        # Nome do cliente com autocomplete + botão limpar
         self.campos['nome_cliente'] = QLineEdit()
         self.campos['nome_cliente'].setPlaceholderText("Digite o nome do cliente...")
-        
+
         # Configurar autocomplete
         if self.clientes_dict:
             self.clientes_completer = QCompleter(list(self.clientes_dict.keys()))
@@ -197,9 +207,19 @@ class PedidosModal(QDialog):
                 self.campos['nome_cliente'].editingFinished.connect(lambda: self._on_cliente_selecionado(self.campos['nome_cliente'].text()))
             except Exception:
                 pass
-        
-        cliente_layout.addRow("Nome do Cliente:", self.campos['nome_cliente'])
-        
+
+        # Adicionar botão de limpar ao lado do campo de nome
+        nome_row = QHBoxLayout()
+        nome_row.addWidget(self.campos['nome_cliente'])
+        btn_limpar_cli = QPushButton("🧹 Limpar")
+        btn_limpar_cli.setMaximumWidth(90)
+        btn_limpar_cli.setToolTip("Limpar dados do cliente")
+        btn_limpar_cli.clicked.connect(self._limpar_campos_cliente)
+        nome_row.addWidget(btn_limpar_cli)
+        nome_row_w = QWidget()
+        nome_row_w.setLayout(nome_row)
+        cliente_layout.addRow("Nome do Cliente:", nome_row_w)
+
         # Telefone
         self.campos['telefone_cliente'] = QLineEdit()
         self.campos['telefone_cliente'].setPlaceholderText("(11) 99999-9999")
@@ -208,7 +228,7 @@ class PedidosModal(QDialog):
         except Exception:
             pass
         cliente_layout.addRow("Telefone:", self.campos['telefone_cliente'])
-        
+
         # CPF
         self.campos['cpf_cliente'] = QLineEdit()
         self.campos['cpf_cliente'].setPlaceholderText("000.000.000-00")
@@ -217,23 +237,22 @@ class PedidosModal(QDialog):
         except Exception:
             pass
         cliente_layout.addRow("CPF:", self.campos['cpf_cliente'])
-        
+
         # Endereço
         self.campos['endereco_cliente'] = QLineEdit()
         self.campos['endereco_cliente'].setPlaceholderText("Rua, número, bairro, cidade")
         cliente_layout.addRow("Endereço:", self.campos['endereco_cliente'])
-        
-        # Preencher dados se for edição
-        if pedido_data:
-            self.campos['nome_cliente'].setText(pedido_data.get('nome_cliente', ''))
-            self.campos['telefone_cliente'].setText(pedido_data.get('telefone_cliente', ''))
-            self.campos['cpf_cliente'].setText(pedido_data.get('cpf_cliente', ''))
-            self.campos['endereco_cliente'].setText(pedido_data.get('endereco_cliente', ''))
-        
+
+    # Preencher dados se for edição
+    # (Removido: agora só a função modular faz isso para evitar conflito de tipos)
+
         layout.addWidget(cliente_group)
     
     def _criar_secao_produtos(self, layout, pedido_data):
         """Cria seção de produtos com adição múltipla"""
+        if _criar_secao_produtos_part:
+            _criar_secao_produtos_part(self, layout, pedido_data)
+            return
         produtos_group = QGroupBox("📦 Produtos")
         produtos_group.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
         produtos_vbox = QVBoxLayout(produtos_group)
@@ -254,6 +273,7 @@ class PedidosModal(QDialog):
         # Enter adiciona quando foco está no campo valor
         try:
             self.input_valor.returnPressed.connect(self._add_produto)
+            self.input_desc.returnPressed.connect(self._add_produto)
         except Exception:
             pass
         # Autocomplete de produtos do catálogo
@@ -333,9 +353,9 @@ class PedidosModal(QDialog):
             self._refresh_produtos_ui()
             valor = pedido_data.get('valor_total', pedido_data.get('valor_produto', 0))
             try:
-                self.campos['valor_total'].setText(f"{float(valor or 0):.2f}")
+                self.campos['valor_total'].setText(str(f"{float(valor or 0):.2f}"))
             except Exception:
-                self.campos['valor_total'].setText("0.00")
+                self.campos['valor_total'].setText(str("0.00"))
             # Prefill cor/reforço
             try:
                 cor = pedido_data.get('cor', '') or ''
@@ -405,8 +425,8 @@ class PedidosModal(QDialog):
         if texto in self.produtos_dict:
             p = self.produtos_dict[texto]
             # Preenche descrição com o nome e valor com o preço
-            self.input_desc.setText(p.get('nome', ''))
-            self.input_valor.setText(f"{float(p.get('preco', 0)):.2f}")
+            self.input_desc.setText(str(p.get('nome', '')))
+            self.input_valor.setText(str(f"{float(p.get('preco', 0)):.2f}"))
             # Ajusta categoria, se houver
             try:
                 cat = p.get('categoria') or 'Todas'
@@ -420,15 +440,34 @@ class PedidosModal(QDialog):
         """Ao digitar, se corresponder a um produto do catálogo, preencher valor."""
         if not texto:
             return
-        # 1) Match direto por display text
+        # 0) Se texto já contém preço estilo " ... | R$ 123,45 " ou "R$ 123,45", extrair
+        try:
+            if 'R$' in texto:
+                parte = texto.split('R$')[-1]
+                num = ''.join(ch for ch in parte if ch.isdigit() or ch in ',.')
+                if num:
+                    num = num.replace('.', '').replace(',', '.')
+                    self.input_valor.setText(str(f"{float(num):.2f}"))
+        except Exception:
+            self.input_valor.setText("")
+        # 1) Match direto por display text do catálogo
         if texto in self.produtos_dict:
             p = self.produtos_dict.get(texto, {})
-            self.input_valor.setText(f"{float(p.get('preco', 0)):.2f}")
+            preco = p.get('preco', 0)
+            try:
+                preco_float = float(preco)
+            except Exception:
+                preco_float = 0.0
+            self.input_valor.setText(str(f"{preco_float:.2f}"))
+            # também normaliza descrição para apenas o nome
+            try:
+                self.input_desc.setText(str(p.get('nome', texto)))
+            except Exception:
+                pass
             return
         # 2) Match por nome (case-insensitive)
         try:
             low = texto.strip().lower()
-            # Exact, then startswith, then contains
             best = None
             for _, pdata in self.produtos_dict.items():
                 nome = pdata.get('nome', '').strip()
@@ -444,7 +483,12 @@ class PedidosModal(QDialog):
                         best = pdata
                         break
             if best:
-                self.input_valor.setText(f"{float(best.get('preco', 0)):.2f}")
+                preco = best.get('preco', 0)
+                try:
+                    preco_float = float(preco)
+                except Exception:
+                    preco_float = 0.0
+                self.input_valor.setText(str(f"{preco_float:.2f}"))
                 try:
                     cat = best.get('categoria') or 'Todas'
                     idx = self.input_categoria.findText(cat)
@@ -452,11 +496,20 @@ class PedidosModal(QDialog):
                         self.input_categoria.setCurrentIndex(idx)
                 except Exception:
                     pass
+                # normaliza descrição para o nome
+                try:
+                    self.input_desc.setText(str(best.get('nome', texto)))
+                except Exception:
+                    pass
         except Exception:
-            pass
+            self.input_valor.setText("")
     
     def _criar_secao_pagamento(self, layout, pedido_data):
         """Cria seção de pagamento"""
+        # Se existir parte modular, delega
+        if _criar_secao_pagamento_part:
+            _criar_secao_pagamento_part(self, layout, pedido_data)
+            return
         pagamento_group = QGroupBox("💳 Dados de Pagamento")
         pagamento_group.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
         pagamento_layout = QFormLayout(pagamento_group)
@@ -489,12 +542,12 @@ class PedidosModal(QDialog):
         self.campos['forma_pagamento'].addItems(["pix", "cartão de crédito", "cartão de débito", "dinheiro", "transferência", "boleto"])
         pagamento_layout.addRow("Forma de Pagamento:", self.campos['forma_pagamento'])
 
-        # Prazo de entrega
+        # Prazo (em dias)
         self.campos['prazo_entrega'] = QLineEdit()
-        self.campos['prazo_entrega'].setPlaceholderText("YYYY-MM-DD")
-        pagamento_layout.addRow("Prazo de Entrega:", self.campos['prazo_entrega'])
+        self.campos['prazo_entrega'].setPlaceholderText("dias (ex: 30)")
+        pagamento_layout.addRow("Prazo (dias):", self.campos['prazo_entrega'])
 
-    # (Cor e Reforço movidos para seção de Produtos)
+        # (Cor e Reforço movidos para seção de Produtos)
 
         # Preencher dados se for edição
         if pedido_data:
@@ -521,7 +574,11 @@ class PedidosModal(QDialog):
             if index >= 0:
                 self.campos['forma_pagamento'].setCurrentIndex(index)
 
-            self.campos['prazo_entrega'].setText(pedido_data.get('prazo_entrega', ''))
+            # Mostrar prazo em dias quando editar
+            try:
+                self.campos['prazo_entrega'].setText(str(int(pedido_data.get('prazo', 0) or 0)))
+            except Exception:
+                self.campos['prazo_entrega'].setText("")
             # (cor/reforço já preenchidos na seção Produtos)
 
         # Sempre que mudar, recalcula total
@@ -532,10 +589,12 @@ class PedidosModal(QDialog):
         except Exception:
             pass
 
-        layout.addWidget(pagamento_group)
     
     def _criar_secao_resumo(self, layout):
         """Cria seção de resumo financeiro"""
+        if _criar_secao_resumo_part:
+            _criar_secao_resumo_part(self, layout)
+            return
         resumo_group = QGroupBox("💰 Resumo Financeiro")
         resumo_group.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
         resumo_layout = QHBoxLayout(resumo_group)
@@ -552,6 +611,9 @@ class PedidosModal(QDialog):
     
     def _criar_botoes(self, layout, numero_os, pedido_data):
         """Cria botões do modal"""
+        if '_criar_botoes_part' in globals() and _criar_botoes_part:
+            _criar_botoes_part(self, layout, numero_os, pedido_data)
+            return
         botoes_frame = QFrame()
         botoes_layout = QHBoxLayout(botoes_frame)
         botoes_layout.setContentsMargins(0, 10, 0, 0)
@@ -626,7 +688,10 @@ class PedidosModal(QDialog):
             extras_txt = ("  —  " + "  |  ".join(extras)) if extras else ""
             lbl = QLabel(f"• {prod['descricao']}{extras_txt}")
             lbl.setStyleSheet("color: #cccccc")
-            val = QLabel(f"R$ {prod['valor']:.2f}")
+            # Formatação brasileira: milhar com ponto, centavos com vírgula
+            valor = prod.get('valor', 0.0)
+            valor_fmt = f"R$ {valor:,.2f}".replace(",", "v").replace(".", ",").replace("v", ".")
+            val = QLabel(valor_fmt)
             val.setStyleSheet("color: #00ff88; font-weight: bold;")
             btn_rem = QPushButton("Remover")
             btn_rem.setMaximumWidth(90)
@@ -643,7 +708,31 @@ class PedidosModal(QDialog):
 
     def _add_produto(self):
         desc = (self.input_desc.text() or '').strip()
-        val_text = (self.input_valor.text() or '').strip().replace(',', '.')
+        val_text_raw = (self.input_valor.text() or '').strip()
+        # Se descrição vier no formato "Nome | R$ 123,45", separa o nome e extrai preço se necessário
+        if '|' in desc and 'R$' in desc:
+            try:
+                nome_parte, resto = desc.split('|', 1)
+                desc = nome_parte.strip()
+                if not val_text_raw:
+                    parte = resto.split('R$')[-1]
+                    num = ''.join(ch for ch in parte if ch.isdigit() or ch in ',.')
+                    if num:
+                        val_text_raw = num
+            except Exception:
+                pass
+        # Se descrição igual a display do catálogo, normaliza e pega preço
+        if desc in self.produtos_dict:
+            try:
+                p = self.produtos_dict[desc]
+                if not val_text_raw:
+                    val_text_raw = f"{float(p.get('preco', 0)):.2f}"
+                desc = p.get('nome', desc)
+            except Exception:
+                pass
+        # Normalizar número
+        # Corrige: não remover ponto decimal, só vírgula vira ponto
+        val_text = val_text_raw.replace('R$', '').replace(' ', '').replace(',', '.')
         # Se descrição coincide com um item do catálogo (por nome), e não há valor, usar preço do catálogo
         if (not val_text) and self.produtos_dict:
             # procurar por nome exato entre valores do dict
@@ -660,19 +749,54 @@ class PedidosModal(QDialog):
             valor = float(val_text) if val_text else 0.0
         except Exception:
             valor = 0.0
-        # Capturar cor/reforço atuais (por item)
-        try:
-            cor_sel = (self.campos.get('cor').currentText() if 'cor' in self.campos else '').strip()
-        except Exception:
-            cor_sel = ''
-        try:
-            reforco_sel = (self.campos.get('reforco').currentText() if 'reforco' in self.campos else '').strip().lower() == 'sim'
-        except Exception:
+    # Capturar cor/reforço atuais (por item)
+    try:
+        cor_sel = (self.campos.get('cor').currentText() if 'cor' in self.campos else '').strip()
+    except Exception:
+        cor_sel = ''
+    try:
+        reforco_widget = self.campos.get('reforco')
+        if reforco_widget is None:
             reforco_sel = False
-        self.produtos_list.append({"descricao": desc, "valor": valor, "cor": cor_sel, "reforco": reforco_sel})
-        self.input_desc.clear()
-        self.input_valor.clear()
-        self._refresh_produtos_ui()
+        elif hasattr(reforco_widget, 'isChecked'):
+            reforco_sel = bool(reforco_widget.isChecked())
+        else:
+            reforco_sel = (reforco_widget.currentText() if hasattr(reforco_widget, 'currentText') else '').strip().lower() == 'sim'
+    except Exception:
+        reforco_sel = False
+    # Aplicar acréscimo de R$15,00 se reforço
+    try:
+        if reforco_sel:
+            valor += 15.0
+    except Exception:
+        pass
+    self.produtos_list.append({"descricao": desc, "valor": valor, "cor": cor_sel, "reforco": reforco_sel})
+    self.input_desc.clear()
+    self.input_valor.clear()
+    self._refresh_produtos_ui()
+
+    def _limpar_campos_cliente(self):
+        """Limpa os campos do cliente e foca no nome."""
+        try:
+            self.campos['nome_cliente'].clear()
+        except Exception:
+            pass
+        try:
+            self.campos['telefone_cliente'].clear()
+        except Exception:
+            pass
+        try:
+            self.campos['cpf_cliente'].clear()
+        except Exception:
+            pass
+        try:
+            self.campos['endereco_cliente'].clear()
+        except Exception:
+            pass
+        try:
+            self.campos['nome_cliente'].setFocus()
+        except Exception:
+            pass
 
     def _remove_produto(self, index: int):
         if 0 <= index < len(self.produtos_list):
@@ -680,21 +804,30 @@ class PedidosModal(QDialog):
             self._refresh_produtos_ui()
 
     def _recalcular_total(self):
+        if _recalcular_total_part:
+            _recalcular_total_part(self)
+            return
         total_produtos = sum([p.get('valor', 0.0) for p in self.produtos_list])
         def _f(txt):
             try:
                 return float((txt or '').replace(',', '.'))
             except Exception:
                 return 0.0
-        frete = _f(self.campos.get('frete').text()) if 'frete' in self.campos else 0.0
-        desconto = _f(self.campos.get('desconto').text()) if 'desconto' in self.campos else 0.0
+        def safe_text(campo):
+            try:
+                if campo is not None and hasattr(campo, 'text'):
+                    return campo.text()
+            except Exception:
+                pass
+            return ''
+        frete = _f(safe_text(self.campos.get('frete'))) if 'frete' in self.campos else 0.0
+        desconto = _f(safe_text(self.campos.get('desconto'))) if 'desconto' in self.campos else 0.0
         total = total_produtos + frete - desconto
         if total < 0:
             total = 0.0
-        self.campos['valor_total'].setText(f"{total:.2f}")
-        # Atualiza rótulo do resumo, se existir
+        self.campos['valor_total'].setText(str(f"{total:.2f}"))
         try:
-            self.label_resumo.setText(f"Valor Total: R$ {total:.2f}")
+            self.label_resumo.setText(str(f"Valor Total: R$ {total:.2f}"))
         except Exception:
             pass
 
@@ -708,7 +841,7 @@ class PedidosModal(QDialog):
         try:
             telefone_fmt = self._format_phone(cliente.get('telefone', ''))
             display = f"{cliente.get('nome','')} | {telefone_fmt}" if telefone_fmt else cliente.get('nome','')
-            self.campos['nome_cliente'].setText(display)
+            self.campos['nome_cliente'].setText(str(display))
         except Exception:
             pass
         self._preencher_dados_cliente(cliente)
@@ -716,18 +849,18 @@ class PedidosModal(QDialog):
     def _preencher_dados_cliente(self, cli: dict):
         """Preenche telefone, CPF e endereço com base no dict do cliente."""
         try:
-            self.campos['telefone_cliente'].setText(cli.get('telefone', ''))
+            self.campos['telefone_cliente'].setText(str(cli.get('telefone', '')))
         except Exception:
             pass
         try:
-            self.campos['cpf_cliente'].setText(cli.get('cpf', ''))
+            self.campos['cpf_cliente'].setText(str(cli.get('cpf', '')))
         except Exception:
             pass
         try:
             rua = cli.get('rua', '')
             numero = cli.get('numero', '')
             endereco = f"{rua}, {numero}" if rua and numero else (rua or numero or '')
-            self.campos['endereco_cliente'].setText(endereco)
+            self.campos['endereco_cliente'].setText(str(endereco))
         except Exception:
             pass
 
@@ -768,132 +901,62 @@ class PedidosModal(QDialog):
             return candidatos[0]
         return None
     
-    def _atualizar_resumo(self):
-        """Atualiza resumo financeiro"""
-        try:
-            valor_texto = self.campos['valor_total'].text().replace(',', '.')
-            valor = float(valor_texto) if valor_texto else 0.0
-            self.label_resumo.setText(f"Valor Total: R$ {valor:.2f}")
-        except ValueError:
-            self.label_resumo.setText("Valor Total: R$ 0,00")
-    
-    def _salvar_pedido(self, numero_os_atual, pedido_data):
-        """Salva o pedido no banco de dados"""
-        try:
-            # Validações básicas
-            if not self.campos['nome_cliente'].text().strip():
-                QMessageBox.warning(self, "Erro", "Nome do cliente é obrigatório!")
-                return
-            
-            # Exigir ao menos um item: lista de produtos ou texto livre
-            if not self.produtos_list:
-                QMessageBox.warning(self, "Erro", "Adicione ao menos 1 produto.")
-                return
-            
-            # Montar detalhes a partir dos produtos adicionados
-            def _fmt_ref(p):
-                return 'sim' if p.get('reforco') else 'não'
-            linhas = [
-                (
-                    f"• {p['descricao']}"
-                    + (f" - Cor: {p.get('cor')}" if p.get('cor') else "")
-                    + (f" - Reforço: {_fmt_ref(p)}" if 'reforco' in p else "")
-                    + f" - R$ {p['valor']:.2f}"
-                )
-                for p in self.produtos_list
-            ]
-            detalhes_txt = "\n".join(linhas)
-
-            # Calcular totais
+    def _add_produto(self):
+        desc = (self.input_desc.text() or '').strip()
+        val_text_raw = (self.input_valor.text() or '').strip()
+        # Se descrição vier no formato "Nome | R$ 123,45", separa o nome e extrai preço se necessário
+        if '|' in desc and 'R$' in desc:
             try:
-                valor_total = float(self.campos['valor_total'].text().replace(',', '.')) if self.campos['valor_total'].text() else 0.0
+                nome_parte, resto = desc.split('|', 1)
+                desc = nome_parte.strip()
+                if not val_text_raw:
+                    parte = resto.split('R$')[-1]
+                    num = ''.join(ch for ch in parte if ch.isdigit() or ch in ',.')
+                    if num:
+                        val_text_raw = num
             except Exception:
-                valor_total = sum([p.get('valor', 0.0) for p in self.produtos_list])
-            def _f(v):
-                try:
-                    return float((v or '').replace(',', '.'))
-                except Exception:
-                    return 0.0
-            frete_v = _f(self.campos.get('frete').text()) if 'frete' in self.campos else 0.0
-            entrada_v = _f(self.campos.get('entrada').text()) if 'entrada' in self.campos else 0.0
-            desconto_v = _f(self.campos.get('desconto').text()) if 'desconto' in self.campos else 0.0
-
-            # Calcular prazo (dias) a partir de data, se informada
-            from datetime import datetime, timedelta
-            prazo = 30
-            prazo_str = self.campos['prazo_entrega'].text().strip()
-            if prazo_str:
-                if prazo_str.isdigit():
-                    try:
-                        days = int(prazo_str)
-                        prazo = max(0, days)
-                    except Exception:
-                        prazo = 30
-                else:
-                    try:
-                        data_ent = datetime.strptime(prazo_str, '%Y-%m-%d').date()
-                        hoje = datetime.now().date()
-                        prazo = max(0, (data_ent - hoje).days)
-                    except Exception:
-                        prazo = 30
-
-            # Preparar dados
-            dados = {
-                'nome_cliente': self.campos['nome_cliente'].text().strip(),
-                'telefone_cliente': self.campos['telefone_cliente'].text().strip(),
-                'cpf_cliente': self.campos['cpf_cliente'].text().strip(),
-                'detalhes_produto': detalhes_txt,
-                # valor_produto representa somente o somatório dos itens (total - frete + desconto)
-                'valor_produto': float(f"{(valor_total - frete_v + desconto_v):.2f}"),
-                'valor_entrada': float(f"{entrada_v:.2f}"),
-                'frete': float(f"{frete_v:.2f}"),
-                'forma_pagamento': self.campos['forma_pagamento'].currentText(),
-                'prazo': prazo,
-                'status': self.campos['status'].currentText(),
-                'desconto': float(f"{desconto_v:.2f}"),
-                'cor': self.campos['cor'].currentText().strip(),
-                'reforco': (self.campos['reforco'].currentText().strip().lower() == 'sim')
-            }
-            
-            if pedido_data:
-                # Edição - manter número OS existente
-                dados['numero_os'] = pedido_data['numero_os']
-                dados['id'] = pedido_data['id']
-
-                # Atualizar colunas reais
-                update_cols = {k: dados[k] for k in (
-                    'numero_os','nome_cliente','cpf_cliente','telefone_cliente',
-                    'detalhes_produto','valor_produto','valor_entrada','frete',
-                    'forma_pagamento','prazo') if k in dados}
-                db_manager.atualizar_pedido(dados['id'], update_cols)
-                # Atualizar JSON
-                db_manager.atualizar_json_campos(dados['id'], {
-                    'status': dados['status'],
-                    'desconto': dados['desconto'],
-                    'cor': dados.get('cor', ''),
-                    'reforco': dados.get('reforco', False)
-                })
-                QMessageBox.information(self, "Sucesso", "Pedido atualizado com sucesso!")
-
-            else:
-                # Novo pedido - gerar número OS
-                contador = Contador()
-                numero_os = contador.get_proximo_numero()
-                dados['numero_os'] = numero_os
-
-                # Salvar no banco
-                db_manager.salvar_ordem(dados, "")
-                QMessageBox.information(self, "Sucesso", f"Pedido criado com sucesso! OS #{numero_os:05d}")
-            
-            # Notificar interface para atualizar
-            self.pedido_salvo.emit()
-            self.accept()
-            
-        except Exception as e:
-            QMessageBox.critical(self, "Erro", f"Erro ao salvar pedido: {e}")
-            print(f"Erro detalhado: {e}")
-            import traceback
-            traceback.print_exc()
+                pass
+        # Se descrição igual a display do catálogo, normaliza e pega preço
+        if desc in self.produtos_dict:
+            try:
+                p = self.produtos_dict[desc]
+                if not val_text_raw:
+                    val_text_raw = f"{float(p.get('preco', 0)):.2f}"
+                desc = p.get('nome', desc)
+            except Exception:
+                pass
+        # Normalizar número
+        # Corrige: não remover ponto decimal, só vírgula vira ponto
+        val_text = val_text_raw.replace('R$', '').replace(' ', '').replace(',', '.')
+        # Se descrição coincide com um item do catálogo (por nome), e não há valor, usar preço do catálogo
+        if (not val_text) and self.produtos_dict:
+            # procurar por nome exato entre valores do dict
+            try:
+                for display, pdata in self.produtos_dict.items():
+                    if pdata.get('nome', '').lower() == desc.lower():
+                        val_text = str(pdata.get('preco', 0.0))
+                        break
+            except Exception:
+                pass
+        if not desc:
+            return
+        try:
+            valor = float(val_text) if val_text else 0.0
+        except Exception:
+            valor = 0.0
+        # Capturar cor/reforço atuais (por item)
+        try:
+            cor_sel = (self.campos.get('cor').currentText() if 'cor' in self.campos else '').strip()
+        except Exception:
+            cor_sel = ''
+        try:
+            reforco_sel = (self.campos.get('reforco').currentText() if 'reforco' in self.campos else '').strip().lower() == 'sim'
+        except Exception:
+            reforco_sel = False
+    self.produtos_list.append({"descricao": desc, "valor": valor, "cor": cor_sel, "reforco": reforco_sel})
+    self.input_desc.clear()
+    self.input_valor.clear()
+    self._refresh_produtos_ui()
     
     def _gerar_pdf(self, pedido_data):
         """Gera PDF da ordem de serviço"""

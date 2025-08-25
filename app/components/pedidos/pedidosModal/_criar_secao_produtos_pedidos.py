@@ -1,0 +1,82 @@
+from PyQt6.QtWidgets import QGroupBox, QFormLayout
+from PyQt6.QtGui import QFont
+
+from app.components.pedidos.ui.produtos_ui import criar_produtos_ui
+
+
+def _criar_secao_produtos_pedidos(self, layout, pedido_data):
+    # Cria UI (separada em ui/produtos_ui.py)
+    widgets = criar_produtos_ui(self, layout, pedido_data)
+
+    # Mapear widgets para os nomes já usados pelo modal
+    self.input_desc = widgets['input_desc']
+    self.input_valor = widgets['input_valor']
+    self.input_categoria = widgets['input_categoria']
+    self.campos['cor'] = widgets['campos_cor']
+    # usar checkbox como booleano
+    self.campos['reforco'] = widgets['campos_ref']
+    self.lista_produtos_container = widgets['lista_layout']
+    self.campos['valor_total'] = widgets['valor_total']
+
+    # conectar botões aos delegados
+    try:
+        widgets['btn_limpar'].clicked.connect(self._limpar_campos_produto)
+    except Exception:
+        pass
+    try:
+        widgets['btn_add'].clicked.connect(self._add_produto)
+    except Exception:
+        pass
+
+    # Completer e carregamento de catálogo (mantém lógica existente)
+    try:
+        self._carregar_produtos()
+        if hasattr(self, '_produtos_categorias') and self._produtos_categorias:
+            try:
+                for c in sorted(self._produtos_categorias):
+                    if self.input_categoria.findText(c) < 0:
+                        self.input_categoria.addItem(c)
+            except Exception:
+                pass
+        try:
+            self._montar_produtos_completer()
+        except Exception:
+            pass
+    except Exception:
+        pass
+
+    # permitir adicionar com Enter
+    try:
+        self.input_valor.returnPressed.connect(self._add_produto)
+        self.input_desc.returnPressed.connect(self._add_produto)
+    except Exception:
+        pass
+
+    # Inicializar lista interna e preencher a partir de pedido_data
+    try:
+        if not hasattr(self, 'produtos_list') or self.produtos_list is None:
+            self.produtos_list = []
+    except Exception:
+        self.produtos_list = []
+    if pedido_data:
+        detalhes = pedido_data.get('detalhes_produto', '') or ''
+        try:
+            linhas = [l.strip() for l in detalhes.replace('\\n', '\n').split('\n') if l.strip() and not l.strip().startswith('-')]
+            for linha in linhas:
+                if ' - R$ ' in linha:
+                    try:
+                        desc, valtxt = linha.rsplit(' - R$ ', 1)
+                        valor = float(valtxt.replace('.', '').replace(',', '.')) if valtxt else 0.0
+                        self.produtos_list.append({"descricao": desc.strip('• ').strip(), "valor": valor})
+                    except Exception:
+                        self.produtos_list.append({"descricao": linha.strip('• ').strip(), "valor": 0.0})
+                else:
+                    self.produtos_list.append({"descricao": linha.strip('• ').strip(), "valor": 0.0})
+        except Exception:
+            pass
+
+    # Renderizar a lista
+    try:
+        self._refresh_produtos_ui()
+    except Exception:
+        pass

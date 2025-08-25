@@ -4,8 +4,8 @@ Gerenciamento de cards de pedidos em PyQt6
 
 from datetime import datetime, timedelta
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
-                             QPushButton, QFrame)
-from PyQt6.QtCore import Qt, pyqtSignal
+                             QPushButton, QFrame, QMenu)
+from PyQt6.QtCore import Qt, pyqtSignal, QPoint
 from PyQt6.QtGui import QFont, QPalette, QFontMetrics
 
 
@@ -33,7 +33,7 @@ class PedidosCard(QWidget):
         card_layout = QVBoxLayout(card_widget)
         card_layout.setContentsMargins(12, 12, 12, 12)
         card_layout.setSpacing(8)
-        
+
         # Header do card
         self._criar_header(card_layout, pedido)
         
@@ -61,15 +61,15 @@ class PedidosCard(QWidget):
         numero_label.setFont(QFont("Segoe UI", 13, QFont.Weight.Bold))
         numero_label.setStyleSheet("color: #ffffff; background: transparent;")
         header_layout.addWidget(numero_label)
-        
-        # Status com cor
+
+        # Status com cor (guardar referência para atualização ao mudar status)
         status = pedido.get('status', 'desconhecido')
         status_color = self._get_status_color(status)
-        
-        status_label = QLabel(f"Status: {status.upper()}")
-        status_label.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
-        status_label.setStyleSheet(f"color: {status_color}; background: transparent;")
-        header_layout.addWidget(status_label)
+
+        self._status_label = QLabel(f"Status: {status.upper()}")
+        self._status_label.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
+        self._status_label.setStyleSheet(f"color: {status_color}; background: transparent;")
+        header_layout.addWidget(self._status_label)
         
         # Dias restantes para entrega
         dias_restantes = self._calcular_dias_restantes(pedido)
@@ -103,18 +103,13 @@ class PedidosCard(QWidget):
         cliente_label.setWordWrap(True)
         content_layout.addWidget(cliente_label)
         
-        # Data de criação da OS
-        data_criacao = pedido.get('data_criacao', '')
-        if data_criacao:
-            if isinstance(data_criacao, str) and len(data_criacao) > 10:
-                data_criacao_formatada = data_criacao[:10]  # Apenas a data, sem hora
-            else:
-                data_criacao_formatada = str(data_criacao)
-            
-            data_label = QLabel(f"Criada em: {data_criacao_formatada}")
-            data_label.setFont(QFont("Segoe UI", 9))
-            data_label.setStyleSheet("color: #aaaaaa; background: transparent;")
-            content_layout.addWidget(data_label)
+        # Prazo/Entrega (substitui "Criada em")
+        prazo_texto, prazo_cor = self._formatar_prazo_texto(pedido)
+        if prazo_texto:
+            lbl_prazo = QLabel(prazo_texto)
+            lbl_prazo.setFont(QFont("Segoe UI", 9))
+            lbl_prazo.setStyleSheet(f"color: {prazo_cor}; background: transparent;")
+            content_layout.addWidget(lbl_prazo)
         
         # Valor (destacado)
         valor = pedido.get('valor_total', pedido.get('valor_produto', 0))
@@ -267,7 +262,13 @@ class PedidosCard(QWidget):
         btn_excluir.setMinimumWidth(80)
         btn_excluir.clicked.connect(lambda: self.excluir_clicked.emit(pedido_id))
         botoes_layout.addWidget(btn_excluir)
-        
+
+        # Botão de Status (ao lado do WhatsApp)
+        btn_status = QPushButton("📝 Status")
+        btn_status.setMinimumWidth(85)
+        btn_status.clicked.connect(lambda: self._abrir_menu_status(pedido_id))
+        botoes_layout.addWidget(btn_status)
+
         # Botão WhatsApp (se houver telefone)
         telefone = pedido.get('telefone_cliente', '')
         if telefone:
@@ -281,6 +282,116 @@ class PedidosCard(QWidget):
         
         # Aplicar estilo aos botões
         self._aplicar_estilo_botoes(botoes_frame)
+
+    # --- Prazo / Entrega helpers -------------------------------------------------
+    def _formatar_prazo_texto(self, pedido):
+        """Retorna (texto, cor) para o rótulo de prazo.
+        Usa data_entrega se presente; caso contrário, calcula com data_criacao + prazo(dias).
+        """
+        try:
+            due_date = self._obter_data_entrega(pedido)
+            if not due_date:
+                return ("Entrega: data não informada", "#ffb74d")
+
+            hoje = datetime.now().date()
+            diff = (due_date - hoje).days
+            data_fmt = due_date.strftime("%d/%m/%Y")
+
+            if diff > 1:
+                return (f"Entrega: faltam {diff} dias ({data_fmt})", "#cccccc")
+            if diff == 1:
+                return (f"Entrega: amanhã ({data_fmt})", "#ffd166")
+            if diff == 0:
+                return (f"Entrega: hoje ({data_fmt})", "#ffd166")
+            return (f"Entrega: atrasado há {abs(diff)} dias ({data_fmt})", "#ff6b6b")
+        except Exception:
+            return ("Entrega: data inválida", "#ffb74d")
+
+    def _obter_data_entrega(self, pedido):
+        """Determina a data de entrega acordada.
+        Preferência: pedido['data_entrega'] -> date; senão data_criacao + prazo(dias).
+        """
+        data_entrega = pedido.get('data_entrega')
+        if data_entrega:
+            try:
+                if isinstance(data_entrega, str):
+                    # tentar formatos comuns
+                    for fmt in ('%Y-%m-%d', '%d/%m/%Y', '%Y-%m-%dT%H:%M:%S'):
+                        try:
+                            return datetime.strptime(data_entrega, fmt).date()
+                        except Exception:
+                            pass
+                    # ISO genérico
+                    return datetime.fromisoformat(data_entrega[:19]).date()
+                if hasattr(data_entrega, 'date'):
+                    return data_entrega.date()
+                return data_entrega  # presume date
+            except Exception:
+                pass
+
+        # Sem data_entrega explícita: usar data_criacao + prazo
+        data_criacao = pedido.get('data_criacao')
+        prazo = int(pedido.get('prazo') or 0)
+        if not data_criacao or prazo <= 0:
+            return None
+        try:
+            if isinstance(data_criacao, str):
+                # aceitar "YYYY-MM-DD HH:MM:SS" ou só data
+                base = datetime.fromisoformat(data_criacao[:19]) if len(data_criacao) >= 10 else datetime.strptime(data_criacao, '%Y-%m-%d')
+            elif hasattr(data_criacao, 'date'):
+                base = data_criacao
+            else:
+                base = datetime.now()
+            return (base + timedelta(days=prazo)).date()
+        except Exception:
+            try:
+                return (datetime.strptime(str(data_criacao), '%Y-%m-%d') + timedelta(days=prazo)).date()
+            except Exception:
+                return None
+
+    # --- Status menu -------------------------------------------------------------
+    def _abrir_menu_status(self, pedido_id: int):
+        menu = QMenu(self)
+        # Opções de status (inclui sinônimos comuns)
+        opcoes = ['em produção', 'em andamento', 'enviado', 'concluído', 'cancelado']
+        # Rótulos bonitos
+        labels = {
+            'em produção': 'Em produção',
+            'em andamento': 'Em andamento',
+            'enviado': 'Enviado',
+            'concluído': 'Concluído',
+            'cancelado': 'Cancelado',
+        }
+        _ = [menu.addAction(labels.get(op, op.title())) for op in opcoes]
+
+        # Abrir o menu ACIMA do botão que disparou o clique (quando possível)
+        pos_global = self.mapToGlobal(self.rect().bottomLeft())
+        try:
+            sender = self.sender()
+            if isinstance(sender, QPushButton):
+                top_left = sender.mapToGlobal(sender.rect().topLeft())
+                # calcular altura aproximada do menu e posicionar acima
+                h = menu.sizeHint().height()
+                pos_global = QPoint(top_left.x(), top_left.y() - h)
+        except Exception:
+            pass
+
+        act = menu.exec(pos_global)
+        if act:
+            novo_status = act.text().lower()
+            # Atualiza rótulo local
+            cor = self._get_status_color(novo_status)
+            try:
+                self._status_label.setText(f"Status: {novo_status.upper()}")
+                self._status_label.setStyleSheet(f"color: {cor}; background: transparent;")
+            except Exception:
+                pass
+            # Emite sinal para persistência
+            try:
+                self.status_changed.emit(int(pedido_id), novo_status)
+            except Exception:
+                # se id não for int, tente emitir como está
+                self.status_changed.emit(pedido_id, novo_status)
     
     def _aplicar_estilo_card(self, card_widget, pedido):
         """Aplica estilo moderno ao card (neutro; apenas o status é colorido)."""
@@ -323,8 +434,10 @@ class PedidosCard(QWidget):
         """Retorna a cor do status"""
         colors = {
             'em produção': '#ffaa00',
+            'em andamento': '#ffaa00',
             'enviado': '#00aaff',
             'entregue': '#00ff88',
+            'concluído': '#00ff88',
             'cancelado': '#ff4444',
             'pendente': '#888888'
         }
@@ -359,23 +472,15 @@ class PedidosCard(QWidget):
         return f"#{r:02x}{g:02x}{b:02x}"
     
     def _calcular_dias_restantes(self, pedido):
-        """Calcula os dias restantes até a entrega"""
-        data_entrega = pedido.get('data_entrega')
-        
-        if not data_entrega:
-            return None
-        
+        """Calcula os dias restantes até a entrega.
+        Usa data_entrega se existir; caso contrário, data_criacao + prazo.
+        """
         try:
-            if isinstance(data_entrega, str):
-                data_entrega = datetime.strptime(data_entrega, '%Y-%m-%d').date()
-            elif hasattr(data_entrega, 'date'):
-                data_entrega = data_entrega.date()
-            
+            due = self._obter_data_entrega(pedido)
+            if not due:
+                return None
             hoje = datetime.now().date()
-            diferenca = (data_entrega - hoje).days
-            
-            return diferenca
-            
+            return (due - hoje).days
         except Exception as e:
             print(f"Erro ao calcular dias restantes: {e}")
             return None

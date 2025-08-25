@@ -9,7 +9,6 @@ from PyQt6.QtWidgets import (
 	QComboBox,
 	QPushButton,
 	QScrollArea,
-	QWidget,
 	QFrame,
 	QGridLayout,
 	QSizePolicy,
@@ -17,9 +16,27 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QFont
 
-from database import db_manager  # singleton
-from .pedidos_card import PedidosCard
-from .pedidos_modal import PedidosModal
+# Import robusto do gerenciador de banco de dados
+try:
+	from database import db_manager  # singleton
+except ModuleNotFoundError:
+	import sys, pathlib
+	ROOT = pathlib.Path(__file__).resolve().parents[3]
+	if str(ROOT) not in sys.path:
+		sys.path.insert(0, str(ROOT))
+	from database import db_manager  # type: ignore
+
+# Imports dos componentes (funciona tanto como pacote quanto executado direto)
+try:
+	from .pedidos_card import PedidosCard
+	from .pedidosModal import PedidosModal
+except Exception:
+	import sys, pathlib
+	ROOT = pathlib.Path(__file__).resolve().parents[3]
+	if str(ROOT) not in sys.path:
+		sys.path.insert(0, str(ROOT))
+	from app.components.pedidos.pedidos_card import PedidosCard  # type: ignore
+	from app.components.pedidos.pedidosModal import PedidosModal  # type: ignore
 
 
 class PedidosInterface(QWidget):
@@ -39,7 +56,7 @@ class PedidosInterface(QWidget):
 
 		# Helpers
 		self.card_manager = PedidosCard(self)
-		self.modal_manager = PedidosModal(self)
+		# Removido modal_manager fixo; agora cada modal é criado sob demanda
 
 		# UI
 		self._setup_interface()
@@ -61,7 +78,8 @@ class PedidosInterface(QWidget):
 		top_l.addWidget(lbl)
 
 		self.status_combo = QComboBox()
-		self.status_combo.addItems(["todos", "em produção", "enviado", "entregue", "cancelado"])
+		# Inclui 'concluído' como opção explícita
+		self.status_combo.addItems(["todos", "em produção", "enviado", "entregue", "concluído", "cancelado"])
 		self.status_combo.currentTextChanged.connect(self._on_status_changed)
 		top_l.addWidget(self.status_combo)
 
@@ -129,9 +147,62 @@ class PedidosInterface(QWidget):
 
 		# Filtrar
 		if self.status_filter != "todos":
-			pedidos = [p for p in pedidos if p.get("status", "").lower() == self.status_filter.lower()]
+			# Tratar sinônimos: 'entregue' ~ 'concluído'
+			filtro = self.status_filter.lower()
+			if filtro in ("entregue", "concluído", "concluido"):
+				pedidos = [p for p in pedidos if (p.get("status", "") or "").lower() in ("entregue", "concluído", "concluido") or "conclu" in (p.get("status", "") or "").lower()]
+			else:
+				pedidos = [p for p in pedidos if (p.get("status", "") or "").lower() == filtro]
+		else:
+			# 'todos' deve ocultar pedidos concluídos/entregues
+			def _is_concluido(status: str) -> bool:
+				st = (status or "").lower()
+				return (st == "entregue") or ("conclu" in st)
+			pedidos = [p for p in pedidos if not _is_concluido(p.get("status", ""))]
 
 		# Render
+		# Ordenar por data de entrega mais próxima (asc)
+		try:
+			def _dias_restantes(p):
+				from datetime import datetime, timedelta
+				# Preferir data_entrega; se não existir, usar data_criacao + prazo
+				data_entrega = p.get("data_entrega")
+				if data_entrega:
+					try:
+						if isinstance(data_entrega, str):
+							for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%Y-%m-%dT%H:%M:%S"):
+								try:
+									return (datetime.strptime(data_entrega, fmt).date() - datetime.now().date()).days
+								except Exception:
+									pass
+							try:
+								return (datetime.fromisoformat(str(data_entrega)[:19]).date() - datetime.now().date()).days
+							except Exception:
+								pass
+					except Exception:
+						pass
+				try:
+					prazo = int(p.get("prazo") or 0)
+				except Exception:
+					prazo = 0
+				data_criacao = p.get("data_criacao")
+				if prazo > 0 and data_criacao:
+					try:
+						if isinstance(data_criacao, str):
+							base = datetime.fromisoformat(data_criacao[:19]) if len(data_criacao) >= 10 else datetime.strptime(data_criacao, "%Y-%m-%d")
+						elif hasattr(data_criacao, "date"):
+							base = data_criacao
+						else:
+							base = datetime.now()
+						return ((base + timedelta(days=prazo)).date() - datetime.now().date()).days
+					except Exception:
+						pass
+				# Sem data, colocar no fim
+				return 10**9
+			pedidos = sorted(pedidos, key=_dias_restantes)
+		except Exception:
+			pass
+
 		self._limpar_layout()
 		if not pedidos:
 			self._mostrar_msg("📋 Nenhum pedido encontrado", cor="#aaaaaa")
@@ -204,12 +275,14 @@ class PedidosInterface(QWidget):
 
 	# Ações públicas ---------------------------------------------------------
 	def novo_pedido(self):
-		self.modal_manager.pedido_salvo.connect(lambda: self.carregar_dados(force_refresh=True))
-		self.modal_manager.abrir_modal_novo()
+		modal = PedidosModal(self)
+		modal.pedido_salvo.connect(lambda: self.carregar_dados(force_refresh=True))
+		modal.abrir_modal_novo()
 
 	def editar_pedido(self, pedido_id: int):
-		self.modal_manager.pedido_salvo.connect(lambda: self.carregar_dados(force_refresh=True))
-		self.modal_manager.abrir_modal_edicao(pedido_id)
+		modal = PedidosModal(self)
+		modal.pedido_salvo.connect(lambda: self.carregar_dados(force_refresh=True))
+		modal.abrir_modal_edicao(pedido_id)
 
 	def excluir_pedido(self, pedido_id: int):
 		try:
