@@ -406,3 +406,53 @@ class DatabaseManager:
         """Fecha conexão com o banco"""
         if hasattr(self, 'conn'):
             self.conn.close()
+
+    # ---------- Gastos (Despesas) ----------
+    def inserir_gasto(self, tipo, descricao, valor, data=None):
+        try:
+            if data:
+                self.cursor.execute("INSERT INTO gastos (tipo, descricao, valor, data) VALUES (?, ?, ?, ?)", (tipo, descricao, float(valor), data))
+            else:
+                self.cursor.execute("INSERT INTO gastos (tipo, descricao, valor) VALUES (?, ?, ?)", (tipo, descricao, float(valor)))
+            self.conn.commit()
+            return self.cursor.lastrowid
+        except Exception as e:
+            print(f"Erro ao inserir gasto: {e}")
+            return None
+
+    def listar_gastos_periodo(self, data_inicio, data_fim):
+        try:
+            query = 'SELECT id, tipo, descricao, valor, data FROM gastos WHERE date(data) BETWEEN ? AND ? ORDER BY data DESC'
+            self.cursor.execute(query, (data_inicio, data_fim))
+            return self.cursor.fetchall()
+        except Exception as e:
+            print(f"Erro ao listar gastos por período: {e}")
+            return []
+
+    def soma_gastos_periodo(self, data_inicio, data_fim):
+        try:
+            query = 'SELECT SUM(valor) FROM gastos WHERE date(data) BETWEEN ? AND ?'
+            self.cursor.execute(query, (data_inicio, data_fim))
+            row = self.cursor.fetchone()
+            return float(row[0] or 0.0)
+        except Exception as e:
+            print(f"Erro ao somar gastos por período: {e}")
+            return 0.0
+
+    def contar_caixas_vendidas_periodo(self, data_inicio, data_fim):
+        """Conta ocorrências de 'caixa' em detalhes_produto no período (heurística simples)."""
+        try:
+            query = "SELECT detalhes_produto FROM ordem_servico WHERE date(data_criacao) BETWEEN ? AND ? AND (dados_json IS NULL OR instr(dados_json, 'cancelado') = 0)"
+            self.cursor.execute(query, (data_inicio, data_fim))
+            rows = self.cursor.fetchall()
+            total = 0
+            for (det,) in rows:
+                if not det:
+                    continue
+                # contar a palavra 'caixa' e variações
+                txt = det.lower()
+                total += txt.count('caixa')
+            return total
+        except Exception as e:
+            print(f"Erro ao contar caixas: {e}")
+            return 0

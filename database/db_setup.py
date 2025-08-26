@@ -95,6 +95,20 @@ class DatabaseSetup:
             CREATE INDEX IF NOT EXISTS idx_produtos_nome ON produtos(nome)
             ''')
             
+            # Tabela de gastos (despesas)
+            cursor.execute('''
+            CREATE TABLE IF NOT EXISTS gastos (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                tipo TEXT NOT NULL, -- produto ou servico
+                descricao TEXT,
+                valor REAL NOT NULL DEFAULT 0,
+                data TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+            ''')
+
+            cursor.execute('''
+            CREATE INDEX IF NOT EXISTS idx_gastos_data ON gastos(data)
+            ''')
         except Exception as e:
             print(f"Erro ao criar tabelas: {e}")
             return False

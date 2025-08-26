@@ -6,13 +6,19 @@ from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushBut
                              QTabWidget, QFrame, QGridLayout, QGroupBox, QScrollArea,
                              QTableWidget, QTableWidgetItem, QHeaderView, QComboBox,
                              QDateEdit, QSpinBox, QDoubleSpinBox, QMessageBox,
-                             QRadioButton, QButtonGroup)
+                             QRadioButton, QButtonGroup, QLineEdit)
 from PyQt6.QtCore import Qt, QDate, QTimer, pyqtSignal
 from PyQt6.QtGui import QFont, QPalette
 from datetime import datetime, timedelta
 import calendar
 
 from database import db_manager
+
+# Import the new DB-driven finance widget (guarded - matplotlib may be missing)
+try:
+    from app.components.contas.contas_financeiro import ContasFinanceiroWidget
+except Exception:
+    ContasFinanceiroWidget = None
 
 # Tentar importar matplotlib para gráficos
 try:
@@ -73,26 +79,28 @@ class ContasManager(QWidget):
     def _criar_abas(self, layout):
         """Cria as abas do módulo financeiro"""
         self.tab_widget = QTabWidget()
-        
-        # Aba Dashboard
-        self.dashboard_tab = FinanceiroDashboard(self)
+
+        # Aba Dashboard (DB-driven widget when available)
+        if ContasFinanceiroWidget is not None:
+            try:
+                self.dashboard_tab = ContasFinanceiroWidget(self)
+            except Exception:
+                self.dashboard_tab = FinanceiroDashboard(self)
+        else:
+            self.dashboard_tab = FinanceiroDashboard(self)
         self.tab_widget.addTab(self.dashboard_tab, "📊 Dashboard")
-        
-        # Aba Receitas
-        self.receitas_tab = ReceitasTab(self)
-        self.tab_widget.addTab(self.receitas_tab, "💰 Receitas")
-        
+
         # Aba Gastos
         self.gastos_tab = GastosTab(self)
         self.tab_widget.addTab(self.gastos_tab, "💸 Gastos")
-        
+
         # Aba Margem de Lucro
         self.margem_tab = MargemLucroTab(self)
         self.tab_widget.addTab(self.margem_tab, "📈 Margem de Lucro")
-        
+
         # Conectar mudança de aba
         self.tab_widget.currentChanged.connect(self._on_tab_changed)
-        
+
         layout.addWidget(self.tab_widget)
     
     def _on_tab_changed(self, index):
@@ -358,20 +366,127 @@ class GastosTab(QWidget):
         self._setup_interface()
     
     def _setup_interface(self):
-        """Configura interface de gastos"""
+        """Configura interface de gastos (form + tabela) com estilo escuro e layout responsivo"""
         layout = QVBoxLayout(self)
         layout.setContentsMargins(15, 15, 15, 15)
-        
-        # Placeholder
-        label = QLabel("💸 Módulo de Gastos\n\nEm desenvolvimento...")
-        label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        label.setFont(QFont("Segoe UI", 16))
-        label.setStyleSheet("color: #cccccc; padding: 50px;")
-        layout.addWidget(label)
+        layout.setSpacing(12)
+
+        # Formulário compacto
+        form_frame = QFrame()
+        form_layout = QHBoxLayout(form_frame)
+        form_layout.setSpacing(8)
+
+        # Inline form removed — use modal dialog to add gastos
+        from app.components.contas.gastos_modal import GastosDialog
+        btn_add = QPushButton("Adicionar")
+        btn_add.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn_add.setStyleSheet('''
+            QPushButton { background: #0d7377; color: white; padding: 6px 10px; border-radius: 6px }
+            QPushButton:hover { background: #139a9c }
+        ''')
+        def _open_modal():
+            dlg = GastosDialog(self)
+            dlg.gasto_adicionado.connect(self.atualizar_dados)
+            dlg.exec()
+        btn_add.clicked.connect(_open_modal)
+        form_layout.addWidget(btn_add)
+
+        layout.addWidget(form_frame)
+
+        # Tabela de gastos
+        self.table = QTableWidget(0, 4)
+        self.table.setHorizontalHeaderLabels(["Tipo", "Descrição", "Valor", "Data"])
+        self.table.setAlternatingRowColors(True)
+        self.table.setStyleSheet('''
+            QTableWidget { background: #2f2f2f; color: #e6e6e6; gridline-color: #444 }
+            QHeaderView::section { background: #3a3a3a; color: #e6e6e6; padding: 6px }
+        ''')
+        self.table.setSelectionBehavior(self.table.SelectionBehavior.SelectRows)
+        self.table.setEditTriggers(self.table.EditTrigger.NoEditTriggers)
+        try:
+            hdr = self.table.horizontalHeader()
+            hdr.setSectionResizeMode(0, hdr.ResizeMode.ResizeToContents)
+            hdr.setSectionResizeMode(1, hdr.ResizeMode.Stretch)
+            hdr.setSectionResizeMode(2, hdr.ResizeMode.ResizeToContents)
+            hdr.setSectionResizeMode(3, hdr.ResizeMode.ResizeToContents)
+        except Exception:
+            try:
+                from PyQt6.QtWidgets import QHeaderView
+                self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+            except Exception:
+                pass
+
+        layout.addWidget(self.table, 1)
+
+        # Soma de gastos (rodapé, alinhado à direita)
+        footer = QHBoxLayout()
+        footer.addStretch()
+        self.soma_label = QLabel("Total: R$ 0,00")
+        self.soma_label.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
+        self.soma_label.setStyleSheet("color: #00c48c;")
+        footer.addWidget(self.soma_label)
+        layout.addLayout(footer)
     
     def atualizar_dados(self):
-        """Atualiza dados de gastos"""
-        pass
+        """Atualiza a tabela e soma de gastos (padrão: últimos 12 meses)"""
+        try:
+            hoje = datetime.now().date()
+            inicio = hoje - timedelta(days=365)
+            gastos = db_manager.listar_gastos_periodo(inicio.strftime("%Y-%m-%d"), hoje.strftime("%Y-%m-%d"))
+            self._preencher_tabela(gastos)
+        except Exception as e:
+            QMessageBox.critical(self, "Erro", f"Erro ao carregar gastos: {e}")
+
+    def _preencher_tabela(self, gastos):
+        """Preenche a tabela de gastos e atualiza soma"""
+        self.table.setRowCount(0)
+        total = 0.0
+        for gasto in gastos:
+            row = self.table.rowCount()
+            self.table.insertRow(row)
+            tipo = gasto.get('tipo', '')
+            descricao = gasto.get('descricao', '')
+            valor = float(gasto.get('valor', 0))
+            data = gasto.get('data', '')
+
+            self.table.setItem(row, 0, QTableWidgetItem(str(tipo)))
+            self.table.setItem(row, 1, QTableWidgetItem(str(descricao)))
+            self.table.setItem(row, 2, QTableWidgetItem(f"R$ {valor:.2f}"))
+            self.table.setItem(row, 3, QTableWidgetItem(str(data)))
+
+            total += valor
+
+        self.soma_label.setText(f"Total: R$ {total:.2f}")
+
+    def _adicionar_gasto(self):
+        """Insere um novo gasto no DB e atualiza a tabela"""
+        tipo = self.tipo_combo.currentText()
+        descricao = self.descricao_edit.text().strip()
+        valor = float(self.valor_spin.value())
+        try:
+            data_py = self.data_edit.date().toPyDate()
+        except Exception:
+            data_py = datetime.now().date()
+
+        if not descricao:
+            QMessageBox.warning(self, "Validação", "Informe a descrição do gasto.")
+            return
+
+        if valor <= 0:
+            QMessageBox.warning(self, "Validação", "Informe um valor maior que zero.")
+            return
+
+        try:
+            db_manager.inserir_gasto(tipo, descricao, valor, data_py.strftime("%Y-%m-%d"))
+            QMessageBox.information(self, "Sucesso", "Gasto adicionado com sucesso.")
+            # limpar campos
+            self.descricao_edit.clear()
+            self.valor_spin.setValue(0.0)
+            self.data_edit.setDate(QDate.currentDate())
+            # Atualizar lista
+            self.atualizar_dados()
+        except Exception as e:
+            QMessageBox.critical(self, "Erro", f"Erro ao inserir gasto: {e}")
 
 
 class MargemLucroTab(QWidget):
@@ -383,17 +498,112 @@ class MargemLucroTab(QWidget):
         self._setup_interface()
     
     def _setup_interface(self):
-        """Configura interface de margem de lucro"""
+        """Configura interface de margem de lucro: cards e gráfico simples"""
         layout = QVBoxLayout(self)
         layout.setContentsMargins(15, 15, 15, 15)
-        
-        # Placeholder
-        label = QLabel("📈 Módulo de Margem de Lucro\n\nEm desenvolvimento...")
-        label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        label.setFont(QFont("Segoe UI", 16))
-        label.setStyleSheet("color: #cccccc; padding: 50px;")
-        layout.addWidget(label)
-    
+        layout.setSpacing(12)
+
+        # Filters row
+        top_row = QHBoxLayout()
+        top_row.addWidget(QLabel("Período:"))
+        self.combo_period_margem = QComboBox()
+        self.combo_period_margem.addItems(["Este Mês", "Últimos 3 Meses", "Este Ano"]) 
+        top_row.addWidget(self.combo_period_margem)
+        top_row.addStretch()
+        btn_refresh = QPushButton("Atualizar Dados")
+        btn_refresh.clicked.connect(self.atualizar_dados)
+        top_row.addWidget(btn_refresh)
+        layout.addLayout(top_row)
+
+        # Cards
+        cards = QHBoxLayout()
+        self.card_total_vendas = self._make_card_small("Total Vendas", "R$ 0,00", "#00c48c")
+        self.card_total_gastos = self._make_card_small("Total Gastos", "R$ 0,00", "#ffaa33")
+        self.card_lucro = self._make_card_small("Lucro Líquido", "R$ 0,00", "#66d9ef")
+        self.card_margem = self._make_card_small("Margem (%)", "0%", "#ff6b9d")
+        cards.addWidget(self.card_total_vendas)
+        cards.addWidget(self.card_total_gastos)
+        cards.addWidget(self.card_lucro)
+        cards.addWidget(self.card_margem)
+        layout.addLayout(cards)
+
+        # Chart area (small)
+        try:
+            from matplotlib.figure import Figure
+            from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+            self.figure_m = Figure(figsize=(6,2), facecolor='#2d2d2d')
+            self.canvas_m = FigureCanvas(self.figure_m)
+            chart_g = QGroupBox("Evolução")
+            cl = QVBoxLayout(chart_g)
+            cl.addWidget(self.canvas_m)
+            layout.addWidget(chart_g)
+        except Exception:
+            # fallback placeholder
+            ph = QLabel("Gráfico indisponível (matplotlib não instalado)")
+            ph.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            layout.addWidget(ph)
+
+        # initial load
+        self.combo_period_margem.currentIndexChanged.connect(self.atualizar_dados)
+        self.atualizar_dados()
+
+    def _make_card_small(self, title, value, color):
+        box = QGroupBox(title)
+        box.setStyleSheet(f"QGroupBox {{ background: #333333; border: 1px solid {color}; border-radius: 8px; padding: 8px }}")
+        l = QVBoxLayout(box)
+        lbl = QLabel(value)
+        lbl.setFont(QFont("Segoe UI", 14, QFont.Weight.Bold))
+        lbl.setStyleSheet(f"color: {color}")
+        lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        l.addWidget(lbl)
+        box.value_label = lbl
+        return box
+
     def atualizar_dados(self):
-        """Atualiza dados de margem de lucro"""
-        pass
+        # determine period
+        idx = self.combo_period_margem.currentIndex()
+        hoje = datetime.now()
+        if idx == 0:
+            inicio = hoje.replace(day=1).strftime('%Y-%m-%d')
+            fim = hoje.strftime('%Y-%m-%d')
+        elif idx == 1:
+            inicio = (hoje - timedelta(weeks=12)).strftime('%Y-%m-%d')
+            fim = hoje.strftime('%Y-%m-%d')
+        else:
+            inicio = hoje.replace(month=1, day=1).strftime('%Y-%m-%d')
+            fim = hoje.strftime('%Y-%m-%d')
+
+        # fetch values
+        try:
+            vendas = db_manager.calcular_resumo_vendas(inicio, fim)
+            total_vendas = float((vendas[1] or 0) if len(vendas) > 1 else (vendas or 0))
+        except Exception:
+            total_vendas = 0.0
+
+        try:
+            total_gastos = float(db_manager.soma_gastos_periodo(inicio, fim) or 0)
+        except Exception:
+            total_gastos = 0.0
+
+        lucro = total_vendas - total_gastos
+        margem = (lucro / total_vendas * 100) if total_vendas else 0.0
+
+        self.card_total_vendas.value_label.setText(f"R$ {total_vendas:,.2f}".replace(',', 'v').replace('.', ',').replace('v', '.'))
+        self.card_total_gastos.value_label.setText(f"R$ {total_gastos:,.2f}".replace(',', 'v').replace('.', ',').replace('v', '.'))
+        self.card_lucro.value_label.setText(f"R$ {lucro:,.2f}".replace(',', 'v').replace('.', ',').replace('v', '.'))
+        self.card_margem.value_label.setText(f"{margem:.1f}%")
+
+        # plot simple evolution if available
+        try:
+            ax = self.figure_m.subplots()
+            ax.clear()
+            # show simple bars: months labels for the period
+            ax.bar(['Periodo'], [lucro], color='#00c48c')
+            ax.set_facecolor('#2d2d2d')
+            ax.tick_params(colors='#e6e6e6')
+            self.figure_m.tight_layout()
+            self.canvas_m.draw()
+        except Exception:
+            pass
+    
+    # Remove this duplicate method, as atualizar_dados is already defined above.
