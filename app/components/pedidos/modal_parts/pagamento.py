@@ -28,7 +28,11 @@ def criar_secao_pagamento(modal, layout, pedido_data):
 
     # Status
     modal.campos['status'] = QComboBox()
-    modal.campos['status'].addItems(["em produção", "enviado", "entregue", "cancelado"])
+    try:
+        from app.utils.statuses import load_statuses
+        modal.campos['status'].addItems(load_statuses())
+    except Exception:
+        modal.campos['status'].addItems(["em produção", "enviado", "entregue", "cancelado"])
     pagamento_layout.addRow("Status:", modal.campos['status'])
 
     # Forma de pagamento
@@ -55,7 +59,13 @@ def criar_secao_pagamento(modal, layout, pedido_data):
             modal.campos['desconto'].setText(f"{float(pedido_data.get('desconto', 0) or 0):.2f}")
         except Exception:
             pass
-        status = pedido_data.get('status', 'em produção')
+        try:
+            from app.utils.statuses import load_statuses
+            _sts = load_statuses()
+            default_status = _sts[0] if _sts else 'em produção'
+        except Exception:
+            default_status = 'em produção'
+        status = pedido_data.get('status', default_status)
         idx = modal.campos['status'].findText(status)
         if idx >= 0:
             modal.campos['status'].setCurrentIndex(idx)

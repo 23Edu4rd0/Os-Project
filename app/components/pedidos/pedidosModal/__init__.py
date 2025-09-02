@@ -130,6 +130,10 @@ class PedidosModal(QDialog):
         from ._add_produto import _add_produto
         return _add_produto(self)
 
+    def _editar_produto(self, index):
+        from ._editar_produto import _editar_produto
+        return _editar_produto(self, index)
+
     def _limpar_campos_cliente(self):
         from ._limpar_campos_cliente import _limpar_campos_cliente
         return _limpar_campos_cliente(self)
@@ -172,9 +176,9 @@ class PedidosModal(QDialog):
         from ._carregar_clientes import _carregar_clientes
         return _carregar_clientes(self)
 
-    def _criar_modal_completo(self, pedido_data=None):
+    def _criar_modal_completo(self, pedido_data=None, cliente_fixo=False, nome_cliente_label=None):
         from ._criar_modal_completo import _criar_modal_completo
-        return _criar_modal_completo(self, pedido_data)
+        return _criar_modal_completo(self, pedido_data, cliente_fixo=cliente_fixo, nome_cliente_label=nome_cliente_label)
     """Gerencia os modais de pedidos"""
     pedido_salvo = pyqtSignal()
     def __init__(self, interface):

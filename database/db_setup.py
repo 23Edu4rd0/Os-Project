@@ -26,7 +26,7 @@ class DatabaseSetup:
             # Tabela de ordens de serviço
             cursor.execute('''
             CREATE TABLE IF NOT EXISTS ordem_servico (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id INTEGER PRIMARY KEY,
                 numero_os INTEGER NOT NULL UNIQUE,
                 data_criacao TEXT NOT NULL,
                 nome_cliente TEXT NOT NULL,
@@ -81,8 +81,9 @@ class DatabaseSetup:
             # Tabela de produtos (catálogo)
             cursor.execute('''
             CREATE TABLE IF NOT EXISTS produtos (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id INTEGER PRIMARY KEY,
                 nome TEXT NOT NULL,
+                codigo TEXT,
                 preco REAL NOT NULL DEFAULT 0,
                 descricao TEXT,
                 categoria TEXT,
@@ -94,6 +95,12 @@ class DatabaseSetup:
             cursor.execute('''
             CREATE INDEX IF NOT EXISTS idx_produtos_nome ON produtos(nome)
             ''')
+            # Garantir coluna 'codigo' existente para compatibilidade (migração simples)
+            try:
+                cursor.execute("ALTER TABLE produtos ADD COLUMN codigo TEXT")
+            except Exception:
+                # Ignorar se já existir
+                pass
             
             # Tabela de gastos (despesas)
             cursor.execute('''

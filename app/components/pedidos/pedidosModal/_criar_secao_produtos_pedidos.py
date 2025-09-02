@@ -15,7 +15,8 @@ def _criar_secao_produtos_pedidos(self, layout, pedido_data):
     self.campos['cor'] = widgets['campos_cor']
     # usar checkbox como booleano
     self.campos['reforco'] = widgets['campos_ref']
-    self.lista_produtos_container = widgets['lista_layout']
+    # nova tabela de produtos
+    self.lista_produtos_table = widgets.get('lista_table')
     self.campos['valor_total'] = widgets['valor_total']
 
     # conectar botões aos delegados
@@ -59,23 +60,46 @@ def _criar_secao_produtos_pedidos(self, layout, pedido_data):
     except Exception:
         self.produtos_list = []
     if pedido_data:
-        detalhes = pedido_data.get('detalhes_produto', '') or ''
-        try:
-            linhas = [l.strip() for l in detalhes.replace('\\n', '\n').split('\n') if l.strip() and not l.strip().startswith('-')]
-            for linha in linhas:
-                if ' - R$ ' in linha:
+        # Prefer structured produtos saved in dados_json (new format)
+        produtos_struct = pedido_data.get('produtos') if isinstance(pedido_data.get('produtos'), (list, tuple)) else None
+        if produtos_struct:
+            try:
+                for p in produtos_struct:
                     try:
-                        desc, valtxt = linha.rsplit(' - R$ ', 1)
-                        valor = float(valtxt.replace('.', '').replace(',', '.')) if valtxt else 0.0
-                        self.produtos_list.append({"descricao": desc.strip('• ').strip(), "valor": valor})
+                        desc = str(p.get('descricao') or p.get('nome') or '').strip()
+                        valor = float(p.get('valor') or p.get('preco') or 0)
+                        cor = p.get('cor') if 'cor' in p else ''
+                        reforco = bool(p.get('reforco')) if 'reforco' in p else False
                     except Exception:
+                        desc = str(p.get('descricao') or '').strip()
+                        try:
+                            valor = float(str(p.get('valor') or '0').replace(',', '.'))
+                        except Exception:
+                            valor = 0.0
+                        cor = p.get('cor') if 'cor' in p else ''
+                        reforco = bool(p.get('reforco')) if 'reforco' in p else False
+                    # Mark source as DB for clarity
+                    self.produtos_list.append({"descricao": desc, "valor": valor, "cor": cor, "reforco": reforco, "_source": "db"})
+            except Exception:
+                pass
+        else:
+            detalhes = pedido_data.get('detalhes_produto', '') or ''
+            try:
+                linhas = [l.strip() for l in detalhes.replace('\r', '\n').split('\n') if l.strip() and not l.strip().startswith('-')]
+                for linha in linhas:
+                    if ' - R$ ' in linha:
+                        try:
+                            desc, valtxt = linha.rsplit(' - R$ ', 1)
+                            valor = float(valtxt.replace('.', '').replace(',', '.')) if valtxt else 0.0
+                            self.produtos_list.append({"descricao": desc.strip('• ').strip(), "valor": valor})
+                        except Exception:
+                            self.produtos_list.append({"descricao": linha.strip('• ').strip(), "valor": 0.0})
+                    else:
                         self.produtos_list.append({"descricao": linha.strip('• ').strip(), "valor": 0.0})
-                else:
-                    self.produtos_list.append({"descricao": linha.strip('• ').strip(), "valor": 0.0})
-        except Exception:
-            pass
+            except Exception:
+                pass
 
-    # Renderizar a lista
+    # Renderizar a lista na tabela
     try:
         self._refresh_produtos_ui()
     except Exception:

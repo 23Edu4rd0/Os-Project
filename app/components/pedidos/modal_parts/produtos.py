@@ -14,6 +14,16 @@ def criar_secao_produtos(modal, layout, pedido_data):
 
     from app.components.produtos_sugestoes import setup_produtos_sugestoes
     modal.input_categoria = QComboBox(); modal.input_categoria.setMinimumWidth(140); modal.input_categoria.addItem("Todas")
+    try:
+        from app.utils.categories import load_categories
+        cats = load_categories()
+        for c in cats:
+            if modal.input_categoria.findText(c) < 0:
+                modal.input_categoria.addItem(c)
+    except Exception:
+        for c in ('Agro','Normal','Outros'):
+            if modal.input_categoria.findText(c) < 0:
+                modal.input_categoria.addItem(c)
     from PyQt6.QtWidgets import QListWidget, QListWidgetItem
     modal.input_desc = QLineEdit(); modal.input_desc.setPlaceholderText("Produto (catálogo)")
     modal.input_desc.setClearButtonEnabled(True)

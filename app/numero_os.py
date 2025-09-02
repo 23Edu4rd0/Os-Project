@@ -16,14 +16,11 @@ class Contador:
             conn = sqlite3.connect(self.db.db_path)
             cursor = conn.cursor()
             
-            # Buscar o maior número de OS existente
-            cursor.execute("SELECT MAX(numero_os) FROM pedidos")
+            # Buscar o maior número de OS existente (tabela ordem_servico)
+            cursor.execute("SELECT MAX(numero_os) FROM ordem_servico")
             resultado = cursor.fetchone()
-            
-            if resultado[0] is None:
-                proximo_numero = 1
-            else:
-                proximo_numero = resultado[0] + 1
+            max_num = resultado[0] if resultado and resultado[0] is not None else 0
+            proximo_numero = int(max_num) + 1
             
             conn.close()
             return proximo_numero

@@ -15,6 +15,7 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QFont
+from app.signals import get_signals
 
 # Import robusto do gerenciador de banco de dados
 try:
@@ -48,6 +49,13 @@ class PedidosInterface(QWidget):
 		super().__init__(parent)
 		self.parent = parent
 
+		# listen to status updates so UI can refresh when statuses change
+		try:
+			sig = get_signals()
+			sig.statuses_updated.connect(lambda: self._on_statuses_updated())
+		except Exception:
+			pass
+
 		# Estado
 		self.status_filter = "todos"
 		self._cache_pedidos = None
@@ -78,8 +86,13 @@ class PedidosInterface(QWidget):
 		top_l.addWidget(lbl)
 
 		self.status_combo = QComboBox()
-		# Inclui 'concluído' como opção explícita
-		self.status_combo.addItems(["todos", "em produção", "enviado", "entregue", "concluído", "cancelado"])
+		# Load persisted statuses and prepend 'todos'
+		try:
+			from app.utils.statuses import load_statuses
+			itens = ["todos"] + load_statuses()
+		except Exception:
+			itens = ["todos", "em produção", "enviado", "entregue", "concluído", "cancelado"]
+		self.status_combo.addItems(itens)
 		self.status_combo.currentTextChanged.connect(self._on_status_changed)
 		top_l.addWidget(self.status_combo)
 
@@ -272,6 +285,21 @@ class PedidosInterface(QWidget):
 
 		self.scroll_layout.addWidget(grid)
 		self.scroll_layout.addStretch()
+
+	def _on_statuses_updated(self):
+		# reload the status combo and refresh data
+		try:
+			from app.utils.statuses import load_statuses
+			itens = ["todos"] + load_statuses()
+			self.status_combo.clear()
+			self.status_combo.addItems(itens)
+		except Exception:
+			pass
+		# force refresh of cards
+		try:
+			self.carregar_dados(force_refresh=True)
+		except Exception:
+			pass
 
 	# Ações públicas ---------------------------------------------------------
 	def novo_pedido(self):

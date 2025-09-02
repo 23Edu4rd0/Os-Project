@@ -45,7 +45,31 @@ class PedidosCard(QWidget):
         
         # Aplicar estilo do card
         self._aplicar_estilo_card(card_widget, pedido)
-        
+        # Double-click anywhere on card (except status label) should open full edit modal
+        pedido_id = pedido.get('id')
+
+        def card_double_click(event):
+            try:
+                # Map click pos to status_label coordinates
+                if hasattr(self, '_status_label'):
+                    sl_pos = self._status_label.mapFrom(card_widget, event.pos())
+                    if 0 <= sl_pos.x() <= self._status_label.width() and 0 <= sl_pos.y() <= self._status_label.height():
+                        # double-clicked on status label — open status menu instead
+                        self._abrir_menu_status(pedido_id)
+                        return
+                # Otherwise emit edit signal
+                try:
+                    self.editar_clicked.emit(int(pedido_id))
+                except Exception:
+                    self.editar_clicked.emit(pedido_id)
+            except Exception:
+                pass
+
+        try:
+            card_widget.mouseDoubleClickEvent = card_double_click
+        except Exception:
+            pass
+
         return card_widget
     
     def _criar_header(self, layout, pedido):
@@ -87,6 +111,19 @@ class PedidosCard(QWidget):
             header_layout.addWidget(prazo_label)
         
         layout.addWidget(header_frame)
+        # Allow clicking on status label to open status menu
+        def on_status_click(event):
+            try:
+                # open menu near the label
+                self._abrir_menu_status(pedido.get('id'))
+            except Exception:
+                pass
+
+        # Bind to mouse press event
+        try:
+            self._status_label.mousePressEvent = on_status_click
+        except Exception:
+            pass
     
     def _criar_conteudo(self, layout, pedido):
         """Cria o conteúdo do card"""
@@ -352,8 +389,12 @@ class PedidosCard(QWidget):
     # --- Status menu -------------------------------------------------------------
     def _abrir_menu_status(self, pedido_id: int):
         menu = QMenu(self)
-        # Opções de status (inclui sinônimos comuns)
-        opcoes = ['em produção', 'em andamento', 'enviado', 'concluído', 'cancelado']
+        # Opções de status - carregar do storage centralizado para consistência
+        try:
+            from app.utils.statuses import load_statuses
+            opcoes = load_statuses()
+        except Exception:
+            opcoes = ['em produção', 'em andamento', 'enviado', 'concluído', 'cancelado']
         # Rótulos bonitos
         labels = {
             'em produção': 'Em produção',

@@ -7,7 +7,11 @@ def _on_cliente_completer_activated(self, texto: str):
         try:
             telefone_fmt = self._format_phone(cli.get('telefone', ''))
             display = f"{cli.get('nome','')} | {telefone_fmt}" if telefone_fmt else cli.get('nome','')
-            self.campos['nome_cliente'].setText(display)
+            widget = self.campos.get('nome_cliente')
+            if widget is not None:
+                was_blocked = widget.blockSignals(True)
+                widget.setText(display)
+                widget.blockSignals(was_blocked)
         except Exception:
             pass
         self._preencher_dados_cliente(cli)

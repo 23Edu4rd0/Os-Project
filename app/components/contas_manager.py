@@ -393,13 +393,65 @@ class GastosTab(QWidget):
 
         layout.addWidget(form_frame)
 
-        # Tabela de gastos
-        self.table = QTableWidget(0, 4)
-        self.table.setHorizontalHeaderLabels(["Tipo", "Descrição", "Valor", "Data"])
+        # Search bar + buttons (visual parity com aba Produtos)
+        search_row = QHBoxLayout()
+        self.input_busca_gastos = QLineEdit()
+        self.input_busca_gastos.setPlaceholderText('Buscar gasto...')
+        self.input_busca_gastos.setStyleSheet('''
+            QLineEdit {
+                background-color: #282a2c;
+                color: #e6e6e6;
+                border: 1.5px solid #00c48c;
+                border-radius: 8px;
+                padding: 6px 10px;
+                font-size: 13px;
+            }
+        ''')
+        search_row.addWidget(self.input_busca_gastos, stretch=1)
+
+        self.btn_buscar_gastos = QPushButton('Buscar')
+        self.btn_buscar_gastos.setStyleSheet('''
+            QPushButton { background-color: #00c48c; color: #222; border-radius: 8px; padding: 6px 12px; font-weight: bold }
+            QPushButton:hover { background-color: #00b07a }
+        ''')
+        search_row.addWidget(self.btn_buscar_gastos)
+
+        layout.addLayout(search_row)
+
+        # Tabela de gastos (agora com coluna ID e sem cabeçalho vertical)
+        self.table = QTableWidget(0, 5)
+        self.table.setHorizontalHeaderLabels(["ID", "Tipo", "Descrição", "Valor", "Data"])
+        # esconder cabeçalho vertical (números de linha) para usar coluna ID
+        try:
+            self.table.verticalHeader().setVisible(False)
+            # remover o botão-canto branco (pequeno quadrado no canto superior esquerdo)
+            try:
+                self.table.setCornerButtonEnabled(False)
+            except Exception:
+                # fallback via stylesheet
+                self.table.setStyleSheet(self.table.styleSheet() + '\nQTableCornerButton::section { background: transparent }')
+        except Exception:
+            pass
         self.table.setAlternatingRowColors(True)
         self.table.setStyleSheet('''
-            QTableWidget { background: #2f2f2f; color: #e6e6e6; gridline-color: #444 }
-            QHeaderView::section { background: #3a3a3a; color: #e6e6e6; padding: 6px }
+            QTableWidget {
+                background-color: #232526;
+                color: #e6e6e6;
+                border-radius: 10px;
+                font-size: 16px; /* maior texto */
+                gridline-color: #3a3a3a;
+                selection-background-color: #3a3a3a;
+                alternate-background-color: #2b2b2b;
+            }
+            QHeaderView::section {
+                background-color: #3b3b3b;
+                color: #00c48c;
+                font-weight: bold;
+                font-size: 15px; /* cabeçalho maior */
+                border: none;
+                padding: 8px 12px;
+            }
+            QTableWidget::item { padding: 10px; }
         ''')
         self.table.setSelectionBehavior(self.table.SelectionBehavior.SelectRows)
         self.table.setEditTriggers(self.table.EditTrigger.NoEditTriggers)
@@ -409,6 +461,17 @@ class GastosTab(QWidget):
             hdr.setSectionResizeMode(1, hdr.ResizeMode.Stretch)
             hdr.setSectionResizeMode(2, hdr.ResizeMode.ResizeToContents)
             hdr.setSectionResizeMode(3, hdr.ResizeMode.ResizeToContents)
+            # Ajuste inicial de larguras para dar mais espaço ao texto e reduzir descrição
+            try:
+                # valores iniciais (ajuste fino conforme a janela)
+                self.table.setColumnWidth(0, 70)   # ID
+                self.table.setColumnWidth(1, 120)  # Tipo
+                self.table.setColumnWidth(2, 360)  # Descrição
+                self.table.setColumnWidth(3, 140)  # Valor
+                self.table.setColumnWidth(4, 120)  # Data
+            except Exception:
+                pass
+            # alignment will be set per-item when filling the table
         except Exception:
             try:
                 from PyQt6.QtWidgets import QHeaderView
@@ -417,6 +480,12 @@ class GastosTab(QWidget):
                 pass
 
         layout.addWidget(self.table, 1)
+
+        # conexão para editar ao dar duplo clique
+        try:
+            self.table.cellDoubleClicked.connect(self._on_table_double_click)
+        except Exception:
+            pass
 
         # Soma de gastos (rodapé, alinhado à direita)
         footer = QHBoxLayout()
@@ -441,22 +510,100 @@ class GastosTab(QWidget):
         """Preenche a tabela de gastos e atualiza soma"""
         self.table.setRowCount(0)
         total = 0.0
+        filtro = None
+        try:
+            filtro = self.input_busca_gastos.text().strip().lower()
+        except Exception:
+            filtro = None
         for gasto in gastos:
             row = self.table.rowCount()
-            self.table.insertRow(row)
-            tipo = gasto.get('tipo', '')
-            descricao = gasto.get('descricao', '')
-            valor = float(gasto.get('valor', 0))
-            data = gasto.get('data', '')
+            # suportar linhas retornadas pelo DB como tuplas (id, tipo, descricao, valor, data)
+            # ou dicionários com chaves 'tipo','descricao','valor','data'
+            tipo = ''
+            descricao = ''
+            valor = 0.0
+            data = ''
+            if isinstance(gasto, dict):
+                tipo = gasto.get('tipo', '')
+                descricao = gasto.get('descricao', '')
+                try:
+                    valor = float(gasto.get('valor', 0) or 0)
+                except Exception:
+                    valor = 0.0
+                data = gasto.get('data', '')
+            else:
+                try:
+                    # suporte para (id, tipo, descricao, valor, data)
+                    if len(gasto) == 5:
+                        _, tipo, descricao, valor_raw, data = gasto
+                    # suporte para (tipo, descricao, valor, data)
+                    elif len(gasto) == 4:
+                        tipo, descricao, valor_raw, data = gasto
+                    else:
+                        # fallback por índice quando o formato for diferente
+                        tipo = gasto[1] if len(gasto) > 1 else ''
+                        descricao = gasto[2] if len(gasto) > 2 else ''
+                        valor_raw = gasto[3] if len(gasto) > 3 else 0
+                        data = gasto[4] if len(gasto) > 4 else ''
+                    try:
+                        valor = float(valor_raw or 0)
+                    except Exception:
+                        valor = 0.0
+                except Exception:
+                    # se não for indexável, manter valores padrão
+                    tipo = descricao = ''
+                    valor = 0.0
+                    data = ''
+            # aplicar filtro de busca local (por tipo ou descricao)
+            if filtro:
+                texto_comb = f"{tipo} {descricao}".lower()
+                if filtro not in texto_comb:
+                    continue
 
-            self.table.setItem(row, 0, QTableWidgetItem(str(tipo)))
-            self.table.setItem(row, 1, QTableWidgetItem(str(descricao)))
-            self.table.setItem(row, 2, QTableWidgetItem(f"R$ {valor:.2f}"))
-            self.table.setItem(row, 3, QTableWidgetItem(str(data)))
+            self.table.insertRow(row)
+            # formatar valor e alinhar colunas (ID | Tipo | Descrição | Valor | Data)
+            from PyQt6.QtCore import Qt
+            id_item = QTableWidgetItem(str(gasto[0]) if isinstance(gasto, (list, tuple)) and len(gasto) > 0 else "")
+            id_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+            # tornar ID mais discreto (não editável)
+            id_item.setFlags(id_item.flags() & ~ (Qt.ItemFlag.ItemIsEditable))
+            tipo_item = QTableWidgetItem(str(tipo))
+            descricao_item = QTableWidgetItem(str(descricao))
+            valor_item = QTableWidgetItem(f"R$ {valor:,.2f}".replace(',', 'v').replace('.', ',').replace('v', '.'))
+            data_item = QTableWidgetItem(str(data))
+
+            valor_item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+            data_item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+
+            self.table.setItem(row, 0, id_item)
+            self.table.setItem(row, 1, tipo_item)
+            self.table.setItem(row, 2, descricao_item)
+            self.table.setItem(row, 3, valor_item)
+            self.table.setItem(row, 4, data_item)
 
             total += valor
 
         self.soma_label.setText(f"Total: R$ {total:.2f}")
+
+    def _on_table_double_click(self, row, col):
+        """Abrir diálogo de edição quando o usuário der duplo-clique numa linha."""
+        try:
+            item = self.table.item(row, 0)  # ID
+            if not item:
+                return
+            gasto_id = item.text()
+            try:
+                gasto_id = int(gasto_id)
+            except Exception:
+                return
+
+            from app.components.contas.gastos_modal import GastosDialog
+            dlg = GastosDialog(self)
+            if dlg.load_gasto(gasto_id):
+                dlg.gasto_adicionado.connect(self.atualizar_dados)
+                dlg.exec()
+        except Exception as e:
+            QMessageBox.critical(self, 'Erro', f'Erro ao abrir editor de gasto: {e}')
 
     def _adicionar_gasto(self):
         """Insere um novo gasto no DB e atualiza a tabela"""

@@ -78,6 +78,14 @@ def criar_produtos_ui(self, parent_layout, pedido_data):
     input_valor.setPlaceholderText('Valor (R$)')
     input_valor.setFixedWidth(140)
     input_categoria = QComboBox(); input_categoria.addItem('')
+    try:
+        from app.utils.categories import load_categories
+        cats = load_categories()
+        for c in cats:
+            input_categoria.addItem(c)
+    except Exception:
+        # fallback
+        input_categoria.addItems(['Agro', 'Normal', 'Outros'])
     input_categoria.setFixedWidth(220)
     val_cat_layout = QHBoxLayout()
     val_cat_layout.addWidget(input_valor)
@@ -119,17 +127,16 @@ def criar_produtos_ui(self, parent_layout, pedido_data):
     ref_layout.addWidget(campos_ref)
     produtos_layout.addRow('Cor / Reforço:', ref_layout)
 
-    # Lista de produtos adicionados com scroll
+    # Lista de produtos adicionados em tabela
     lista_label = QLabel('Produtos adicionados:')
     lista_label.setFont(QFont('Segoe UI', 9))
-    scroll = QScrollArea(); scroll.setWidgetResizable(True)
-    lista_widget = QWidget()
-    lista_layout = QVBoxLayout(lista_widget)
-    lista_layout.setContentsMargins(0,0,0,0)
-    lista_layout.setSpacing(6)
-    scroll.setWidget(lista_widget)
-    scroll.setMinimumHeight(140)
-    produtos_layout.addRow(lista_label, scroll)
+    from PyQt6.QtWidgets import QTableWidget, QHeaderView
+    lista_table = QTableWidget(0, 5)
+    lista_table.setHorizontalHeaderLabels(['Descrição', 'Valor (R$)', 'Cor', 'Reforço', 'Ações'])
+    lista_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+    lista_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+    lista_table.setMinimumHeight(140)
+    produtos_layout.addRow(lista_label, lista_table)
 
     # Valor total
     valor_total = QLineEdit(); valor_total.setReadOnly(True); valor_total.setPlaceholderText('0.00'); valor_total.setFixedWidth(140)
@@ -154,8 +161,8 @@ def criar_produtos_ui(self, parent_layout, pedido_data):
         'input_categoria': input_categoria,
         'campos_cor': campos_cor,
         'campos_ref': campos_ref,
-        'lista_widget': lista_widget,
-        'lista_layout': lista_layout,
+        'lista_table': lista_table,
+        'lista_layout': None,
         'valor_total': valor_total,
     }
     return widgets

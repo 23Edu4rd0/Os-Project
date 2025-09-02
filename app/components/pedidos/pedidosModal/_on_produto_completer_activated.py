@@ -5,8 +5,18 @@ from .__init__ import PedidosModal
 def _on_produto_completer_activated(self, texto: str):
     if texto in self.produtos_dict:
         p = self.produtos_dict[texto]
-        self.input_desc.setText(str(p.get('nome', '')))
-        self.input_valor.setText(str(f"{float(p.get('preco', 0)):.2f}"))
+        try:
+            was_blocked = self.input_desc.blockSignals(True)
+            self.input_desc.setText(str(p.get('nome', '')))
+            self.input_desc.blockSignals(was_blocked)
+        except Exception:
+            pass
+        try:
+            was_blocked = self.input_valor.blockSignals(True)
+            self.input_valor.setText(str(f"{float(p.get('preco', 0)):.2f}"))
+            self.input_valor.blockSignals(was_blocked)
+        except Exception:
+            pass
         try:
             # armazenar preço base para uso com reforço
             self._base_produto_valor = float(p.get('preco', 0) or 0.0)

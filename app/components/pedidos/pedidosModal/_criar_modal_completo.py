@@ -2,9 +2,8 @@
 from PyQt6.QtWidgets import QVBoxLayout, QScrollArea, QWidget, QHBoxLayout, QLabel, QFrame
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFont
-from .__init__ import PedidosModal
 
-def _criar_modal_completo(self, pedido_data=None):
+def _criar_modal_completo(self, pedido_data=None, cliente_fixo=False, nome_cliente_label=None):
     """Cria modal completo para pedido"""
     is_edit = pedido_data is not None
     if is_edit:
@@ -31,7 +30,19 @@ def _criar_modal_completo(self, pedido_data=None):
     self._criar_header(content_layout, numero_os, is_edit)
     self.campos = self.model.campos
     self.produtos_list = self.model.produtos_list
-    self._criar_secao_cliente(content_layout, pedido_data)
+
+    # Se cliente_fixo, mostra um label de contexto; senão, mostra a seção de cliente
+    if cliente_fixo:
+        nome = nome_cliente_label or ''
+        label = QLabel()
+        label.setText(f"<span style='font-size:15px;font-weight:600;color:#b0e0ff;padding:2px 8px 2px 0;'>Pedido para:</span> "
+                      f"<span style='font-size:15px;font-weight:700;color:#fff;background:#222;border-radius:6px;padding:2px 12px;'>{nome}</span>")
+        label.setContentsMargins(0, 0, 0, 0)
+        label.setStyleSheet("margin-bottom: 6px;")
+        content_layout.addWidget(label)
+    else:
+        self._criar_secao_cliente(content_layout, pedido_data)
+
     self._criar_secao_produtos(content_layout, pedido_data)
     self._criar_secao_pagamento(content_layout, pedido_data)
     self._criar_secao_resumo(content_layout)

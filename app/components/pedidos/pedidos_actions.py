@@ -51,7 +51,11 @@ class PedidosActions:
         """Atualiza o status de um pedido"""
         if novo_status is None:
             # Pedir novo status ao usuário
-            status_options = ["em produção", "enviado", "entregue", "cancelado"]
+            try:
+                from app.utils.statuses import load_statuses
+                status_options = load_statuses()
+            except Exception:
+                status_options = ["em produção", "enviado", "entregue", "cancelado"]
             novo_status, ok = QInputDialog.getItem(
                 self.interface,
                 "Atualizar Status",
@@ -124,7 +128,13 @@ class PedidosActions:
                 dados_novo = pedido_original.copy()
                 dados_novo.pop('id', None)  # Remover ID original
                 dados_novo['numero_os'] = novo_numero_os
-                dados_novo['status'] = 'em produção'  # Reset status
+                # Reset status to first persisted status if available
+                try:
+                    from app.utils.statuses import load_statuses
+                    s = load_statuses()
+                    dados_novo['status'] = s[0] if s else 'em produção'
+                except Exception:
+                    dados_novo['status'] = 'em produção'
                 dados_novo.pop('data_criacao', None)  # Nova data será gerada
                 
                 # Salvar novo pedido

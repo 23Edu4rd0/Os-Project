@@ -51,6 +51,23 @@ class ReportQueries:
         except Exception as e:
             print(f"Erro ao buscar por cliente: {e}")
             return []
+
+    def buscar_por_cpf(self, cpf_cliente):
+        """Busca ordens por CPF do cliente (igualdade exata)"""
+        try:
+            # Normalize CPF to digits-only for comparison
+            cpf = ''.join(ch for ch in str(cpf_cliente or '') if ch.isdigit())
+            # Normalize stored cpf_cliente by removing common punctuation before comparing
+            query = '''
+            SELECT * FROM ordem_servico
+            WHERE replace(replace(replace(cpf_cliente, '.', ''), '-', ''), ' ', '') = ?
+            ORDER BY data_criacao DESC
+            '''
+            self.cursor.execute(query, (cpf,))
+            return self.cursor.fetchall()
+        except Exception as e:
+            print(f"Erro ao buscar por cpf: {e}")
+            return []
     
     def calcular_vendas_periodo(self, data_inicio, data_fim):
         """Calcula vendas por período"""

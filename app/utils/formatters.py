@@ -21,3 +21,13 @@ def formatar_data_hora(data):
     if data:
         return data.strftime("%d/%m/%Y %H:%M")
     return ""
+
+
+def formatar_cpf(cpf):
+    """Formata CPF para exibição: 000.000.000-00. Recebe string com dígitos ou None."""
+    if not cpf:
+        return ''
+    s = ''.join(ch for ch in str(cpf) if ch.isdigit())
+    if len(s) != 11:
+        return s
+    return f"{s[0:3]}.{s[3:6]}.{s[6:9]}-{s[9:11]}"

@@ -97,6 +97,21 @@ def _salvar_pedido(self, numero_os=None, pedido_data=None):
             'reforco': bool(reforco)
         }
 
+        # Attach structured produtos list (descricao, valor) so CRUD can compute totals reliably
+        structured = []
+        for p in getattr(self, 'produtos_list', []):
+            try:
+                desc = str(p.get('descricao') or '').strip()
+                valor = float(p.get('valor') or 0)
+            except Exception:
+                desc = str(p.get('descricao') or '').strip()
+                try:
+                    valor = float(str(p.get('valor') or '0').replace(',', '.'))
+                except Exception:
+                    valor = 0.0
+            structured.append({'descricao': desc, 'valor': valor, 'cor': p.get('cor'), 'reforco': p.get('reforco')})
+        dados['produtos'] = structured
+
         # Salvar novo ou atualizar existente
         if not pedido_data:
             ok = db_manager.salvar_ordem(dados, "")

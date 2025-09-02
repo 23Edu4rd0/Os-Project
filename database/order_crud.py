@@ -5,6 +5,14 @@ import sqlite3
 import json
 from datetime import datetime
 
+
+def _normalize_cpf(cpf):
+    """Return only digits from cpf (normalize format)."""
+    try:
+        return ''.join(ch for ch in str(cpf or '') if ch.isdigit())
+    except Exception:
+        return ''
+
 class OrderCRUD:
     def __init__(self, cursor, conn):
         self.cursor = cursor
@@ -21,26 +29,61 @@ class OrderCRUD:
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             '''
             
+            # Build structured produtos list: prefer dados['produtos'] (list), else parse detalhes_produto text
+            produtos_struct = []
+            if isinstance(dados.get('produtos'), (list, tuple)) and len(dados.get('produtos')) > 0:
+                for p in dados.get('produtos'):
+                    try:
+                        descricao = str(p.get('descricao') or p.get('nome') or '').strip()
+                        valor = float(p.get('valor') or p.get('preco') or 0)
+                    except Exception:
+                        descricao = str(p.get('descricao') or '').strip()
+                        try:
+                            valor = float(str(p.get('valor') or '0').replace(',', '.'))
+                        except Exception:
+                            valor = 0.0
+                    produtos_struct.append({'descricao': descricao, 'valor': valor})
+            else:
+                detalhes = dados.get('detalhes_produto', '') or ''
+                for linha in [l.strip() for l in detalhes.replace('\r', '\n').split('\n') if l.strip() and not l.strip().startswith('-')]:
+                    if ' - R$ ' in linha:
+                        try:
+                            desc, valtxt = linha.rsplit(' - R$ ', 1)
+                            valtxt_original = valtxt.strip()
+                            valconv = valtxt_original.replace('.', '').replace(',', '.') if ',' in valtxt_original else valtxt_original
+                            valor = float(valconv) if valconv else 0.0
+                            produtos_struct.append({'descricao': desc.strip('\u2022 ').strip(), 'valor': valor})
+                        except Exception:
+                            produtos_struct.append({'descricao': linha.strip('\u2022 ').strip(), 'valor': 0.0})
+                    else:
+                        produtos_struct.append({'descricao': linha.strip('\u2022 ').strip(), 'valor': 0.0})
+
+            desconto = float(dados.get('desconto', 0) or 0)
+            valor_produto = sum([float(p.get('valor', 0) or 0) for p in produtos_struct])
+
             dados_json = json.dumps({
                 'status': dados.get('status', 'em produção'),
                 'data_entrega': None,
-                'desconto': float(dados.get('desconto', 0) or 0),
+                'desconto': desconto,
                 'cor': dados.get('cor', ''),
-                'reforco': bool(dados.get('reforco', False))
+                'reforco': bool(dados.get('reforco', False)),
+                'produtos': produtos_struct,
             })
-            
+
+            # Normalize CPF to digits-only for consistent storage
+            cpf_norm = _normalize_cpf(dados.get('cpf_cliente', ''))
             valores = (
                 dados['numero_os'],
                 datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
                 dados['nome_cliente'],
-                dados['cpf_cliente'],
+                cpf_norm,
                 dados['telefone_cliente'],
-                dados['detalhes_produto'],
-                dados['valor_produto'],
-                dados['valor_entrada'],
-                dados['frete'],
-                dados['forma_pagamento'],
-                dados['prazo'],
+                dados.get('detalhes_produto', ''),
+                valor_produto,
+                float(dados.get('valor_entrada') or 0),
+                float(dados.get('frete') or 0),
+                dados.get('forma_pagamento'),
+                int(dados.get('prazo') or 0),
                 nome_pdf,
                 dados_json
             )
@@ -58,7 +101,17 @@ class OrderCRUD:
         try:
             query = 'SELECT * FROM ordem_servico WHERE numero_os = ?'
             self.cursor.execute(query, (numero_os,))
-            return self.cursor.fetchone()
+            row = self.cursor.fetchone()
+            if not row:
+                return None
+            cols = [d[0] for d in self.cursor.description]
+            mapped = dict(zip(cols, row))
+            try:
+                dadosj = json.loads(mapped.get('dados_json') or '{}')
+                mapped['produtos'] = dadosj.get('produtos', [])
+            except Exception:
+                mapped['produtos'] = []
+            return mapped
         except Exception as e:
             print(f"Erro ao buscar ordem: {e}")
             return None

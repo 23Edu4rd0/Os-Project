@@ -10,9 +10,10 @@ import sys
 import os
 from pathlib import Path
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QTabWidget, QWidget, 
-                             QVBoxLayout, QHBoxLayout, QLabel)
-from PyQt6.QtCore import Qt
+                             QVBoxLayout, QHBoxLayout, QLabel, QInputDialog, QMessageBox)
+from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QFont, QIcon
+from app.ui.theme import apply_app_theme, small_icon
 
 # Garante que a raiz do projeto está no sys.path para imports como "app.components"
 ROOT_DIR = Path(__file__).resolve().parent
@@ -112,20 +113,24 @@ class MainApp(QMainWindow):
         clientes_layout.setContentsMargins(0, 0, 0, 0)
         
         try:
-            from app.components.clientes_manager import ClientesManager
-            if hasattr(ClientesManager, "__init__"):
+            # Prefer the PyQt6-specific Clientes manager (uses the Produtos-like UI)
+            from app.components.clientes_manager_pyqt import ClientesManager
+            self.clientes_manager = ClientesManager(clientes_widget)
+            clientes_layout.addWidget(self.clientes_manager)
+        except ModuleNotFoundError:
+            # Fallback to the original clientes_manager if the PyQt file is missing
+            try:
+                from app.components.clientes_manager import ClientesManager
                 self.clientes_manager = ClientesManager(clientes_widget)
                 clientes_layout.addWidget(self.clientes_manager)
-            else:
-                raise ImportError("ClientesManager não possui construtor esperado.")
-        except ModuleNotFoundError as e:
-            error_label = QLabel(f"Erro ao carregar Clientes: Módulo não encontrado: {e}")
-            error_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            error_label.setStyleSheet("color: #ff6b6b; font-size: 14px;")
-            clientes_layout.addWidg.et(error_label)
+            except Exception as e:
+                error_label = QLabel(f"Erro ao carregar Clientes: {e}")
+                error_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                error_label.setStyleSheet("color: #ff6b6b; font-size: 14px;")
+                clientes_layout.addWidget(error_label)
         except Exception as e:
             error_label = QLabel(f"Erro ao carregar Clientes: {e}")
-            error_label.setAli,gnment(Qt.AlignmentFlag.AlignCenter)
+            error_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             error_label.setStyleSheet("color: #ff6b6b; font-size: 14px;")
             clientes_layout.addWidget(error_label)
         
@@ -189,6 +194,81 @@ class MainApp(QMainWindow):
         
         self.tab_widget.addTab(produtos_widget, "🛍️ Produtos")
 
+        # Aba Backup
+        backup_widget = QWidget()
+        backup_layout = QVBoxLayout(backup_widget)
+        backup_layout.setContentsMargins(0, 0, 0, 0)
+        try:
+            from app.ui.backup_tab import BackupTab
+            self.backup_tab = BackupTab()
+            backup_layout.addWidget(self.backup_tab)
+        except Exception as e:
+            error_label = QLabel(f"Erro ao carregar Backup: {e}")
+            error_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            error_label.setStyleSheet("color: #ff6b6b; font-size: 14px;")
+            backup_layout.addWidget(error_label)
+
+        self.tab_widget.addTab(backup_widget, "💾 Backup")
+
+        # remember backup tab index and protect access
+        try:
+            self.backup_tab_index = self.tab_widget.indexOf(backup_widget)
+        except Exception:
+            self.backup_tab_index = None
+
+        # connect tab change handler to enforce password on Backup tab
+        try:
+            self._last_tab_index = self.tab_widget.currentIndex()
+            self._authenticating = False
+            self.tab_widget.currentChanged.connect(self._on_tab_changed)
+        except Exception:
+            pass
+
+    def _on_tab_changed(self, index: int):
+        """Prompt for password when user tries to open the Backup tab."""
+        # If no backup tab configured, ignore
+        try:
+            if self.backup_tab_index is None:
+                self._last_tab_index = index
+                return
+        except Exception:
+            self._last_tab_index = index
+            return
+
+        # Avoid recursive prompts
+        if getattr(self, '_authenticating', False):
+            self._last_tab_index = index
+            return
+
+        # If switching to the backup tab, prompt for password
+        if index == self.backup_tab_index:
+            self._authenticating = True
+            ok = False
+            try:
+                pwd, accepted = QInputDialog.getText(self, 'Senha necessária', 'Digite a senha para acessar Backup:', echo=QInputDialog.EchoMode.Password)
+                if accepted:
+                    if pwd == '123':
+                        ok = True
+                    else:
+                        QMessageBox.warning(self, 'Senha incorreta', 'Senha inválida. Acesso negado.')
+                else:
+                    ok = False
+            except Exception:
+                ok = False
+
+            # revert to previous tab on failure
+            if not ok:
+                # block signal while reverting
+                try:
+                    self.tab_widget.blockSignals(True)
+                    self.tab_widget.setCurrentIndex(self._last_tab_index)
+                finally:
+                    self.tab_widget.blockSignals(False)
+
+            self._authenticating = False
+
+        self._last_tab_index = index
+
 
 def main():
     """Função principal"""
@@ -207,8 +287,110 @@ def main():
     except Exception:
         pass
     
+    # Apply shared theme
+    try:
+        apply_app_theme(app)
+    except Exception:
+        pass
+
+    # --- Ensure DB is initialized synchronously to avoid first-interaction delays ---
+    try:
+        # Importing the package will create the singleton DatabaseManager
+        # and open the SQLite connection during startup rather than on first use.
+        from database import db_manager as _db_init  # type: ignore
+    except Exception:
+        # ignore failures here; the prewarm will still attempt a lazy touch
+        pass
+
     # Criar e mostrar a janela principal
     main_window = MainApp()
+    # Pre-warm heavy resources that cause the first dialog to be slow.
+    # Reason: first-time creation of QMessageBox, DB connection and icons can block
+    # while loading theme resources or opening the SQLite connection. We do a
+    # small, non-blocking warmup shortly after the event loop starts so the
+    # visible first user dialog is fast.
+    def _prewarm():
+        try:
+            # touch the database singleton to ensure connection / table setup done
+            try:
+                from database import db_manager as _db
+                # small read to ensure any lazy initialization happens now
+                try:
+                    _ = _db.listar_pedidos_ordenados_por_prazo(1)
+                except Exception:
+                    pass
+            except Exception:
+                pass
+
+            # create a transient, tool-window message box and close it quickly to
+            # force Qt to load dialog resources (styles, icons, native widgets).
+            try:
+                m = QMessageBox()
+                m.setWindowTitle("")
+                m.setText("")
+                m.setWindowFlag(Qt.WindowType.Tool)
+                m.setModal(False)
+                m.show()
+                QTimer.singleShot(40, m.close)
+            except Exception:
+                pass
+
+            # preload small icons used in BackupTab and other places (best-effort)
+            try:
+                for name in ('refresh', 'create', 'restore', 'replace', 'delete', 'add', 'edit'):
+                    try:
+                        _ = small_icon(app, name)
+                    except Exception:
+                        pass
+            except Exception:
+                pass
+
+            # Preload font subsystem and any heavy font resources to avoid
+            # the first-dialog font initialization penalty on some platforms.
+            try:
+                from PyQt6.QtGui import QFontDatabase, QPixmap
+                QFontDatabase()  # touch font DB
+                # Optional: create a small pixmap cache warmup for common icons
+                for name in ('refresh', 'create', 'restore', 'replace'):
+                    try:
+                        p = small_icon(app, name)
+                        if p is not None:
+                            # small_icon may return QIcon; attempt to get pixmap
+                            try:
+                                pm = p.pixmap(16, 16)
+                            except Exception:
+                                pass
+                    except Exception:
+                        pass
+            except Exception:
+                pass
+        except Exception:
+            pass
+
+    # schedule warmup to run once the event loop starts
+    QTimer.singleShot(200, _prewarm)
+    # add small icons/tooltips to BackupTab buttons if present
+    try:
+        if hasattr(main_window, 'backup_tab'):
+            icon = small_icon(app, 'refresh')
+            if icon:
+                main_window.backup_tab.btn_refresh.setIcon(icon)
+            icon = small_icon(app, 'create')
+            if icon:
+                main_window.backup_tab.btn_create.setIcon(icon)
+            icon = small_icon(app, 'restore')
+            if icon:
+                main_window.backup_tab.btn_restore.setIcon(icon)
+            icon = small_icon(app, 'replace')
+            if icon:
+                main_window.backup_tab.btn_replace.setIcon(icon)
+            # tooltips
+            main_window.backup_tab.btn_refresh.setToolTip('Atualizar a lista de backups')
+            main_window.backup_tab.btn_create.setToolTip('Criar um novo backup do banco de dados')
+            main_window.backup_tab.btn_restore.setToolTip('Restaurar a partir de um arquivo .db')
+            main_window.backup_tab.btn_replace.setToolTip('Substituir o DB atual por um arquivo')
+    except Exception:
+        pass
     main_window.show()
     
     sys.exit(app.exec())
