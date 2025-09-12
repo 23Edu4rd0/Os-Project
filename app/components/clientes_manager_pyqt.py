@@ -35,15 +35,19 @@ class ClienteDetailDialog(QDialog):
         """)
         info_layout = QHBoxLayout(info_frame)
         info_layout.setSpacing(32)
+        # Monta os dados do cliente no topo
         left = QVBoxLayout()
-        left.addWidget(QLabel(f"<b>Nome:</b> {cliente.get('nome', '')}"))
-        left.addWidget(QLabel(f"<b>CPF:</b> {formatar_cpf(cliente.get('cpf', ''))}"))
-        left.addWidget(QLabel(f"<b>Telefone:</b> {cliente.get('telefone', '')}"))
+        left.addWidget(QLabel(f"<b>Nome:</b> {self.cliente.get('nome', '')}"))
+        left.addWidget(QLabel(f"<b>CPF:</b> {formatar_cpf(self.cliente.get('cpf', ''))}"))
+        left.addWidget(QLabel(f"<b>CNPJ:</b> {self.cliente.get('cnpj', '')}"))
+        left.addWidget(QLabel(f"<b>Inscrição Estadual:</b> {self.cliente.get('inscricao_estadual', '')}"))
+        left.addWidget(QLabel(f"<b>Telefone:</b> {self.cliente.get('telefone', '')}"))
+        left.addWidget(QLabel(f"<b>Email:</b> {self.cliente.get('email', '')}"))
 
         right = QVBoxLayout()
-        endereco = f"{cliente.get('rua','')} {cliente.get('numero','')} - {cliente.get('bairro','')} - {cliente.get('cidade','')} / {cliente.get('estado','')}"
+        endereco = f"{self.cliente.get('rua', '')}, {self.cliente.get('numero', '')} - {self.cliente.get('bairro', '')}, {self.cliente.get('cidade', '')} / {self.cliente.get('estado', '')}"
         right.addWidget(QLabel(f"<b>Endereço:</b> {endereco}"))
-        right.addWidget(QLabel(f"<b>Email:</b> {cliente.get('email', '')}"))
+        right.addWidget(QLabel(f"<b>Referência:</b> {self.cliente.get('referencia', '')}"))
 
         info_layout.addLayout(left)
         info_layout.addLayout(right)
@@ -296,14 +300,14 @@ class ClienteDetailDialog(QDialog):
                 main_win = self.window()
                 if main_win and hasattr(main_win, 'pedidos_manager'):
                     try:
-                        main_win.pedidos_manager.carregar_dados(force_refresh=True)
+                        main_win.pedidos_manager.carregar_dados()
                     except Exception:
                         # fallback: procurar top-level widgets que tenham pedidos_manager
                         from PyQt6.QtWidgets import QApplication
                         for w in QApplication.topLevelWidgets():
                             if hasattr(w, 'pedidos_manager'):
                                 try:
-                                    w.pedidos_manager.carregar_dados(force_refresh=True)
+                                    w.pedidos_manager.carregar_dados()
                                     break
                                 except Exception:
                                     pass
@@ -348,6 +352,28 @@ class ClienteDetailDialog(QDialog):
                 pass
             try:
                 pedidos_modal.setWindowState(pedidos_modal.windowState() | Qt.WindowState.WindowMaximized)
+            except Exception:
+                pass
+            # Conectar o sinal para atualizar este dialog quando o pedido for salvo
+            try:
+                pedidos_modal.pedido_salvo.connect(lambda: self.carregar_pedidos())
+            except Exception:
+                pass
+            # Também conectar para atualizar a aba principal de Pedidos
+            try:
+                main_win = self.window()
+                if main_win and hasattr(main_win, 'pedidos_manager'):
+                    pedidos_modal.pedido_salvo.connect(lambda: main_win.pedidos_manager.carregar_dados())
+                else:
+                    # fallback: procurar top-level widgets que tenham pedidos_manager
+                    from PyQt6.QtWidgets import QApplication
+                    for w in QApplication.topLevelWidgets():
+                        if hasattr(w, 'pedidos_manager'):
+                            try:
+                                pedidos_modal.pedido_salvo.connect(lambda: w.pedidos_manager.carregar_dados())
+                                break
+                            except Exception:
+                                continue
             except Exception:
                 pass
             # Chama o modal com cliente_fixo=True, passando rótulo com CPF e cidade para exibição no cabeçalho
@@ -439,7 +465,7 @@ class ClientesManager(QWidget):
 
         # Search entry (Produtos-like: large input on the right)
         self.search_entry = QLineEdit()
-        self.search_entry.setPlaceholderText("Nome, CPF ou telefone...")
+        self.search_entry.setPlaceholderText("Nome, CPF, CNPJ, Insc. Estadual ou telefone...")
         self.search_entry.textChanged.connect(self._on_search)
         # Match Produtos input style
         self.search_entry.setStyleSheet('''
@@ -469,13 +495,13 @@ class ClientesManager(QWidget):
         self.table = QTableWidget()
         
         # Configurar colunas
-        columns = ["ID", "Nome", "CPF", "Telefone", "Email", "Rua", "Nº", "Bairro", "Cidade", "UF", "Referência"]
+        columns = ["ID", "Nome", "CPF", "CNPJ", "Insc. Estadual", "Telefone", "Email", "Rua", "Nº", "Bairro", "Cidade", "UF", "Referência"]
         self.table.setColumnCount(len(columns))
         self.table.setHorizontalHeaderLabels(columns)
         
-        # Configurar larguras das colunas
+        # Configurar larguras das colunas (mais compacto)
         header = self.table.horizontalHeader()
-        column_widths = [60, 200, 120, 120, 180, 180, 60, 120, 120, 60, 150]
+        column_widths = [50, 160, 90, 100, 80, 100, 140, 120, 40, 90, 90, 40, 110]
         
         for i, width in enumerate(column_widths):
             self.table.setColumnWidth(i, width)
@@ -582,27 +608,40 @@ class ClientesManager(QWidget):
             
             # Preencher dados
             for row, cliente in enumerate(clientes):
-                # cliente é uma tupla: (id, nome, cpf, telefone, email, rua, numero, bairro, cidade, estado, referencia)
-                if len(cliente) >= 11:
+                # cliente é uma tupla: (id, nome, cpf, cnpj, inscricao_estadual, telefone, email, rua, numero, bairro, cidade, estado, referencia)
+                if len(cliente) >= 13:
                     raw_cpf = str(cliente[2] or '')
+                    # Formatação de CNPJ
+                    raw_cnpj = str(cliente[3] or '')
+                    if raw_cnpj and len(raw_cnpj.strip()) > 0:
+                        try:
+                            from app.utils.formatters import formatar_cnpj
+                            cnpj_fmt = formatar_cnpj(raw_cnpj)
+                        except Exception:
+                            cnpj_fmt = raw_cnpj
+                    else:
+                        cnpj_fmt = ''
+                    
                     dados = [
                         str(cliente[0] or ''),   # id
                         str(cliente[1] or ''),   # nome
-                        formatar_cpf(raw_cpf),    # cpf (formatado para exibição)
-                        str(cliente[3] or ''),   # telefone
-                        str(cliente[4] or ''),   # email
-                        str(cliente[5] or ''),   # rua
-                        str(cliente[6] or ''),   # numero
-                        str(cliente[7] or ''),   # bairro
-                        str(cliente[8] or ''),   # cidade
-                        str(cliente[9] or ''),   # estado
-                        str(cliente[10] or '')   # referencia
+                        formatar_cpf(raw_cpf),   # cpf (formatado para exibição)
+                        cnpj_fmt,                # cnpj (formatado)
+                        str(cliente[4] or ''),   # inscricao_estadual
+                        str(cliente[5] or ''),   # telefone
+                        str(cliente[6] or ''),   # email
+                        str(cliente[7] or ''),   # rua
+                        str(cliente[8] or ''),   # numero
+                        str(cliente[9] or ''),   # bairro
+                        str(cliente[10] or ''),  # cidade
+                        str(cliente[11] or ''),  # estado
+                        str(cliente[12] or '')   # referencia
                     ]
                     
                     for col, valor in enumerate(dados):
                         item = QTableWidgetItem(valor)
-                        if col == 0:  # ID - centralizado
-                            item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+                        # Centralizar todas as colunas
+                        item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
                         # Tornar item não editável
                         item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable)
                         self.table.setItem(row, col, item)
@@ -644,20 +683,24 @@ class ClientesManager(QWidget):
             elif col == 2:
                 dados['cpf'] = valor
             elif col == 3:
-                dados['telefone'] = valor
+                dados['cnpj'] = valor
             elif col == 4:
-                dados['email'] = valor
+                dados['inscricao_estadual'] = valor
             elif col == 5:
-                dados['rua'] = valor
+                dados['telefone'] = valor
             elif col == 6:
-                dados['numero'] = valor
+                dados['email'] = valor
             elif col == 7:
-                dados['bairro'] = valor
+                dados['rua'] = valor
             elif col == 8:
-                dados['cidade'] = valor
+                dados['numero'] = valor
             elif col == 9:
-                dados['estado'] = valor
+                dados['bairro'] = valor
             elif col == 10:
+                dados['cidade'] = valor
+            elif col == 11:
+                dados['estado'] = valor
+            elif col == 12:
                 dados['referencia'] = valor
         
         modal = ClienteModal(self, dados)
@@ -683,20 +726,24 @@ class ClientesManager(QWidget):
             elif col == 2:
                 dados['cpf'] = valor
             elif col == 3:
-                dados['telefone'] = valor
+                dados['cnpj'] = valor
             elif col == 4:
-                dados['email'] = valor
+                dados['inscricao_estadual'] = valor
             elif col == 5:
-                dados['rua'] = valor
+                dados['telefone'] = valor
             elif col == 6:
-                dados['numero'] = valor
+                dados['email'] = valor
             elif col == 7:
-                dados['bairro'] = valor
+                dados['rua'] = valor
             elif col == 8:
-                dados['cidade'] = valor
+                dados['numero'] = valor
             elif col == 9:
-                dados['estado'] = valor
+                dados['bairro'] = valor
             elif col == 10:
+                dados['cidade'] = valor
+            elif col == 11:
+                dados['estado'] = valor
+            elif col == 12:
                 dados['referencia'] = valor
 
         dialog = ClienteDetailDialog(self, dados)
@@ -748,7 +795,7 @@ class ClientesManager(QWidget):
         self._search_timer.start(500)  # 500ms de delay
     
     def pesquisar_clientes(self):
-        """Pesquisa clientes por nome, CPF ou telefone"""
+        """Pesquisa clientes por nome, CPF, CNPJ ou telefone"""
         termo_pesquisa = self.search_entry.text().strip()
         
         if not termo_pesquisa:
@@ -764,20 +811,25 @@ class ClientesManager(QWidget):
             termo_lower = termo_pesquisa.lower()
             
             for cliente in clientes:
-                if len(cliente) >= 11:
+                if len(cliente) >= 13:
                     nome = str(cliente[1] or '').lower()
                     cpf = str(cliente[2] or '')
-                    telefone = str(cliente[3] or '').lower()
+                    cnpj = str(cliente[3] or '')
+                    inscricao_estadual = str(cliente[4] or '').lower()
+                    telefone = str(cliente[5] or '').lower()
 
-                    # Normalize search term for CPF comparison (strip non-digits)
+                    # Normalize search term for CPF/CNPJ comparison (strip non-digits)
                     termo_digits = ''.join(ch for ch in termo_pesquisa if ch.isdigit())
                     cpf_digits = ''.join(ch for ch in cpf if ch.isdigit())
+                    cnpj_digits = ''.join(ch for ch in cnpj if ch.isdigit())
 
-                    # Pesquisar nos campos: nome, telefone ou CPF (permitir digitar sem pontos)
+                    # Pesquisar nos campos: nome, telefone, CPF, CNPJ, Inscr. Estadual (permitir digitar sem pontos)
                     if (termo_lower in nome or 
                         termo_lower in telefone or 
-                        (termo_digits and termo_digits == cpf_digits) or
-                        termo_lower in cpf.lower()):
+                        (termo_digits and (termo_digits == cpf_digits or termo_digits == cnpj_digits)) or
+                        termo_lower in cpf.lower() or
+                        termo_lower in cnpj.lower() or
+                        termo_lower in inscricao_estadual):
                         clientes_filtrados.append(cliente)
             
             # Configurar número de linhas
@@ -786,18 +838,31 @@ class ClientesManager(QWidget):
             # Preencher dados filtrados
             for row, cliente in enumerate(clientes_filtrados):
                 raw_cpf = str(cliente[2] or '')
+                # Formatação de CNPJ
+                raw_cnpj = str(cliente[3] or '')
+                if raw_cnpj and len(raw_cnpj.strip()) > 0:
+                    try:
+                        from app.utils.formatters import formatar_cnpj
+                        cnpj_fmt = formatar_cnpj(raw_cnpj)
+                    except Exception:
+                        cnpj_fmt = raw_cnpj
+                else:
+                    cnpj_fmt = ''
+                
                 dados = [
                     str(cliente[0] or ''),   # id
                     str(cliente[1] or ''),   # nome
-                    formatar_cpf(raw_cpf),    # cpf (formatado)
-                    str(cliente[3] or ''),   # telefone
-                    str(cliente[4] or ''),   # email
-                    str(cliente[5] or ''),   # rua
-                    str(cliente[6] or ''),   # numero
-                    str(cliente[7] or ''),   # bairro
-                    str(cliente[8] or ''),   # cidade
-                    str(cliente[9] or ''),   # estado
-                    str(cliente[10] or '')   # referencia
+                    formatar_cpf(raw_cpf),   # cpf (formatado para exibição)
+                    cnpj_fmt,                # cnpj (formatado)
+                    str(cliente[4] or ''),   # inscricao_estadual
+                    str(cliente[5] or ''),   # telefone
+                    str(cliente[6] or ''),   # email
+                    str(cliente[7] or ''),   # rua
+                    str(cliente[8] or ''),   # numero
+                    str(cliente[9] or ''),   # bairro
+                    str(cliente[10] or ''),  # cidade
+                    str(cliente[11] or ''),  # estado
+                    str(cliente[12] or '')   # referencia
                 ]
                 
                 for col, valor in enumerate(dados):
@@ -937,6 +1002,14 @@ class ClienteModal(QDialog):
         self.campos['cpf'].setPlaceholderText("000.000.000-00")
         form_layout.addRow("CPF:", self.campos['cpf'])
         
+        self.campos['cnpj'] = QLineEdit()
+        self.campos['cnpj'].setPlaceholderText("00.000.000/0000-00")
+        form_layout.addRow("CNPJ:", self.campos['cnpj'])
+        
+        self.campos['inscricao_estadual'] = QLineEdit()
+        self.campos['inscricao_estadual'].setPlaceholderText("Inscrição Estadual")
+        form_layout.addRow("Inscrição Estadual:", self.campos['inscricao_estadual'])
+        
         self.campos['telefone'] = QLineEdit()
         self.campos['telefone'].setPlaceholderText("(11) 99999-9999")
         form_layout.addRow("Telefone:", self.campos['telefone'])
@@ -1028,16 +1101,15 @@ class ClienteModal(QDialog):
     
     def _salvar_cliente(self):
         """Salva o cliente no banco de dados"""
-        # Validações
-        nome = self.campos['nome'].text().strip()
-        if not nome:
-            QMessageBox.warning(self, "Erro", "Nome é obrigatório!")
-            return
+        from app.validation.cliente_validator import validar_dados_cliente
+        from app.components.dialogs.cliente_confirm_dialog import ClienteConfirmDialog
         
         # Coletar dados
         dados = {
-            'nome': nome,
+            'nome': self.campos['nome'].text().strip(),
             'cpf': self.campos['cpf'].text().strip() or None,
+            'cnpj': self.campos['cnpj'].text().strip() or None,
+            'inscricao_estadual': self.campos['inscricao_estadual'].text().strip() or None,
             'telefone': self.campos['telefone'].text().strip() or None,
             'email': self.campos['email'].text().strip() or None,
             'rua': self.campos['rua'].text().strip() or None,
@@ -1048,45 +1120,64 @@ class ClienteModal(QDialog):
             'referencia': self.campos['referencia'].text().strip() or None
         }
         
-        try:
-            if self.is_edit and self.dados and self.dados.get('id'):
-                # Atualizar cliente existente
-                db_manager.atualizar_cliente(
-                    int(self.dados['id']),
-                    dados['nome'],
-                    dados['cpf'],
-                    dados['telefone'],
-                    dados['email'],
-                    None,  # endereco antigo = None
-                    dados['referencia'],
-                    dados['rua'],
-                    dados['numero'],
-                    dados['bairro'],
-                    dados['cidade'],
-                    dados['estado']
-                )
-                QMessageBox.information(self, "Sucesso", "Cliente atualizado com sucesso!")
-            else:
-                # Criar novo cliente
-                db_manager.upsert_cliente_completo(
-                    dados['nome'],
-                    dados['cpf'],
-                    dados['telefone'],
-                    dados['email'],
-                    None,  # endereco antigo = None
-                    dados['referencia'],
-                    dados['rua'],
-                    dados['numero'],
-                    dados['bairro'],
-                    dados['cidade'],
-                    dados['estado']
-                )
-                QMessageBox.information(self, "Sucesso", "Cliente criado com sucesso!")
+        # Validar dados
+        is_valid, message = validar_dados_cliente(dados)
+        if not is_valid:
+            QMessageBox.warning(self, "Erro de Validação", message)
+            return
+        
+        # Mostrar diálogo de confirmação
+        confirm_dialog = ClienteConfirmDialog(dados, self)
+        if confirm_dialog.exec() == QDialog.DialogCode.Accepted:
+            resultado = confirm_dialog.get_resultado()
             
-            self.accept()
+            if resultado == 'copiar':
+                QMessageBox.information(self, "Copiado", "Dados copiados para a área de transferência!")
+                return  # Não salva, apenas copia
             
-        except Exception as e:
-            QMessageBox.critical(self, "Erro", f"Erro ao salvar cliente: {e}")
+            elif resultado == 'confirmar':
+                # Salvar no banco de dados
+                try:
+                    if self.is_edit and self.dados and self.dados.get('id'):
+                        # Atualizar cliente existente
+                        db_manager.atualizar_cliente_completo(
+                            int(self.dados['id']),
+                            dados['nome'],
+                            dados['cpf'],
+                            dados['cnpj'],
+                            dados['inscricao_estadual'],
+                            dados['telefone'],
+                            dados['email'],
+                            dados['rua'],
+                            dados['numero'],
+                            dados['bairro'],
+                            dados['cidade'],
+                            dados['estado'],
+                            dados['referencia']
+                        )
+                        QMessageBox.information(self, "Sucesso", "Cliente atualizado com sucesso!")
+                    else:
+                        # Criar novo cliente
+                        db_manager.criar_cliente_completo(
+                            dados['nome'],
+                            dados['cpf'],
+                            dados['cnpj'],
+                            dados['inscricao_estadual'],
+                            dados['telefone'],
+                            dados['email'],
+                            dados['rua'],
+                            dados['numero'],
+                            dados['bairro'],
+                            dados['cidade'],
+                            dados['estado'],
+                            dados['referencia']
+                        )
+                        QMessageBox.information(self, "Sucesso", "Cliente criado com sucesso!")
+                    
+                    self.accept()  # Fecha o modal
+                    
+                except Exception as e:
+                    QMessageBox.critical(self, "Erro", f"Erro ao salvar cliente: {e}")
     
     def _aplicar_estilo(self):
         """Aplica estilo moderno ao modal"""

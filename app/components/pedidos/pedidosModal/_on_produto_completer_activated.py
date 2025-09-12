@@ -18,15 +18,8 @@ def _on_produto_completer_activated(self, texto: str):
         except Exception:
             pass
         try:
-            # armazenar preço base para uso com reforço
+            # armazenar preço base para uso com divisórias
             self._base_produto_valor = float(p.get('preco', 0) or 0.0)
-        except Exception:
-            pass
-        try:
-            cat = p.get('categoria') or 'Todas'
-            idx = self.input_categoria.findText(cat)
-            if idx >= 0:
-                self.input_categoria.setCurrentIndex(idx)
         except Exception:
             pass
         # preencher reforco (checkbox) e cor se disponíveis

@@ -55,13 +55,6 @@ def _on_produto_text_changed(self, texto: str):
                 preco_float = 0.0
             self.input_valor.setText(str(f"{preco_float:.2f}"))
             try:
-                cat = best.get('categoria') or 'Todas'
-                idx = self.input_categoria.findText(cat)
-                if idx >= 0:
-                    self.input_categoria.setCurrentIndex(idx)
-            except Exception:
-                pass
-            try:
                 self._base_produto_valor = float(preco_float)
             except Exception:
                 pass

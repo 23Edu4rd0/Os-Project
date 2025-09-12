@@ -1,5 +1,5 @@
 def limpar_campos_produto(self):
-    # Campos usados na seção de produtos: input_desc, input_valor, input_categoria
+    # Campos usados na seção de produtos: input_desc, input_valor
     try:
         if hasattr(self, 'input_desc') and self.input_desc is not None:
             try:
@@ -11,12 +11,7 @@ def limpar_campos_produto(self):
                 self.input_valor.clear()
             except Exception:
                 pass
-        if hasattr(self, 'input_categoria') and self.input_categoria is not None:
-            try:
-                self.input_categoria.setCurrentIndex(0)
-            except Exception:
-                pass
-        # cor and reforco
+        # cor and divisórias
         if 'cor' in getattr(self, 'campos', {}):
             try:
                 w = self.campos['cor']
@@ -24,11 +19,11 @@ def limpar_campos_produto(self):
                     w.setCurrentIndex(0)
             except Exception:
                 pass
-        if 'reforco' in getattr(self, 'campos', {}):
+        if 'divisorias' in getattr(self, 'campos', {}):
             try:
-                w = self.campos['reforco']
-                if hasattr(w, 'setChecked'):
-                    w.setChecked(False)
+                w = self.campos['divisorias']
+                if hasattr(w, 'setValue'):  # SpinBox
+                    w.setValue(0)
                 elif hasattr(w, 'setCurrentIndex'):
                     # caso seja combo
                     w.setCurrentIndex(0)

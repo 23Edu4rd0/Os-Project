@@ -3,14 +3,15 @@ Módulo de gerenciamento do banco de dados SQLite para armazenar ordens de servi
 Refatorado para usar módulos especializados.
 """
 
+
 import sqlite3
 import json
 from datetime import datetime
 
-from .db_setup import DatabaseSetup
-from .order_crud import OrderCRUD
-from .report_queries import ReportQueries
-from .products_crud import ProductsCRUD
+from database.db_setup import DatabaseSetup
+from database.order_crud import OrderCRUD
+from database.report_queries import ReportQueries
+from database.products_crud import ProductsCRUD
 
 
 class DatabaseManager:
@@ -244,7 +245,7 @@ class DatabaseManager:
         try:
             if limite:
                 query = '''
-                SELECT id, nome, cpf, telefone, email, rua, numero, bairro, cidade, estado, referencia
+                SELECT id, nome, cpf, cnpj, inscricao_estadual, telefone, email, rua, numero, bairro, cidade, estado, referencia
                 FROM clientes 
                 ORDER BY nome 
                 LIMIT ?
@@ -252,7 +253,7 @@ class DatabaseManager:
                 self.cursor.execute(query, (limite,))
             else:
                 query = '''
-                SELECT id, nome, cpf, telefone, email, rua, numero, bairro, cidade, estado, referencia
+                SELECT id, nome, cpf, cnpj, inscricao_estadual, telefone, email, rua, numero, bairro, cidade, estado, referencia
                 FROM clientes 
                 ORDER BY nome
                 '''
@@ -282,6 +283,50 @@ class DatabaseManager:
             return True
         except Exception as e:
             print(f"Erro ao atualizar cliente: {e}")
+            return False
+
+    def atualizar_cliente_completo(self, cliente_id, nome, cpf=None, cnpj=None, inscricao_estadual=None,
+                                  telefone=None, email=None, rua=None, numero=None,
+                                  bairro=None, cidade=None, estado=None, referencia=None):
+        """Atualiza um cliente existente com todos os campos, incluindo CNPJ e IE."""
+        try:
+            self.cursor.execute(
+                """
+                UPDATE clientes
+                SET nome = ?, cpf = ?, cnpj = ?, inscricao_estadual = ?, telefone = ?, email = ?,
+                    rua = ?, numero = ?, bairro = ?, cidade = ?, estado = ?, referencia = ?
+                WHERE id = ?
+                """,
+                (nome, cpf, cnpj, inscricao_estadual, telefone, email, 
+                 rua, numero, bairro, cidade, estado, referencia, int(cliente_id))
+            )
+            self.conn.commit()
+            return True
+        except Exception as e:
+            print(f"Erro ao atualizar cliente completo: {e}")
+            return False
+
+    def criar_cliente_completo(self, nome, cpf=None, cnpj=None, inscricao_estadual=None,
+                              telefone=None, email=None, rua=None, numero=None,
+                              bairro=None, cidade=None, estado=None, referencia=None):
+        """Cria um novo cliente com todos os campos, incluindo CNPJ e IE."""
+        try:
+            from datetime import datetime
+            data_atual = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            
+            self.cursor.execute(
+                """
+                INSERT INTO clientes (nome, cpf, cnpj, inscricao_estadual, telefone, email,
+                                    rua, numero, bairro, cidade, estado, referencia, data_criacao)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (nome, cpf, cnpj, inscricao_estadual, telefone, email,
+                 rua, numero, bairro, cidade, estado, referencia, data_atual)
+            )
+            self.conn.commit()
+            return True
+        except Exception as e:
+            print(f"Erro ao criar cliente completo: {e}")
             return False
 
     def deletar_cliente(self, cliente_id):

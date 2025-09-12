@@ -12,10 +12,19 @@ def _format_currency(val):
 def _salvar_pedido(self, numero_os=None, pedido_data=None):
     """Coleta campos do modal e salva (ou atualiza) a ordem no banco."""
     try:
-        # Cliente
-        nome_cliente = (self.campos.get('nome_cliente') and self.campos['nome_cliente'].text()) or ''
-        cpf_cliente = (self.campos.get('cpf_cliente') and self.campos['cpf_cliente'].text()) or ''
-        telefone_cliente = (self.campos.get('telefone_cliente') and self.campos['telefone_cliente'].text()) or ''
+        # Cliente - verificar se estamos em modo cliente_fixo
+        cliente_fixo = getattr(self, '_cliente_fixo', False)
+        
+        if cliente_fixo and hasattr(self, 'model') and hasattr(self.model, 'dados'):
+            # Em modo cliente_fixo, usar dados do modelo
+            nome_cliente = self.model.dados.get('nome_cliente', '')
+            cpf_cliente = self.model.dados.get('cpf_cliente', '')
+            telefone_cliente = self.model.dados.get('telefone_cliente', '')
+        else:
+            # Modo normal, ler dos widgets
+            nome_cliente = (self.campos.get('nome_cliente') and self.campos['nome_cliente'].text()) or ''
+            cpf_cliente = (self.campos.get('cpf_cliente') and self.campos['cpf_cliente'].text()) or ''
+            telefone_cliente = (self.campos.get('telefone_cliente') and self.campos['telefone_cliente'].text()) or ''
 
         # Produtos -> monta texto e soma valores
         linhas = []
@@ -26,8 +35,8 @@ def _salvar_pedido(self, numero_os=None, pedido_data=None):
             extras = []
             if p.get('cor'):
                 extras.append(f"Cor: {p.get('cor')}")
-            if 'reforco' in p:
-                extras.append(f"Reforço: {'sim' if p.get('reforco') else 'não'}")
+            if 'divisorias' in p:
+                extras.append(f"Divisórias: {p.get('divisorias', 0)}")
             extras_txt = ("  —  " + "  |  ".join(extras)) if extras else ""
             # Formatação simples para salvar
             linhas.append(f"• {desc}{extras_txt} - R$ {valor:.2f}")
@@ -54,21 +63,25 @@ def _salvar_pedido(self, numero_os=None, pedido_data=None):
         except Exception:
             prazo = 0
 
-        # Ordem-level cor/reforco (campos podem ser checkbox/combo)
+        # Ordem-level cor/divisórias (campos podem ser spinbox/input)
         try:
             cor = (self.campos.get('cor') and (self.campos['cor'].currentText() if hasattr(self.campos['cor'], 'currentText') else str(self.campos['cor'].text()))) or ''
         except Exception:
             cor = ''
         try:
-            reforco_widget = self.campos.get('reforco')
-            if reforco_widget is None:
-                reforco = False
-            elif hasattr(reforco_widget, 'isChecked'):
-                reforco = bool(reforco_widget.isChecked())
+            divisorias_widget = self.campos.get('divisorias')
+            if divisorias_widget is None:
+                divisorias = 0
+            elif hasattr(divisorias_widget, 'value'):
+                divisorias = int(divisorias_widget.value())
+            elif hasattr(divisorias_widget, 'text'):
+                divisorias = int(divisorias_widget.text() or '0')
             else:
-                reforco = (reforco_widget.currentText() if hasattr(reforco_widget, 'currentText') else '').strip().lower() == 'sim'
+                divisorias = 0
+            # Garantir que está entre 0 e 99
+            divisorias = max(0, min(99, divisorias))
         except Exception:
-            reforco = False
+            divisorias = 0
 
         # Número da OS
         if numero_os is None:
@@ -94,7 +107,7 @@ def _salvar_pedido(self, numero_os=None, pedido_data=None):
             'status': (self.campos.get('status') and self.campos['status'].currentText()) or 'em produção',
             'desconto': float(desconto or 0.0),
             'cor': cor,
-            'reforco': bool(reforco)
+            'divisorias': int(divisorias)
         }
 
         # Attach structured produtos list (descricao, valor) so CRUD can compute totals reliably
@@ -109,7 +122,7 @@ def _salvar_pedido(self, numero_os=None, pedido_data=None):
                     valor = float(str(p.get('valor') or '0').replace(',', '.'))
                 except Exception:
                     valor = 0.0
-            structured.append({'descricao': desc, 'valor': valor, 'cor': p.get('cor'), 'reforco': p.get('reforco')})
+            structured.append({'descricao': desc, 'valor': valor, 'cor': p.get('cor'), 'divisorias': p.get('divisorias', 0)})
         dados['produtos'] = structured
 
         # Salvar novo ou atualizar existente
@@ -151,12 +164,12 @@ def _salvar_pedido(self, numero_os=None, pedido_data=None):
                     'prazo': dados['prazo']
                 }
                 resp = db_manager.atualizar_pedido(pedido_id, campos)
-                # atualizar JSON com status/desconto/cor/reforco
+                # atualizar JSON com status/desconto/cor/divisórias
                 _ = db_manager.atualizar_json_campos(pedido_id, {
                     'status': dados['status'],
                     'desconto': dados['desconto'],
                     'cor': dados['cor'],
-                    'reforco': dados['reforco']
+                    'divisorias': dados['divisorias']
                 })
                 if resp:
                     try:

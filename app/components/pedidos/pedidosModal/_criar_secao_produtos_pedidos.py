@@ -11,10 +11,9 @@ def _criar_secao_produtos_pedidos(self, layout, pedido_data):
     # Mapear widgets para os nomes já usados pelo modal
     self.input_desc = widgets['input_desc']
     self.input_valor = widgets['input_valor']
-    self.input_categoria = widgets['input_categoria']
     self.campos['cor'] = widgets['campos_cor']
-    # usar checkbox como booleano
-    self.campos['reforco'] = widgets['campos_ref']
+    # usar spinbox para divisórias
+    self.campos['divisorias'] = widgets['campos_div']
     # nova tabela de produtos
     self.lista_produtos_table = widgets.get('lista_table')
     self.campos['valor_total'] = widgets['valor_total']
@@ -32,13 +31,6 @@ def _criar_secao_produtos_pedidos(self, layout, pedido_data):
     # Completer e carregamento de catálogo (mantém lógica existente)
     try:
         self._carregar_produtos()
-        if hasattr(self, '_produtos_categorias') and self._produtos_categorias:
-            try:
-                for c in sorted(self._produtos_categorias):
-                    if self.input_categoria.findText(c) < 0:
-                        self.input_categoria.addItem(c)
-            except Exception:
-                pass
         try:
             self._montar_produtos_completer()
         except Exception:
@@ -69,7 +61,7 @@ def _criar_secao_produtos_pedidos(self, layout, pedido_data):
                         desc = str(p.get('descricao') or p.get('nome') or '').strip()
                         valor = float(p.get('valor') or p.get('preco') or 0)
                         cor = p.get('cor') if 'cor' in p else ''
-                        reforco = bool(p.get('reforco')) if 'reforco' in p else False
+                        divisorias = int(p.get('divisorias', 0))
                     except Exception:
                         desc = str(p.get('descricao') or '').strip()
                         try:
@@ -77,9 +69,9 @@ def _criar_secao_produtos_pedidos(self, layout, pedido_data):
                         except Exception:
                             valor = 0.0
                         cor = p.get('cor') if 'cor' in p else ''
-                        reforco = bool(p.get('reforco')) if 'reforco' in p else False
+                        divisorias = int(p.get('divisorias', 0))
                     # Mark source as DB for clarity
-                    self.produtos_list.append({"descricao": desc, "valor": valor, "cor": cor, "reforco": reforco, "_source": "db"})
+                    self.produtos_list.append({"descricao": desc, "valor": valor, "cor": cor, "divisorias": divisorias, "_source": "db"})
             except Exception:
                 pass
         else:

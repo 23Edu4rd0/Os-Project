@@ -6,11 +6,16 @@ from PyQt6.QtGui import QFont
 def _criar_modal_completo(self, pedido_data=None, cliente_fixo=False, nome_cliente_label=None):
     """Cria modal completo para pedido"""
     is_edit = pedido_data is not None
+    # Preserve any pre-filled model data when opening modal from a client (cliente_fixo=True).
+    # If editing, reset then preencher with pedido_data. If creating new, only reset when
+    # we are not in cliente_fixo mode (so ClientesManager can prefill via model.preencher).
     if is_edit:
         self.model.reset()
         self.model.preencher(pedido_data)
     else:
-        self.model.reset()
+        if not cliente_fixo:
+            # fresh new modal without client context: reset model
+            self.model.reset()
     numero_os = pedido_data.get('numero_os') if pedido_data else None
     titulo = f"Editar OS #{numero_os}" if is_edit else "Nova Ordem de Serviço"
     self.setWindowTitle(titulo)
@@ -30,6 +35,12 @@ def _criar_modal_completo(self, pedido_data=None, cliente_fixo=False, nome_clien
     self._criar_header(content_layout, numero_os, is_edit)
     self.campos = self.model.campos
     self.produtos_list = self.model.produtos_list
+
+    # Remember mode: if cliente_fixo, we want to preserve model.dados and force client info on save
+    try:
+        self._cliente_fixo = bool(cliente_fixo)
+    except Exception:
+        self._cliente_fixo = False
 
     # Se cliente_fixo, mostra um label de contexto; senão, mostra a seção de cliente
     if cliente_fixo:

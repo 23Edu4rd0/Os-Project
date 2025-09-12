@@ -16,15 +16,19 @@ def _editar_produto(self, index):
             except Exception:
                 pass
         try:
-            if 'cor' in prod and prod.get('cor'):
-                idx = self.input_categoria.findText(prod.get('cor'))
-                if idx >= 0:
-                    self.input_categoria.setCurrentIndex(idx)
+            if 'cor' in prod and prod.get('cor') and 'cor' in getattr(self, 'campos', {}):
+                try:
+                    combo_cor = self.campos['cor']
+                    idx = combo_cor.findText(prod.get('cor'))
+                    if idx >= 0:
+                        combo_cor.setCurrentIndex(idx)
+                except Exception:
+                    pass
         except Exception:
             pass
         try:
-            if 'reforco' in prod and hasattr(self.campos.get('reforco'), 'setChecked'):
-                self.campos['reforco'].setChecked(bool(prod.get('reforco')))
+            if 'divisorias' in prod and hasattr(self.campos.get('divisorias'), 'setValue'):
+                self.campos['divisorias'].setValue(int(prod.get('divisorias', 0)))
         except Exception:
             pass
     except Exception:

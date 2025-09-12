@@ -8,12 +8,63 @@ from database import db_manager
 
 
 def criar_secao_produtos(modal, layout, pedido_data):
-    grupo = QGroupBox("📦 Produtos")
-    grupo.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
+    grupo = QGroupBox("🛍️ Produtos do Pedido")
+    grupo.setFont(QFont("Segoe UI", 12, QFont.Weight.Bold))
+    grupo.setStyleSheet("""
+        QGroupBox {
+            font-weight: 600;
+            font-size: 14px;
+            border: 2px solid #0d7377;
+            border-radius: 12px;
+            margin-top: 12px;
+            padding-top: 20px;
+            background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                stop:0 rgba(13, 115, 119, 0.1), stop:1 rgba(13, 115, 119, 0.05));
+        }
+        QGroupBox::title {
+            subcontrol-origin: margin;
+            left: 15px;
+            padding: 0 15px 0 15px;
+            color: #0d7377;
+            background: #2d2d2d;
+            border-radius: 6px;
+            font-weight: bold;
+        }
+    """)
     vbox = QVBoxLayout(grupo)
+    vbox.setSpacing(15)
 
-    from app.components.produtos_sugestoes import setup_produtos_sugestoes
-    modal.input_categoria = QComboBox(); modal.input_categoria.setMinimumWidth(140); modal.input_categoria.addItem("Todas")
+    # Container para entrada de produtos
+    entrada_frame = QWidget()
+    entrada_frame.setStyleSheet("""
+        QWidget {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            padding: 10px;
+        }
+    """)
+    entrada_layout = QVBoxLayout(entrada_frame)
+    entrada_layout.setContentsMargins(15, 15, 15, 15)
+    entrada_layout.setSpacing(12)
+
+    # Linha 1: Categoria e Produto
+    linha1 = QHBoxLayout()
+    linha1.setSpacing(15)
+    
+    # Categoria
+    cat_container = QWidget()
+    cat_container.setStyleSheet("background: transparent;")
+    cat_layout = QVBoxLayout(cat_container)
+    cat_layout.setContentsMargins(0, 0, 0, 0)
+    cat_layout.setSpacing(5)
+    
+    cat_label = QLabel("Categoria:")
+    cat_label.setStyleSheet("color: #ccc; font-weight: 600; font-size: 12px;")
+    cat_layout.addWidget(cat_label)
+    
+    modal.input_categoria = QComboBox()
+    modal.input_categoria.setMinimumWidth(150)
+    modal.input_categoria.addItem("Todas")
     try:
         from app.utils.categories import load_categories
         cats = load_categories()
@@ -24,30 +75,79 @@ def criar_secao_produtos(modal, layout, pedido_data):
         for c in ('Agro','Normal','Outros'):
             if modal.input_categoria.findText(c) < 0:
                 modal.input_categoria.addItem(c)
-    from PyQt6.QtWidgets import QListWidget, QListWidgetItem
-    modal.input_desc = QLineEdit(); modal.input_desc.setPlaceholderText("Produto (catálogo)")
+    cat_layout.addWidget(modal.input_categoria)
+    linha1.addWidget(cat_container)
+    
+    # Produto
+    prod_container = QWidget()
+    prod_container.setStyleSheet("background: transparent;")
+    prod_layout = QVBoxLayout(prod_container)
+    prod_layout.setContentsMargins(0, 0, 0, 0)
+    prod_layout.setSpacing(5)
+    
+    prod_label = QLabel("Produto:")
+    prod_label.setStyleSheet("color: #ccc; font-weight: 600; font-size: 12px;")
+    prod_layout.addWidget(prod_label)
+    
+    modal.input_desc = QLineEdit()
+    modal.input_desc.setPlaceholderText("Digite o nome do produto...")
     modal.input_desc.setClearButtonEnabled(True)
-    linha = QHBoxLayout()
-    modal.input_valor = QLineEdit(); modal.input_valor.setPlaceholderText("Valor (R$)"); modal.input_valor.setMaximumWidth(120)
-    btn_add = QPushButton("+ Adicionar")
+    prod_layout.addWidget(modal.input_desc)
+    linha1.addWidget(prod_container, 2)  # Mais espaço para o produto
+    
+    entrada_layout.addLayout(linha1)
+
+    # Linha 2: Valor e Botão
+    linha2 = QHBoxLayout()
+    linha2.setSpacing(15)
+    
+    # Valor
+    valor_container = QWidget()
+    valor_container.setStyleSheet("background: transparent;")
+    valor_layout = QVBoxLayout(valor_container)
+    valor_layout.setContentsMargins(0, 0, 0, 0)
+    valor_layout.setSpacing(5)
+    
+    valor_label = QLabel("Valor (R$):")
+    valor_label.setStyleSheet("color: #ccc; font-weight: 600; font-size: 12px;")
+    valor_layout.addWidget(valor_label)
+    
+    modal.input_valor = QLineEdit()
+    modal.input_valor.setPlaceholderText("0,00")
+    modal.input_valor.setMaximumWidth(130)
+    valor_layout.addWidget(modal.input_valor)
+    linha2.addWidget(valor_container)
+    
+    linha2.addStretch()  # Espaço flexível
+    
+    # Botão Adicionar
+    btn_add = QPushButton("+ Adicionar Produto")
+    btn_add.setMinimumHeight(40)
+    btn_add.setStyleSheet("""
+        QPushButton {
+            background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                stop:0 #4CAF50, stop:1 #45a049);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 10px 20px;
+            font-weight: 600;
+            font-size: 13px;
+        }
+        QPushButton:hover {
+            background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                stop:0 #5CBF60, stop:1 #55b059);
+        }
+        QPushButton:pressed {
+            background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                stop:0 #3A8F3D, stop:1 #358038);
+        }
+    """)
     btn_add.clicked.connect(modal._add_produto)
-    # Adicionar widgets ao layout linha apenas uma vez, e nunca reaproveitar o mesmo layout
-    # (Widgets já adicionados ao layout linha e vbox acima, não repetir)
-    # Sugestão de produtos (editável)
-    from PyQt6.QtCore import QEvent
-    def esconder_sugestoes():
-        modal.sugestoes_produtos.hide()
-    modal.input_desc.installEventFilter(modal)
-    def eventFilter(self, obj, event):
-        if obj == modal.input_desc:
-            if event.type() == QEvent.Type.FocusOut:
-                modal.sugestoes_produtos.hide()
-        return False
-    modal.eventFilter = eventFilter.__get__(modal)
-    modal.input_desc.focusOutEvent = lambda event: (modal.sugestoes_produtos.hide(), QLineEdit.focusOutEvent(modal.input_desc, event))
-    # Sugestão de produtos
-    modal.sugestoes_produtos = QListWidget()
-    modal.sugestoes_produtos.setWindowFlags(modal.sugestoes_produtos.windowFlags() | Qt.WindowType.Popup)
+    linha2.addWidget(btn_add)
+    
+    entrada_layout.addLayout(linha2)
+    vbox.addWidget(entrada_frame)
     modal.sugestoes_produtos.setStyleSheet('''
         QListWidget { background: #23272e; color: #f8f8f2; border: 1.5px solid #50fa7b; font-size: 15px; }
         QListWidget::item:selected { background: #50fa7b; color: #23272e; }

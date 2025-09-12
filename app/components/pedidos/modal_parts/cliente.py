@@ -7,12 +7,42 @@ from PyQt6.QtWidgets import QCompleter
 
 def criar_secao_cliente(modal, layout, pedido_data):
     grupo = QGroupBox("👤 Dados do Cliente")
-    grupo.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
+    grupo.setFont(QFont("Segoe UI", 12, QFont.Weight.Bold))
+    grupo.setStyleSheet("""
+        QGroupBox {
+            font-weight: 600;
+            font-size: 14px;
+            border: 2px solid #0d7377;
+            border-radius: 12px;
+            margin-top: 12px;
+            padding-top: 20px;
+            background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                stop:0 rgba(13, 115, 119, 0.1), stop:1 rgba(13, 115, 119, 0.05));
+        }
+        QGroupBox::title {
+            subcontrol-origin: margin;
+            left: 15px;
+            padding: 0 15px 0 15px;
+            color: #0d7377;
+            background: #2d2d2d;
+            border-radius: 6px;
+            font-weight: bold;
+        }
+    """)
     form = QFormLayout(grupo)
+    form.setSpacing(15)
+    form.setContentsMargins(20, 20, 20, 20)
 
-    # Nome + limpar
+    # Nome do Cliente + Botão Limpar
+    nome_container = QWidget()
+    nome_container.setStyleSheet("background: transparent;")
+    nome_layout = QHBoxLayout(nome_container)
+    nome_layout.setContentsMargins(0, 0, 0, 0)
+    nome_layout.setSpacing(10)
+    
     modal.campos['nome_cliente'] = QLineEdit()
-    modal.campos['nome_cliente'].setPlaceholderText("Digite o nome do cliente...")
+    modal.campos['nome_cliente'].setPlaceholderText("Digite o nome completo do cliente...")
+    modal.campos['nome_cliente'].setMinimumHeight(35)
 
     if getattr(modal, 'clientes_dict', None):
         completer = QCompleter(list(modal.clientes_dict.keys()))
@@ -30,19 +60,22 @@ def criar_secao_cliente(modal, layout, pedido_data):
         except Exception:
             pass
 
-    row = QHBoxLayout()
-    row.addWidget(modal.campos['nome_cliente'])
+    nome_layout.addWidget(modal.campos['nome_cliente'], 3)
+    
     btn_limpar = QPushButton("🧹 Limpar")
-    btn_limpar.setMaximumWidth(90)
-    btn_limpar.setToolTip("Limpar dados do cliente")
+    btn_limpar.setObjectName("btn_limpar_cli")  # Para CSS específico
+    btn_limpar.setMaximumWidth(100)
+    btn_limpar.setMinimumHeight(35)
+    btn_limpar.setToolTip("Limpar todos os dados do cliente")
     btn_limpar.clicked.connect(modal._limpar_campos_cliente)
-    row.addWidget(btn_limpar)
-    w = QWidget(); w.setLayout(row)
-    form.addRow("Nome do Cliente:", w)
+    nome_layout.addWidget(btn_limpar)
+    
+    form.addRow("Nome:", nome_container)
 
     # Telefone
     modal.campos['telefone_cliente'] = QLineEdit()
     modal.campos['telefone_cliente'].setPlaceholderText("(11) 99999-9999")
+    modal.campos['telefone_cliente'].setMinimumHeight(35)
     try:
         modal.campos['telefone_cliente'].setInputMask("(00) 00000-0000;_")
     except Exception:

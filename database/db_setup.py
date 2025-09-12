@@ -39,7 +39,8 @@ class DatabaseSetup:
                 forma_pagamento TEXT,
                 prazo INTEGER,
                 nome_pdf TEXT,
-                dados_json TEXT
+                dados_json TEXT,
+                status TEXT DEFAULT 'Em Andamento'
             )
             ''')
             
@@ -49,6 +50,8 @@ class DatabaseSetup:
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 nome TEXT NOT NULL,
                 cpf TEXT,
+                cnpj TEXT,
+                inscricao_estadual TEXT,
                 telefone TEXT,
                 email TEXT,
                 rua TEXT,
@@ -58,7 +61,8 @@ class DatabaseSetup:
                 estado TEXT,
                 referencia TEXT,
                 data_criacao TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE(cpf) ON CONFLICT IGNORE
+                UNIQUE(cpf) ON CONFLICT IGNORE,
+                UNIQUE(cnpj) ON CONFLICT IGNORE
             )
             ''')
             
@@ -77,6 +81,31 @@ class DatabaseSetup:
             cursor.execute('''
             CREATE INDEX IF NOT EXISTS idx_cliente_cpf ON clientes(cpf)
             ''')
+
+            # Garantir colunas CNPJ e Inscrição Estadual existentes (migração)
+            try:
+                cursor.execute("ALTER TABLE clientes ADD COLUMN cnpj TEXT")
+            except Exception:
+                pass  # Ignorar se já existir
+            
+            try:
+                cursor.execute("ALTER TABLE clientes ADD COLUMN inscricao_estadual TEXT")
+            except Exception:
+                pass  # Ignorar se já existir
+
+            # Garantir coluna status para ordens de serviço (migração)
+            try:
+                cursor.execute("ALTER TABLE ordem_servico ADD COLUMN status TEXT DEFAULT 'Em Andamento'")
+            except Exception:
+                pass  # Ignorar se já existir
+                
+            # Criar índice do CNPJ após garantir que a coluna existe
+            try:
+                cursor.execute('''
+                CREATE INDEX IF NOT EXISTS idx_cliente_cnpj ON clientes(cnpj)
+                ''')
+            except Exception:
+                pass  # Ignorar se já existir
 
             # Tabela de produtos (catálogo)
             cursor.execute('''

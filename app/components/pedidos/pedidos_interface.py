@@ -77,68 +77,70 @@ class PedidosInterface(QWidget):
 		layout.setContentsMargins(10, 10, 10, 10)
 		layout.setSpacing(10)
 
-		top = QFrame()
-		top_l = QHBoxLayout(top)
-		top_l.setContentsMargins(5, 5, 5, 5)
-
-		lbl = QLabel("Filtrar:")
-		lbl.setFont(QFont("Segoe UI", 10, QFont.Weight.Bold))
-		top_l.addWidget(lbl)
-
-		self.status_combo = QComboBox()
-		# Load persisted statuses and prepend 'todos'
-		try:
-			from app.utils.statuses import load_statuses
-			itens = ["todos"] + load_statuses()
-		except Exception:
-			itens = ["todos", "em produção", "enviado", "entregue", "concluído", "cancelado"]
-		self.status_combo.addItems(itens)
-		self.status_combo.currentTextChanged.connect(self._on_status_changed)
-		top_l.addWidget(self.status_combo)
-
-		btn_refresh = QPushButton("🔄 Atualizar")
-		btn_refresh.clicked.connect(lambda: self.carregar_dados(force_refresh=True))
-		top_l.addWidget(btn_refresh)
-
-		btn_novo = QPushButton("➕ Novo Pedido")
-		btn_novo.clicked.connect(self.novo_pedido)
-		btn_novo.setStyleSheet(
-			"""
-			QPushButton { background-color: #28a745; color: #fff; padding: 8px 14px; border-radius: 6px; }
-			QPushButton:hover { background-color: #218838; }
-			"""
-		)
-		top_l.addWidget(btn_novo)
-
-		top_l.addStretch()
-		layout.addWidget(top)
-
+		# Header muito simples
+		header_layout = QHBoxLayout()
+		
+		titulo = QLabel("Pedidos")
+		titulo.setStyleSheet("font-size: 16px; font-weight: bold; color: #ffffff;")
+		header_layout.addWidget(titulo)
+		
+		header_layout.addStretch()
+		
+		# Botão novo pedido muito simples
+		self.btn_novo = QPushButton("Novo Pedido")
+		self.btn_novo.setStyleSheet("""
+			QPushButton {
+				background-color: #555555;
+				color: white;
+				border: 1px solid #666666;
+				padding: 8px 15px;
+				border-radius: 3px;
+				font-size: 11px;
+			}
+			QPushButton:hover {
+				background-color: #666666;
+			}
+		""")
+		self.btn_novo.clicked.connect(self.novo_pedido)
+		header_layout.addWidget(self.btn_novo)
+		
+		layout.addLayout(header_layout)
+		
+		# Filtro muito simples
+		filtros_layout = QHBoxLayout()
+		
+		filtros_layout.addWidget(QLabel("Status:"))
+		
+		self.filtro_status = QComboBox()
+		self.filtro_status.addItems(["Todos", "Pendente", "Em Andamento", "Concluído", "Cancelado"])
+		self.filtro_status.setStyleSheet("""
+			QComboBox {
+				background-color: #404040;
+				color: white;
+				border: 1px solid #555555;
+				padding: 6px;
+				border-radius: 3px;
+			}
+		""")
+		self.filtro_status.currentTextChanged.connect(self._filtrar_pedidos)
+		filtros_layout.addWidget(self.filtro_status)
+		
+		filtros_layout.addStretch()
+		
+		layout.addLayout(filtros_layout)
+		
+		# Área de scroll muito simples
 		self.scroll_area = QScrollArea()
 		self.scroll_area.setWidgetResizable(True)
-		self.scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
-		self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-		self.scroll_area.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-
+		self.scroll_area.setStyleSheet("background-color: #2d2d2d; border: 1px solid #555555;")
+		
 		self.scroll_widget = QWidget()
 		self.scroll_layout = QVBoxLayout(self.scroll_widget)
-		# Reduzir margem esquerda para aproximar a 1ª OS da borda esquerda
-		self.scroll_layout.setContentsMargins(4, 10, 10, 10)
-		self.scroll_layout.setSpacing(14)
-		self.scroll_widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-
+		self.scroll_layout.setContentsMargins(5, 5, 5, 5)
+		self.scroll_layout.setSpacing(8)
+		
 		self.scroll_area.setWidget(self.scroll_widget)
-		self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
 		layout.addWidget(self.scroll_area)
-
-		self.setStyleSheet(
-			"""
-			QWidget { background-color: #2d2d2d; color: #ffffff; }
-			QComboBox { background-color: #404040; border: 1px solid #606060; border-radius: 4px; padding: 6px; }
-			QPushButton { background-color: #0d7377; color: white; border: none; border-radius: 6px; padding: 8px 14px; }
-			QPushButton:hover { background-color: #0a5d61; }
-			QScrollArea { border: none; }
-			"""
-		)
 
 	def _on_status_changed(self, status: str):
 		self.status_filter = status
@@ -328,6 +330,20 @@ class PedidosInterface(QWidget):
 			self.carregar_dados(force_refresh=True)
 		except Exception as e:
 			print(f"Erro ao atualizar status: {e}")
+
+	def _filtrar_pedidos(self):
+		"""Filtra pedidos baseado no status selecionado"""
+		try:
+			self.carregar_dados(force_refresh=True)
+		except Exception as e:
+			print(f"Erro ao filtrar pedidos: {e}")
+
+	def _build_cards(self):
+		"""Constrói os cards dos pedidos - alias para carregar_dados"""
+		try:
+			self.carregar_dados()
+		except Exception as e:
+			print(f"Erro ao construir cards: {e}")
 
 	def refresh_data(self):
 		self.carregar_dados(force_refresh=True)

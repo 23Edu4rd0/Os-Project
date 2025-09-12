@@ -5,7 +5,7 @@ from PyQt6.QtCore import Qt
 """
 Cria os widgets e layouts para a seção de produtos.
 Export: criar_produtos_ui(self, parent_layout, pedido_data)
-Retorna: dict com widgets criados (input_desc, input_valor, input_categoria, campos, container_widget)
+Retorna: dict com widgets criados (input_desc, input_valor, campos, container_widget)
 """
 
 def criar_produtos_ui(self, parent_layout, pedido_data):
@@ -73,69 +73,143 @@ def criar_produtos_ui(self, parent_layout, pedido_data):
     row_top.addLayout(tools)
     produtos_layout.addRow('Produto:', row_top)
 
-    # Valor e Categoria em uma linha (label + control)
+    # Valor (sem categoria)
     input_valor = QLineEdit()
     input_valor.setPlaceholderText('Valor (R$)')
     input_valor.setFixedWidth(140)
-    input_categoria = QComboBox(); input_categoria.addItem('')
-    try:
-        from app.utils.categories import load_categories
-        cats = load_categories()
-        for c in cats:
-            input_categoria.addItem(c)
-    except Exception:
-        # fallback
-        input_categoria.addItems(['Agro', 'Normal', 'Outros'])
-    input_categoria.setFixedWidth(220)
-    val_cat_layout = QHBoxLayout()
-    val_cat_layout.addWidget(input_valor)
-    val_cat_layout.addSpacing(12)
-    val_cat_layout.addWidget(input_categoria)
-    produtos_layout.addRow('Valor / Categoria:', val_cat_layout)
+    produtos_layout.addRow('Valor:', input_valor)
 
     # Cor e Reforço
     campos_cor = QComboBox(); campos_cor.addItems(['', 'Branco', 'Amarelo', 'Azul', 'Verde', 'Personalizado'])
     campos_cor.setFixedWidth(220)
-    campos_ref = QCheckBox('Reforço (+R$15)')
-    # Visual aprimorado: indicador maior, cantos arredondados e cor quando marcado
+    # Divisórias (SpinBox)
+    from PyQt6.QtWidgets import QSpinBox, QLabel
+    campos_div = QSpinBox()
+    campos_div.setMinimum(0)
+    campos_div.setMaximum(99)
+    campos_div.setValue(0)
+    campos_div.setFixedSize(80, 30)
+    # Estilo do SpinBox
     try:
-        campos_ref.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        campos_div.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
     except Exception:
         try:
-            campos_ref.setCursor(QCursor(getattr(Qt, 'PointingHandCursor', 0)))
+            campos_div.setCursor(QCursor(getattr(Qt, 'PointingHandCursor', 0)))
         except Exception:
             pass
-    campos_ref.setStyleSheet('''
-        QCheckBox { color: #e6e6e6; font-weight: 600; }
-        QCheckBox::indicator {
-            width: 18px; height: 18px;
-            border-radius: 6px;
-            border: 1px solid #6b6b6b;
-            background: #2f2f2f;
+    
+    campos_div.setStyleSheet('''
+        QSpinBox {
+            background-color: #404040;
+            border: 1px solid #606060;
+            border-radius: 4px;
+            color: #ffffff;
+            font-size: 12px;
+            padding: 4px;
         }
-        QCheckBox::indicator:checked {
-            background: qlineargradient(x1:0,y1:0,x2:0,y2:1, stop:0 #7ef99a, stop:1 #2fb86a);
-            border: 1px solid #27a85a;
+        QSpinBox:focus {
+            border: 2px solid #0d7377;
         }
-        QCheckBox::indicator:unchecked:hover {
-            border: 1px solid #9a9a9a;
+        QSpinBox::up-button, QSpinBox::down-button {
+            background-color: #505050;
+            border: none;
+            width: 16px;
+        }
+        QSpinBox::up-button:hover, QSpinBox::down-button:hover {
+            background-color: #0d7377;
         }
     ''')
-    ref_layout = QHBoxLayout()
-    ref_layout.addWidget(campos_cor)
-    ref_layout.addStretch()
-    ref_layout.addWidget(campos_ref)
-    produtos_layout.addRow('Cor / Reforço:', ref_layout)
+    
+    # Label para divisórias
+    div_label = QLabel('Divisórias:')
+    div_label.setStyleSheet('color: #ffffff; font-size: 12px;')
+    
+    # Layout para divisórias
+    div_layout = QHBoxLayout()
+    div_layout.addWidget(div_label)
+    div_layout.addWidget(campos_div)
+    div_layout.addWidget(campos_cor)
+    div_layout.addStretch()
+    
+    produtos_layout.addRow('Cor / Divisórias:', div_layout)
 
     # Lista de produtos adicionados em tabela
     lista_label = QLabel('Produtos adicionados:')
-    lista_label.setFont(QFont('Segoe UI', 9))
+    lista_label.setFont(QFont('Segoe UI', 10, QFont.Weight.Bold))
+    lista_label.setStyleSheet('color: #ffffff; margin-bottom: 5px;')
+    
     from PyQt6.QtWidgets import QTableWidget, QHeaderView
-    lista_table = QTableWidget(0, 5)
-    lista_table.setHorizontalHeaderLabels(['Descrição', 'Valor (R$)', 'Cor', 'Reforço', 'Ações'])
-    lista_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
-    lista_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
-    lista_table.setMinimumHeight(140)
+    lista_table = QTableWidget(0, 5)  # 5 colunas: Nome, Quantidade, Cor, Divisórias, Ações
+    lista_table.setHorizontalHeaderLabels(['Nome', 'Valor (R$)', 'Cor', 'Divisórias', 'Ações'])
+    
+    # Configurar redimensionamento das colunas
+    header = lista_table.horizontalHeader()
+    header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)  # Nome - ocupa espaço restante
+    header.setSectionResizeMode(1, QHeaderView.ResizeMode.Fixed)    # Valor - largura fixa
+    header.setSectionResizeMode(2, QHeaderView.ResizeMode.Fixed)    # Cor - largura fixa  
+    header.setSectionResizeMode(3, QHeaderView.ResizeMode.Fixed)    # Divisórias - largura fixa
+    header.setSectionResizeMode(4, QHeaderView.ResizeMode.Fixed)    # Ações - largura fixa
+    
+    # Definir larguras específicas
+    lista_table.setColumnWidth(1, 100)  # Valor (R$)
+    lista_table.setColumnWidth(2, 120)  # Cor
+    lista_table.setColumnWidth(3, 80)   # Divisórias
+    lista_table.setColumnWidth(4, 180)  # Ações (espaço aumentado para 2 botões)
+    
+    # Estilo moderno para a tabela
+    lista_table.setStyleSheet('''
+        QTableWidget {
+            background-color: #2d2d2d;
+            border: 1px solid #404040;
+            border-radius: 6px;
+            color: #ffffff;
+            gridline-color: #404040;
+            selection-background-color: #0d7377;
+            alternate-background-color: #323232;
+        }
+        QTableWidget::item {
+            background-color: #2d2d2d;
+            padding: 8px;
+            border-bottom: 1px solid #404040;
+            border-right: 1px solid #404040;
+            color: #ffffff;
+        }
+        QTableWidget::item:alternate {
+            background-color: #323232;
+        }
+        QTableWidget::item:selected {
+            background-color: #0d7377;
+            color: #ffffff;
+        }
+        QTableWidget::item:hover {
+            background-color: #3d3d3d;
+        }
+        QHeaderView::section {
+            background-color: #404040;
+            color: #ffffff;
+            padding: 8px;
+            border: none;
+            border-right: 1px solid #505050;
+            font-weight: bold;
+        }
+        QHeaderView::section:first {
+            border-left: none;
+        }
+        QHeaderView::section:hover {
+            background-color: #505050;
+        }
+    ''')
+    
+    # Configurar altura e comportamento
+    lista_table.setMinimumHeight(150)
+    lista_table.setMaximumHeight(300)
+    lista_table.setAlternatingRowColors(True)
+    lista_table.verticalHeader().setVisible(False)  # Esconder números das linhas
+    lista_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+    
+    # Definir altura das linhas para acomodar os botões
+    lista_table.verticalHeader().setDefaultSectionSize(40)
+    
     produtos_layout.addRow(lista_label, lista_table)
 
     # Valor total
@@ -158,9 +232,8 @@ def criar_produtos_ui(self, parent_layout, pedido_data):
         'btn_limpar': btn_limpar,
         'btn_add': btn_add,
         'input_valor': input_valor,
-        'input_categoria': input_categoria,
         'campos_cor': campos_cor,
-        'campos_ref': campos_ref,
+        'campos_div': campos_div,
         'lista_table': lista_table,
         'lista_layout': None,
         'valor_total': valor_total,

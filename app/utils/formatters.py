@@ -31,3 +31,12 @@ def formatar_cpf(cpf):
     if len(s) != 11:
         return s
     return f"{s[0:3]}.{s[3:6]}.{s[6:9]}-{s[9:11]}"
+
+def formatar_cnpj(cnpj):
+    """Formata CNPJ para exibição: 00.000.000/0000-00. Recebe string com dígitos ou None."""
+    if not cnpj:
+        return ''
+    s = ''.join(ch for ch in str(cnpj) if ch.isdigit())
+    if len(s) != 14:
+        return s
+    return f"{s[0:2]}.{s[2:5]}.{s[5:8]}/{s[8:12]}-{s[12:14]}"
