@@ -4,11 +4,40 @@ from PyQt6.QtGui import QFont
 
 def criar_secao_resumo(modal, layout):
     resumo_group = QGroupBox("💰 Resumo Financeiro")
+    resumo_group.setStyleSheet("""
+        QGroupBox {
+            font-weight: 600;
+            font-size: 16px;
+            border: 2px solid #666666;
+            border-radius: 8px;
+            margin-top: 20px;
+            margin-bottom: 18px;
+            padding: 50px 18px 22px 18px;
+            background-color: #2a2a2a;
+            color: #ffffff;
+        }
+        QGroupBox::title {
+            subcontrol-origin: margin;
+            left: 15px;
+            top: 25px;
+            padding: 0 15px 0 15px;
+            color: #ffffff;
+            font-weight: bold;
+            background: transparent;
+            font-size: 18px;
+        }
+        QLabel {
+            color: #ffffff;
+            font-size: 15px;
+            padding: 8px 0 8px 0;
+            background: transparent;
+        }
+    """)
     resumo_layout = QHBoxLayout(resumo_group)
 
     modal.label_resumo = QLabel("Valor Total: R$ 0,00")
     modal.label_resumo.setFont(QFont("Segoe UI", 12, QFont.Weight.Bold))
-    modal.label_resumo.setStyleSheet("color: #00ff88;")
+    modal.label_resumo.setStyleSheet("color: #ffffff; font-weight: bold;")
     resumo_layout.addWidget(modal.label_resumo)
 
     # Atualizar quando valor_total mudar

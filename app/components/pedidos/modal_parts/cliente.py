@@ -1,49 +1,118 @@
-from PyQt6.QtWidgets import QGroupBox, QFormLayout, QLineEdit, QHBoxLayout, QPushButton, QWidget
-from PyQt6.QtWidgets import QLineEdit  # Corrige escopo para isinstance
+from PyQt6.QtWidgets import QGroupBox, QFormLayout, QLineEdit, QHBoxLayout, QPushButton, QWidget, QVBoxLayout, QCompleter
 from PyQt6.QtGui import QFont
 from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import QCompleter
 
 
 def criar_secao_cliente(modal, layout, pedido_data):
-    grupo = QGroupBox("👤 Dados do Cliente")
+    grupo = QGroupBox("Dados do Cliente")
     grupo.setFont(QFont("Segoe UI", 12, QFont.Weight.Bold))
-    grupo.setStyleSheet("""
-        QGroupBox {
-            font-weight: 600;
-            font-size: 14px;
-            border: 2px solid #0d7377;
-            border-radius: 12px;
-            margin-top: 12px;
-            padding-top: 20px;
-            background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                stop:0 rgba(13, 115, 119, 0.1), stop:1 rgba(13, 115, 119, 0.05));
-        }
-        QGroupBox::title {
-            subcontrol-origin: margin;
-            left: 15px;
-            padding: 0 15px 0 15px;
-            color: #0d7377;
-            background: #2d2d2d;
+    grupo.setStyleSheet(
+        "QGroupBox {"
+        " font-weight: 600;"
+        " font-size: 16px;"
+        " border: 2px solid #666666;"
+        " border-radius: 8px;"
+        " margin-top: 15px;"
+        " margin-bottom: 12px;"
+        " padding: 05px 15px 15px 05px;"
+        " background-color: #1e1e1e;"
+        " color: #ffffff;"
+        " }"
+        " QGroupBox::title {"
+        " subcontrol-origin: margin;"
+        " left: 15px;"
+        " top: 40px;"
+        " padding: 0 10px 0 10px;"
+        " color: #ffffff;"
+        " font-weight: bold;"
+        " background: transparent;"
+        " font-size: 16px;"
+        " }"
+        " QLabel {"
+        " color: #ffffff;"
+        " font-size: 14px;"
+        " font-weight: 500;"
+        " padding: 8px 0 4px 0;"
+        " background: transparent;"
+        " }"
+        " QLineEdit {"
+        " min-height: 30px;"
+        " font-size: 14px;"
+        " color: #ffffff;"
+        " background-color: #404040;"
+        " border: 2px solid #666666;"
+        " border-radius: 6px;"
+        " padding: 6px 10px;"
+        " }"
+        " QLineEdit:focus {"
+        " border: 2px solid #999999;"
+        " background-color: #505050;"
+        " }"
+        " QLineEdit:hover {"
+        " border: 2px solid #888888;"
+        " }"
+        " QFormLayout {"
+        " background: transparent;"
+        " spacing: 12px;"
+        " }"
+        " QWidget {"
+        " background: transparent;"
+        " }"
+    )
+
+    # Layout principal do grupo
+    main_layout = QVBoxLayout(grupo)
+    main_layout.setContentsMargins(15, 0, 15, 15)
+    
+    # Cabeçalho com botão limpar
+    header_layout = QHBoxLayout()
+    header_layout.setContentsMargins(0, 0, 0, 5)
+    
+    # Espaçador para empurrar o botão para a direita
+    header_layout.addStretch()
+    
+    # Botão limpar
+    btn_limpar = QPushButton("Limpar")
+    btn_limpar.setObjectName("btn_limpar_cli")
+    btn_limpar.setMaximumWidth(100)
+    btn_limpar.setMinimumHeight(30)
+    btn_limpar.setToolTip("Limpar todos os dados do cliente")
+    btn_limpar.setStyleSheet("""
+        QPushButton {
+            background-color: #666666;
+            color: white;
+            border: none;
             border-radius: 6px;
             font-weight: bold;
+            font-size: 13px;
+            margin-top: 10px;
+            padding: 10px 16px;
+        }
+        QPushButton:hover {
+            background-color: #777777;
+        }
+        QPushButton:pressed {
+            background-color: #555555;
         }
     """)
-    form = QFormLayout(grupo)
-    form.setSpacing(15)
-    form.setContentsMargins(20, 20, 20, 20)
-
-    # Nome do Cliente + Botão Limpar
-    nome_container = QWidget()
-    nome_container.setStyleSheet("background: transparent;")
-    nome_layout = QHBoxLayout(nome_container)
-    nome_layout.setContentsMargins(0, 0, 0, 0)
-    nome_layout.setSpacing(10)
+    btn_limpar.clicked.connect(modal._limpar_campos_cliente)
+    header_layout.addWidget(btn_limpar)
     
+    main_layout.addLayout(header_layout)
+
+    # Form layout para os campos
+    form_widget = QWidget()
+    form = QFormLayout(form_widget)
+    form.setSpacing(8)
+    form.setContentsMargins(0, -25, 0, 0)
+
+    # Nome
     modal.campos['nome_cliente'] = QLineEdit()
     modal.campos['nome_cliente'].setPlaceholderText("Digite o nome completo do cliente...")
-    modal.campos['nome_cliente'].setMinimumHeight(35)
+    modal.campos['nome_cliente'].setMinimumHeight(30)
+    form.addRow("Nome:", modal.campos['nome_cliente'])
 
+    # Completer
     if getattr(modal, 'clientes_dict', None):
         completer = QCompleter(list(modal.clientes_dict.keys()))
         completer.setCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
@@ -60,22 +129,10 @@ def criar_secao_cliente(modal, layout, pedido_data):
         except Exception:
             pass
 
-    nome_layout.addWidget(modal.campos['nome_cliente'], 3)
-    
-    btn_limpar = QPushButton("🧹 Limpar")
-    btn_limpar.setObjectName("btn_limpar_cli")  # Para CSS específico
-    btn_limpar.setMaximumWidth(100)
-    btn_limpar.setMinimumHeight(35)
-    btn_limpar.setToolTip("Limpar todos os dados do cliente")
-    btn_limpar.clicked.connect(modal._limpar_campos_cliente)
-    nome_layout.addWidget(btn_limpar)
-    
-    form.addRow("Nome:", nome_container)
-
     # Telefone
     modal.campos['telefone_cliente'] = QLineEdit()
     modal.campos['telefone_cliente'].setPlaceholderText("(11) 99999-9999")
-    modal.campos['telefone_cliente'].setMinimumHeight(35)
+    modal.campos['telefone_cliente'].setMinimumHeight(30)
     try:
         modal.campos['telefone_cliente'].setInputMask("(00) 00000-0000;_")
     except Exception:
@@ -107,4 +164,5 @@ def criar_secao_cliente(modal, layout, pedido_data):
         if isinstance(modal.campos.get('endereco_cliente'), QLineEdit):
             modal.campos['endereco_cliente'].setText(str(pedido_data.get('endereco_cliente', '') or ''))
 
+    main_layout.addWidget(form_widget)
     layout.addWidget(grupo)

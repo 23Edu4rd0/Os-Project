@@ -7,22 +7,51 @@ def criar_secao_pagamento(modal, layout, pedido_data):
     pagamento_group.setStyleSheet("""
         QGroupBox {
             font-weight: 600;
-            font-size: 14px;
-            border: 2px solid #0d7377;
-            border-radius: 12px;
-            margin-top: 12px;
-            padding-top: 20px;
-            background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                stop:0 rgba(13, 115, 119, 0.1), stop:1 rgba(13, 115, 119, 0.05));
+            font-size: 16px;
+            border: 2px solid #666666;
+            border-radius: 8px;
+            margin-top: 20px;
+            margin-bottom: 18px;
+            padding: 50px 18px 22px 18px;
+            background-color: #2a2a2a;
+            color: #ffffff;
         }
         QGroupBox::title {
             subcontrol-origin: margin;
             left: 15px;
+            top: 25px;
             padding: 0 15px 0 15px;
-            color: #0d7377;
-            background: #2d2d2d;
-            border-radius: 6px;
+            color: #ffffff;
             font-weight: bold;
+            background: transparent;
+            font-size: 18px;
+        }
+        QLabel {
+            color: #ffffff;
+            font-size: 14px;
+            font-weight: 500;
+            padding: 8px 0 4px 0;
+            background: transparent;
+        }
+        QLineEdit, QComboBox {
+            min-height: 36px;
+            font-size: 14px;
+            color: #ffffff;
+            background-color: #404040;
+            border: 2px solid #666666;
+            border-radius: 6px;
+            padding: 8px 12px;
+        }
+        QLineEdit:focus, QComboBox:focus {
+            border: 2px solid #999999;
+            background-color: #505050;
+        }
+        QLineEdit:hover, QComboBox:hover {
+            border: 2px solid #888888;
+        }
+        QFormLayout {
+            background: transparent;
+            spacing: 12px;
         }
     """)
     pagamento_layout = QFormLayout(pagamento_group)

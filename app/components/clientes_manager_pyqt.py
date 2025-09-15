@@ -45,8 +45,12 @@ class ClienteDetailDialog(QDialog):
         left.addWidget(QLabel(f"<b>Email:</b> {self.cliente.get('email', '')}"))
 
         right = QVBoxLayout()
-        endereco = f"{self.cliente.get('rua', '')}, {self.cliente.get('numero', '')} - {self.cliente.get('bairro', '')}, {self.cliente.get('cidade', '')} / {self.cliente.get('estado', '')}"
-        right.addWidget(QLabel(f"<b>Endereço:</b> {endereco}"))
+        endereco_linha1 = f"{self.cliente.get('rua', '')}, Nº {self.cliente.get('numero', '')}"
+        endereco_linha2 = f"{self.cliente.get('bairro', '')}, {self.cliente.get('cidade', '')} / {self.cliente.get('estado', '')}"
+        endereco_label = QLabel(f"<b>Endereço:</b> {endereco_linha1}<br>{endereco_linha2}")
+        endereco_label.setWordWrap(True)
+        endereco_label.setStyleSheet("font-size: 15px; margin-bottom: 12px; margin-top: 8px;")
+        right.addWidget(endereco_label)
         right.addWidget(QLabel(f"<b>Referência:</b> {self.cliente.get('referencia', '')}"))
 
         info_layout.addLayout(left)

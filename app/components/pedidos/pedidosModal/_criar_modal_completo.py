@@ -20,6 +20,41 @@ def _criar_modal_completo(self, pedido_data=None, cliente_fixo=False, nome_clien
     titulo = f"Editar OS #{numero_os}" if is_edit else "Nova Ordem de Serviço"
     self.setWindowTitle(titulo)
     self.setFixedSize(900, 700)
+    
+    # Aplicar estilo global consistente ao modal
+    self.setStyleSheet("""
+        QDialog {
+            background-color: #1a1a1a;
+            color: #ffffff;
+        }
+        
+        QScrollArea {
+            border: none;
+            background: transparent;
+        }
+        
+        QScrollBar:vertical {
+            background: #333333;
+            width: 12px;
+            border-radius: 6px;
+        }
+        
+        QScrollBar::handle:vertical {
+            background: #666666;
+            min-height: 20px;
+            border-radius: 6px;
+        }
+        
+        QScrollBar::handle:vertical:hover {
+            background: #777777;
+        }
+        
+        QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+            border: none;
+            background: none;
+        }
+    """)
+    
     main_layout = QVBoxLayout(self)
     main_layout.setContentsMargins(10, 10, 10, 10)
     scroll_area = QScrollArea()
@@ -46,10 +81,10 @@ def _criar_modal_completo(self, pedido_data=None, cliente_fixo=False, nome_clien
     if cliente_fixo:
         nome = nome_cliente_label or ''
         label = QLabel()
-        label.setText(f"<span style='font-size:15px;font-weight:600;color:#b0e0ff;padding:2px 8px 2px 0;'>Pedido para:</span> "
-                      f"<span style='font-size:15px;font-weight:700;color:#fff;background:#222;border-radius:6px;padding:2px 12px;'>{nome}</span>")
+        label.setText(f"<span style='font-size:15px;font-weight:600;color:#ffffff;padding:2px 8px 2px 0;'>Pedido para:</span> "
+                      f"<span style='font-size:15px;font-weight:700;color:#ffffff;background:#333333;border-radius:6px;padding:6px 12px;'>{nome}</span>")
         label.setContentsMargins(0, 0, 0, 0)
-        label.setStyleSheet("margin-bottom: 6px;")
+        label.setStyleSheet("margin-bottom: 12px; padding: 8px; background-color: #2a2a2a; border-radius: 8px; border: 1px solid #666666;")
         content_layout.addWidget(label)
     else:
         self._criar_secao_cliente(content_layout, pedido_data)

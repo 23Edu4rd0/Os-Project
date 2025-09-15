@@ -7,10 +7,25 @@ def criar_botoes(modal, layout, numero_os, pedido_data):
     frame = QFrame()
     frame.setStyleSheet("""
         QFrame {
-            background: rgba(45, 45, 45, 0.8);
-            border-top: 2px solid #0d7377;
+            background: #23272e;
+            border-top: 2px solid #444;
             border-radius: 10px;
             padding: 5px;
+        }
+        QPushButton {
+            background: #444;
+            color: #f5f5f5;
+            border: none;
+            border-radius: 8px;
+            padding: 12px 20px;
+            font-weight: 600;
+            font-size: 13px;
+        }
+        QPushButton:hover {
+            background: #555;
+        }
+        QPushButton:pressed {
+            background: #333;
         }
     """)
     
@@ -23,6 +38,23 @@ def criar_botoes(modal, layout, numero_os, pedido_data):
     btn_cancelar.setObjectName("btn_cancelar")  # Para estilo específico
     btn_cancelar.setMinimumWidth(130)
     btn_cancelar.setMinimumHeight(45)
+    btn_cancelar.setStyleSheet("""
+        QPushButton {
+            background-color: #444444;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 12px 20px;
+            font-weight: 600;
+            font-size: 13px;
+        }
+        QPushButton:hover {
+            background-color: #555555;
+        }
+        QPushButton:pressed {
+            background-color: #333333;
+        }
+    """)
     btn_cancelar.clicked.connect(modal.reject)
     h.addWidget(btn_cancelar)
 
@@ -35,8 +67,7 @@ def criar_botoes(modal, layout, numero_os, pedido_data):
         btn_pdf.setMinimumHeight(45)
         btn_pdf.setStyleSheet("""
             QPushButton {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 #6a4c93, stop:1 #553c7b);
+                background-color: #666666;
                 color: white;
                 border: none;
                 border-radius: 8px;
@@ -45,12 +76,10 @@ def criar_botoes(modal, layout, numero_os, pedido_data):
                 font-size: 13px;
             }
             QPushButton:hover {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 #7a5ca3, stop:1 #634c8b);
+                background-color: #777777;
             }
             QPushButton:pressed {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 #5a3c83, stop:1 #4a2c6b);
+                background-color: #555555;
             }
         """)
         btn_pdf.clicked.connect(lambda: modal._gerar_pdf(pedido_data))
@@ -62,8 +91,7 @@ def criar_botoes(modal, layout, numero_os, pedido_data):
     btn_salvar.setMinimumHeight(45)
     btn_salvar.setStyleSheet("""
         QPushButton {
-            background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                stop:0 #0d7377, stop:1 #0a5d61);
+            background-color: #666666;
             color: white;
             border: none;
             border-radius: 8px;
@@ -72,12 +100,10 @@ def criar_botoes(modal, layout, numero_os, pedido_data):
             font-size: 14px;
         }
         QPushButton:hover {
-            background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                stop:0 #0e8a8f, stop:1 #0c6b70);
+            background-color: #777777;
         }
         QPushButton:pressed {
-            background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                stop:0 #094e52, stop:1 #073d41);
+            background-color: #555555;
         }
     """)
     btn_salvar.clicked.connect(lambda: modal._salvar_pedido(numero_os, pedido_data))

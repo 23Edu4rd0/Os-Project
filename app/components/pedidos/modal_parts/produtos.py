@@ -1,5 +1,5 @@
 
-from PyQt6.QtWidgets import QGroupBox, QVBoxLayout, QHBoxLayout, QComboBox, QLineEdit, QPushButton, QLabel, QWidget
+from PyQt6.QtWidgets import QGroupBox, QVBoxLayout, QHBoxLayout, QComboBox, QLineEdit, QPushButton, QLabel, QWidget, QListWidgetItem, QListWidget
 from PyQt6.QtGui import QFont
 from PyQt6.QtCore import Qt
 from database import db_manager
@@ -8,42 +8,89 @@ from database import db_manager
 
 
 def criar_secao_produtos(modal, layout, pedido_data):
-    grupo = QGroupBox("🛍️ Produtos do Pedido")
-    grupo.setFont(QFont("Segoe UI", 12, QFont.Weight.Bold))
-    grupo.setStyleSheet("""
+    # Criar GroupBox para manter consistência com outras seções
+    produtos_group = QGroupBox("🛍️ Produtos do Pedido")
+    produtos_group.setFont(QFont("Segoe UI", 12, QFont.Weight.Bold))
+    produtos_group.setStyleSheet("""
         QGroupBox {
             font-weight: 600;
-            font-size: 14px;
-            border: 2px solid #0d7377;
-            border-radius: 12px;
-            margin-top: 12px;
-            padding-top: 20px;
-            background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                stop:0 rgba(13, 115, 119, 0.1), stop:1 rgba(13, 115, 119, 0.05));
+            font-size: 16px;
+            border: 2px solid #666666;
+            border-radius: 8px;
+            margin-top: 20px;
+            margin-bottom: 18px;
+            padding: 50px 18px 22px 18px;
+            background-color: #2a2a2a;
+            color: #ffffff;
         }
         QGroupBox::title {
             subcontrol-origin: margin;
             left: 15px;
+            top: 25px;
             padding: 0 15px 0 15px;
-            color: #0d7377;
-            background: #2d2d2d;
+            color: #ffffff;
+            font-weight: bold;
+            background: transparent;
+            font-size: 18px;
+        }
+        QLabel {
+            color: #ffffff;
+            font-size: 14px;
+            font-weight: 500;
+            padding: 4px 0 4px 0;
+            background: transparent;
+        }
+        QLineEdit, QComboBox {
+            min-height: 36px;
+            font-size: 14px;
+            color: #ffffff;
+            background-color: #404040;
+            border: 2px solid #666666;
+            border-radius: 6px;
+            padding: 8px 12px;
+        }
+        QLineEdit:focus, QComboBox:focus {
+            border: 2px solid #999999;
+            background-color: #505050;
+        }
+        QLineEdit:hover, QComboBox:hover {
+            border: 2px solid #888888;
+        }
+        QPushButton {
+            background-color: #666666;
+            color: white;
+            border: none;
             border-radius: 6px;
             font-weight: bold;
+            font-size: 12px;
+            padding: 8px 16px;
+            min-height: 36px;
+        }
+        QPushButton:hover {
+            background-color: #777777;
+        }
+        QPushButton:pressed {
+            background-color: #555555;
         }
     """)
-    vbox = QVBoxLayout(grupo)
-    vbox.setSpacing(15)
+    
+    main_layout = QVBoxLayout(produtos_group)
+    main_layout.setContentsMargins(20, 20, 20, 20)
+    main_layout.setSpacing(15)
+    layout.addWidget(produtos_group)
 
-    # Container para entrada de produtos
+    # Container para entrada de produtos - agora dentro do GroupBox
     entrada_frame = QWidget()
     entrada_frame.setStyleSheet("""
         QWidget {
-            background: rgba(255, 255, 255, 0.05);
+            background-color: #404040;
+            border: 1px solid #666666;
             border-radius: 8px;
             padding: 10px;
         }
     """)
     entrada_layout = QVBoxLayout(entrada_frame)
+    main_layout.addWidget(entrada_frame)
     entrada_layout.setContentsMargins(15, 15, 15, 15)
     entrada_layout.setSpacing(12)
 
@@ -59,7 +106,7 @@ def criar_secao_produtos(modal, layout, pedido_data):
     cat_layout.setSpacing(5)
     
     cat_label = QLabel("Categoria:")
-    cat_label.setStyleSheet("color: #ccc; font-weight: 600; font-size: 12px;")
+    cat_label.setStyleSheet("color: #ffffff; font-weight: 600; font-size: 12px;")
     cat_layout.addWidget(cat_label)
     
     modal.input_categoria = QComboBox()
@@ -86,7 +133,7 @@ def criar_secao_produtos(modal, layout, pedido_data):
     prod_layout.setSpacing(5)
     
     prod_label = QLabel("Produto:")
-    prod_label.setStyleSheet("color: #ccc; font-weight: 600; font-size: 12px;")
+    prod_label.setStyleSheet("color: #ffffff; font-weight: 600; font-size: 12px;")
     prod_layout.addWidget(prod_label)
     
     modal.input_desc = QLineEdit()
@@ -109,7 +156,7 @@ def criar_secao_produtos(modal, layout, pedido_data):
     valor_layout.setSpacing(5)
     
     valor_label = QLabel("Valor (R$):")
-    valor_label.setStyleSheet("color: #ccc; font-weight: 600; font-size: 12px;")
+    valor_label.setStyleSheet("color: #ffffff; font-weight: 600; font-size: 12px;")
     valor_layout.addWidget(valor_label)
     
     modal.input_valor = QLineEdit()
@@ -125,8 +172,7 @@ def criar_secao_produtos(modal, layout, pedido_data):
     btn_add.setMinimumHeight(40)
     btn_add.setStyleSheet("""
         QPushButton {
-            background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                stop:0 #4CAF50, stop:1 #45a049);
+            background-color: #666666;
             color: white;
             border: none;
             border-radius: 8px;
@@ -135,22 +181,33 @@ def criar_secao_produtos(modal, layout, pedido_data):
             font-size: 13px;
         }
         QPushButton:hover {
-            background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                stop:0 #5CBF60, stop:1 #55b059);
+            background-color: #777777;
         }
         QPushButton:pressed {
-            background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                stop:0 #3A8F3D, stop:1 #358038);
+            background-color: #555555;
         }
     """)
     btn_add.clicked.connect(modal._add_produto)
     linha2.addWidget(btn_add)
     
     entrada_layout.addLayout(linha2)
-    vbox.addWidget(entrada_frame)
+    # Removido: vbox.addWidget(entrada_frame)
     modal.sugestoes_produtos.setStyleSheet('''
-        QListWidget { background: #23272e; color: #f8f8f2; border: 1.5px solid #50fa7b; font-size: 15px; }
-        QListWidget::item:selected { background: #50fa7b; color: #23272e; }
+        QListWidget { 
+            background-color: #404040; 
+            color: #ffffff; 
+            border: 2px solid #666666; 
+            font-size: 14px;
+            border-radius: 6px;
+            padding: 4px;
+        }
+        QListWidget::item:selected { 
+            background-color: #666666; 
+            color: #ffffff; 
+        }
+        QListWidget::item:hover { 
+            background-color: #555555; 
+        }
     ''')
     modal.sugestoes_produtos.hide()
     def buscar_sugestoes_produtos(texto):
@@ -202,22 +259,22 @@ def criar_secao_produtos(modal, layout, pedido_data):
     linha.addWidget(modal.input_desc, stretch=1)
     linha.addWidget(modal.input_valor)
     linha.addWidget(btn_add)
-    vbox.addLayout(linha)
+    layout.addLayout(linha)
 
     # Opções gerais do pedido
     opcoes = QHBoxLayout()
     lbl_cor = QLabel("Cor:"); modal.campos['cor'] = QComboBox(); modal.campos['cor'].addItems(["", "Preto","Branco","Azul","Vermelho","Verde","Amarelo","Cinza","Marrom","Rosa","Roxo"])
     lbl_ref = QLabel("Reforço:"); modal.campos['reforco'] = QComboBox(); modal.campos['reforco'].addItems(["não", "sim"])
     opcoes.addWidget(lbl_cor); opcoes.addWidget(modal.campos['cor']); opcoes.addSpacing(16); opcoes.addWidget(lbl_ref); opcoes.addWidget(modal.campos['reforco']); opcoes.addStretch()
-    vbox.addLayout(opcoes)
+    layout.addLayout(opcoes)
 
     modal.lista_produtos_container = QVBoxLayout(); modal.lista_produtos_container.setSpacing(6)
-    vbox.addLayout(modal.lista_produtos_container)
+    layout.addLayout(modal.lista_produtos_container)
 
     # Valor total (somado automaticamente)
     modal.campos['valor_total'] = QLineEdit(); modal.campos['valor_total'].setReadOnly(True); modal.campos['valor_total'].setPlaceholderText("0.00")
     total_row = QHBoxLayout(); total_row.addWidget(QLabel("Valor Total (R$):")); total_row.addWidget(modal.campos['valor_total'])
-    vbox.addLayout(total_row)
+    layout.addLayout(total_row)
 
     # Prefill lista e opções
     if pedido_data:
@@ -255,4 +312,4 @@ def criar_secao_produtos(modal, layout, pedido_data):
         except Exception:
             pass
 
-    layout.addWidget(grupo)
+    # Removido: layout.addWidget(grupo)
