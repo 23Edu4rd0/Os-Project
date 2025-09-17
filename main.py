@@ -27,7 +27,7 @@ if str(ROOT_DIR) not in sys.path:
 class MainApp(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.init_ui()
+        self.init_ui(),
         
     def init_ui(self):
         """Inicializa a interface do usuário"""
