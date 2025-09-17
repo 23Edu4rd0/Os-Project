@@ -12,10 +12,15 @@ def _criar_secao_produtos_pedidos(self, layout, pedido_data):
     self.input_desc = widgets['input_desc']
     self.input_valor = widgets['input_valor']
     self.campos['cor'] = widgets['campos_cor']
-    # usar spinbox para divisórias
-    self.campos['divisorias'] = widgets['campos_div']
-    # nova tabela de produtos
-    self.lista_produtos_table = widgets.get('lista_table')
+    # nova tabela de produtos (aceita ambos os nomes para compatibilidade)
+    self.lista_produtos_table = widgets.get('lista_table') or widgets.get('lista_produtos_table')
+    # Se ainda não encontrou, tentar procurar por outros nomes comuns
+    if self.lista_produtos_table is None:
+        possible = ['lista_table', 'lista_produtos_table', 'lista_produtos_container', 'lista_container']
+        for k in possible:
+            if k in widgets and widgets.get(k) is not None:
+                self.lista_produtos_table = widgets.get(k)
+                break
     self.campos['valor_total'] = widgets['valor_total']
 
     # conectar botões aos delegados
@@ -23,6 +28,7 @@ def _criar_secao_produtos_pedidos(self, layout, pedido_data):
         widgets['btn_limpar'].clicked.connect(self._limpar_campos_produto)
     except Exception:
         pass
+    # Conectar botão adicionar
     try:
         widgets['btn_add'].clicked.connect(self._add_produto)
     except Exception:
@@ -61,7 +67,6 @@ def _criar_secao_produtos_pedidos(self, layout, pedido_data):
                         desc = str(p.get('descricao') or p.get('nome') or '').strip()
                         valor = float(p.get('valor') or p.get('preco') or 0)
                         cor = p.get('cor') if 'cor' in p else ''
-                        divisorias = int(p.get('divisorias', 0))
                     except Exception:
                         desc = str(p.get('descricao') or '').strip()
                         try:
@@ -69,9 +74,8 @@ def _criar_secao_produtos_pedidos(self, layout, pedido_data):
                         except Exception:
                             valor = 0.0
                         cor = p.get('cor') if 'cor' in p else ''
-                        divisorias = int(p.get('divisorias', 0))
                     # Mark source as DB for clarity
-                    self.produtos_list.append({"descricao": desc, "valor": valor, "cor": cor, "divisorias": divisorias, "_source": "db"})
+                    self.produtos_list.append({"descricao": desc, "valor": valor, "cor": cor, "_source": "db"})
             except Exception:
                 pass
         else:
@@ -93,6 +97,10 @@ def _criar_secao_produtos_pedidos(self, layout, pedido_data):
 
     # Renderizar a lista na tabela
     try:
-        self._refresh_produtos_ui()
+        # Garantir que exista uma tabela; se não existir, apenas logar
+        if getattr(self, 'lista_produtos_table', None) is None:
+            print('[DEBUG] Aviso: nenhuma tabela de produtos encontrada no modal ao criar seção')
+        else:
+            self._refresh_produtos_ui()
     except Exception:
         pass

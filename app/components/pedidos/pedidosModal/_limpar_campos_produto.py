@@ -19,15 +19,6 @@ def limpar_campos_produto(self):
                     w.setCurrentIndex(0)
             except Exception:
                 pass
-        if 'divisorias' in getattr(self, 'campos', {}):
-            try:
-                w = self.campos['divisorias']
-                if hasattr(w, 'setValue'):  # SpinBox
-                    w.setValue(0)
-                elif hasattr(w, 'setCurrentIndex'):
-                    # caso seja combo
-                    w.setCurrentIndex(0)
-            except Exception:
                 pass
         # reset base price
         try:

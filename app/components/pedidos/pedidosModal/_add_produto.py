@@ -3,89 +3,168 @@
 from .__init__ import PedidosModal
 
 def _add_produto(self):
+    def parse_valor(val):
+        """Converte texto em valor float, removendo R$ e trocando , por ."""
+        try:
+            if not val:
+                return 0.0
+            val = str(val).replace('R$', '').replace(' ', '').replace(',', '.')
+            return float(val)
+        except:
+            return 0.0
+
+    print('[DEBUG] Iniciando _add_produto...')
+
+    # Pegar valores dos campos
     desc = (self.input_desc.text() or '').strip()
-    val_text_raw = (self.input_valor.text() or '').strip()
-    # Se descrição vier no formato "Nome | R$ 123,45", separa o nome e extrai preço se necessário
-    if '|' in desc and 'R$' in desc:
+    val_text = (self.input_valor.text() or '').strip()
+
+    print(f'[DEBUG] Valores iniciais - Descrição: "{desc}", Valor campo: "{val_text}"')
+
+    # Validação: verificar se campos obrigatórios estão preenchidos
+    if not desc:
+        print('[DEBUG] Descrição vazia, retornando...')
+        return
+    
+    if not val_text or val_text == '0' or val_text == '0.00' or val_text == '0,00':
+        print('[DEBUG] Valor inválido ou vazio, retornando...')
+        return
+
+    # Se descrição vem com preço anexado "Nome | R$ 123,45" e campo valor está vazio, extrair
+    if '|' in desc and 'R$' in desc and not val_text:
         try:
             nome_parte, resto = desc.split('|', 1)
             desc = nome_parte.strip()
-            if not val_text_raw:
-                if 'R$' in resto:
-                    parte = resto.split('R$')[-1]
-                else:
-                    parte = resto
-                num = ''.join(ch for ch in parte if ch.isdigit() or ch in ',.')
-                if num:
-                    val_text_raw = num
-        except Exception:
-            pass
-    # Se descrição igual a display do catálogo, normaliza e pega preço
-    if desc in getattr(self, 'produtos_dict', {}):
-        try:
-            p = self.produtos_dict[desc]
-            if not val_text_raw:
-                val_text_raw = f"{float(p.get('preco', 0)):.2f}"
-            desc = p.get('nome', desc)
-        except Exception:
-            pass
-    # Normalizar número
-    val_text = val_text_raw.replace('R$', '').replace(' ', '').replace(',', '.')
-    # Se descrição coincide com um item do catálogo (por nome), e não há valor, usar preço do catálogo
-    if (not val_text) and getattr(self, 'produtos_dict', None):
-        try:
-            for display, pdata in self.produtos_dict.items():
-                if pdata.get('nome', '').lower() == desc.lower():
-                    val_text = str(pdata.get('preco', 0.0))
+            parte = resto.split('R$')[-1].strip()
+            val_text = parte
+            print(f'[DEBUG] Valor extraído da descrição: "{val_text}"')
+        except Exception as e:
+            print(f'[DEBUG] Erro ao extrair valor da descrição: {e}')
+
+    # Converter valor do campo (prioridade máxima)
+    valor = parse_valor(val_text)
+    print(f'[DEBUG] Valor após parse do campo: {valor}')
+
+    # Buscar produto no catálogo para pegar código e preço correto
+    codigo_val = ''
+    produto_encontrado = None
+    
+    try:
+        pdict = getattr(self, 'produtos_dict', None) or {}
+        print(f'[DEBUG] Buscando "{desc}" no catálogo com {len(pdict)} entradas...')
+        
+        # Busca 1: Nome exato
+        if desc in pdict:
+            produto_encontrado = pdict[desc]
+            print(f'[DEBUG] ENCONTRADO por nome exato: {produto_encontrado}')
+        
+        # Busca 2: Nome case-insensitive  
+        elif desc.lower() in pdict:
+            produto_encontrado = pdict[desc.lower()]
+            print(f'[DEBUG] ENCONTRADO por nome lowercase: {produto_encontrado}')
+        
+        # Busca 3: Busca manual case-insensitive
+        else:
+            for key, produto in pdict.items():
+                if produto.get('nome', '').lower() == desc.lower():
+                    produto_encontrado = produto
+                    print(f'[DEBUG] ENCONTRADO por busca manual: {produto_encontrado}')
                     break
-        except Exception:
-            pass
-    if not desc:
-        return
+        
+        # Se encontrou o produto, usar dados do catálogo
+        if produto_encontrado:
+            codigo_val = produto_encontrado.get('codigo', '')
+            preco_catalogo = produto_encontrado.get('preco', 0)
+            nome_catalogo = produto_encontrado.get('nome', desc)
+            
+            # SEMPRE usar preço do catálogo se disponível
+            if preco_catalogo and preco_catalogo > 0:
+                valor = float(preco_catalogo)
+                desc = nome_catalogo  # Normalizar nome
+                print(f'[DEBUG] ✅ USANDO DADOS DO CATÁLOGO:')
+                print(f'[DEBUG]    Nome: {desc}')
+                print(f'[DEBUG]    Preço: R$ {valor:.2f}')
+                print(f'[DEBUG]    Código: {codigo_val}')
+            else:
+                print(f'[DEBUG] ⚠️ Produto encontrado mas sem preço válido no catálogo')
+        else:
+            print(f'[DEBUG] ❌ Produto "{desc}" NÃO encontrado no catálogo')
+            print(f'[DEBUG] Usando valor digitado: R$ {valor:.2f}')
+            
+    except Exception as e:
+        print(f'[DEBUG] ERRO ao consultar catálogo: {e}')
+        import traceback
+        traceback.print_exc()
+
+    # Capturar cor selecionada
+    cor_sel = ''
     try:
-        valor = float(val_text) if val_text else 0.0
-    except Exception:
-        valor = 0.0
-    # Capturar cor/reforço atuais (por item)
-    try:
-        cor_sel = (self.campos.get('cor').currentText() if 'cor' in self.campos else '').strip()
-    except Exception:
-        cor_sel = ''
+        combo_cor = self.campos.get('cor')
+        if combo_cor:
+            cor = combo_cor.currentText().strip()
+            cor_sel = '' if cor in ('Selecione uma cor', '') else cor
+        print(f'[DEBUG] Cor selecionada: "{cor_sel}"')
+    except Exception as e:
+        print(f'[DEBUG] Erro ao pegar cor: {e}')
+
+    # Capturar reforço se existir
+    reforco_sel = False
     try:
         reforco_widget = self.campos.get('reforco')
-        if reforco_widget is None:
-            reforco_sel = False
-        elif hasattr(reforco_widget, 'isChecked'):
-            reforco_sel = bool(reforco_widget.isChecked())
-        else:
-            reforco_sel = (reforco_widget.currentText() if hasattr(reforco_widget, 'currentText') else '').strip().lower() == 'sim'
-    except Exception:
-        reforco_sel = False
-    # Aplicar acréscimo de R$15,00 se reforço
+        if reforco_widget:
+            if hasattr(reforco_widget, 'isChecked'):
+                reforco_sel = reforco_widget.isChecked()
+            else:
+                texto = reforco_widget.currentText().strip().lower() if hasattr(reforco_widget, 'currentText') else ''
+                reforco_sel = texto == 'sim'
+        print(f'[DEBUG] Reforço selecionado: {reforco_sel}')
+    except Exception as e:
+        print(f'[DEBUG] Erro ao pegar reforço: {e}')
+
+    # Aplicar acréscimo se tem reforço
+    if reforco_sel:
+        valor += 15.0
+        print(f'[DEBUG] Valor após acréscimo de reforço: {valor}')
+
+    # Garantir que a lista existe
+    if not hasattr(self, 'produtos_list') or self.produtos_list is None:
+        self.produtos_list = []
+        print('[DEBUG] Lista de produtos inicializada')
+
+    # Montar produto para adicionar (incluir codigo se disponível)
+    produto = {
+        'descricao': desc,
+        'valor': valor,
+        'cor': cor_sel,
+        'reforco': reforco_sel,
+    }
+    if codigo_val:
+        produto['codigo'] = codigo_val
+
+    print(f'[DEBUG] Produto montado: {produto}')
+
+    # Adicionar à lista
+    self.produtos_list.append(produto)
+    print(f'[DEBUG] Produto adicionado! Lista tem {len(self.produtos_list)} produtos')
+
+    # Limpar campos de entrada
     try:
-        if reforco_sel:
-            valor += 15.0
-    except Exception:
-        pass
-    # Adiciona o produto à lista do pedido
-    try:
-        self.produtos_list.append({"descricao": desc, "valor": valor, "cor": cor_sel, "reforco": reforco_sel})
-    except Exception:
-        # garantir que a lista exista
-        try:
-            self.produtos_list = [{"descricao": desc, "valor": valor, "cor": cor_sel, "reforco": reforco_sel}]
-        except Exception:
-            pass
-    # Limpar campos de entrada e atualizar UI
-    try:
-        self.input_desc.clear()
-    except Exception:
-        pass
-    try:
-        self.input_valor.clear()
-    except Exception:
-        pass
+        if hasattr(self, 'input_desc'):
+            self.input_desc.clear()
+        if hasattr(self, 'input_valor'):
+            self.input_valor.clear()
+        combo_cor = self.campos.get('cor')
+        if combo_cor:
+            combo_cor.setCurrentIndex(0)
+        print('[DEBUG] Campos limpos com sucesso')
+    except Exception as e:
+        print(f'[DEBUG] Erro ao limpar campos: {e}')
+
+    # Atualizar interface
     try:
         self._refresh_produtos_ui()
-    except Exception:
-        pass
+        print('[DEBUG] Interface atualizada com sucesso')
+    except Exception as e:
+        print(f'[DEBUG] Erro ao atualizar interface: {e}')
+
+    print('[DEBUG] _add_produto concluído com sucesso!')

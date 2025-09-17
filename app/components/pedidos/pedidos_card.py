@@ -26,9 +26,10 @@ class PedidosCard(QWidget):
         """Cria um card completo com todas as informações do pedido"""
         # Frame principal
         card_widget = QFrame()
-        card_widget.setFixedWidth(320)
-        card_widget.setFixedHeight(250)  # Aumentado para acomodar 3 linhas de produtos
-        
+        # Aumentar o tamanho dos cards para melhorar leitura
+        card_widget.setFixedWidth(380)
+        card_widget.setFixedHeight(300)
+
         # Layout principal
         card_layout = QVBoxLayout(card_widget)
         card_layout.setContentsMargins(10, 10, 10, 10)
@@ -36,23 +37,23 @@ class PedidosCard(QWidget):
 
         # Extrair informações do pedido
         pedido_id = pedido.get('id', 'N/A')
-        cliente_nome = pedido.get('nome_cliente', 'Cliente não informado')  # Corrigido: era 'cliente_nome'
+        cliente_nome = pedido.get('nome_cliente', 'Cliente não informado')
         cliente_telefone = pedido.get('telefone_cliente', '')
         status = pedido.get('status', 'pendente')
         produtos = pedido.get('produtos', [])
         endereco = pedido.get('endereco_cliente', 'Endereço não informado')
         valor_total = pedido.get('valor_total', 0)
-        
+
         # 1. Cliente e número
         cliente_info = f"{cliente_nome}"
         if cliente_telefone:
             cliente_info += f" - {cliente_telefone}"
-        
+
         cliente_label = QLabel(cliente_info)
-        cliente_label.setStyleSheet("font-weight: bold; font-size: 11px; color: white;")
+        cliente_label.setStyleSheet("font-weight: bold; font-size: 13px; color: white;")
         cliente_label.setWordWrap(True)
         card_layout.addWidget(cliente_label)
-        
+
         # 2. Pedido e prazo
         dias_restantes = self._calcular_dias_restantes(pedido)
         prazo_info = f"Pedido #{pedido_id}"
@@ -63,38 +64,20 @@ class PedidosCard(QWidget):
                 prazo_info += " - Entrega hoje!"
             else:
                 prazo_info += f" - Atrasado {abs(dias_restantes)} dias"
-        
+
         pedido_label = QLabel(prazo_info)
-        pedido_label.setStyleSheet("font-size: 10px; color: #cccccc;")
+        pedido_label.setStyleSheet("font-size: 11px; color: #cccccc;")
         card_layout.addWidget(pedido_label)
-        
-        # 3. Produtos (nome, divisórias, código e quantidade - até 3 linhas)
+
+        # 3. Produtos (nome, código e quantidade - até 3 linhas)
         if produtos and len(produtos) > 0:
             produto_info = []
-            
-            # Se há apenas um produto, duplicar para simular múltiplos itens (temporário)
             produtos_para_mostrar = produtos[:3]
-            if len(produtos) == 1 and len(produtos_para_mostrar) == 1:
-                # Simular produtos adicionais baseados no primeiro
-                produto_base = produtos[0]
-                descricao_base = produto_base.get('descricao', 'Produto')
-                
-                # Criar variações
-                produtos_simulados = [produto_base]
-                if 'Cx' in descricao_base:
-                    produtos_simulados.append({'descricao': descricao_base.replace('Cx', 'Bx'), 'valor': produto_base['valor'] * 0.8, 'divisorias': 15})
-                    produtos_simulados.append({'descricao': f"{descricao_base}Pro", 'valor': produto_base['valor'] * 1.2, 'divisorias': 30})
-                else:
-                    produtos_simulados.append({'descricao': f"{descricao_base}Plus", 'valor': produto_base['valor'] * 0.9, 'divisorias': 12})
-                    produtos_simulados.append({'descricao': f"{descricao_base}Max", 'valor': produto_base['valor'] * 1.1, 'divisorias': 25})
-                
-                produtos_para_mostrar = produtos_simulados[:3]
-            
+
             for i, produto in enumerate(produtos_para_mostrar):
                 descricao = produto.get('descricao', '').strip()
                 valor = produto.get('valor', 0)
-                divisorias = produto.get('divisorias', 0)  # Novo campo divisórias
-                
+
                 # Gerar quantidade baseada no valor (simulação)
                 if valor >= 500:
                     quantidade = 1
@@ -102,27 +85,23 @@ class PedidosCard(QWidget):
                     quantidade = 2
                 else:
                     quantidade = 3
-                
+
                 if descricao:
-                    # Gerar código mais curto e realista
-                    codigo_produto = self._gerar_codigo_produto_curto(descricao, i)
-                    
-                    # Novo formato: nome - X divisórias - código - quantidade
-                    if divisorias > 0:
-                        linha_produto = f"{descricao} - {divisorias} divisórias - {codigo_produto} - {quantidade}x"
-                    else:
-                        linha_produto = f"{descricao} - sem divisórias - {codigo_produto} - {quantidade}x"
+                    # Gerar código mais curto e realista (usa _gerar_codigo_produto existente)
+                    codigo_produto = self._gerar_codigo_produto(descricao, i)
+                    # Formato: nome - código - quantidade
+                    linha_produto = f"{descricao} - {codigo_produto} - {quantidade}x"
                 else:
-                    # Formato antigo como fallback
+                    # Formato antigo como fallback (sem divisórias)
                     nome = produto.get('nome', 'Produto')
                     codigo = produto.get('codigo', f"{8000 + i:04d}")
-                    linha_produto = f"{nome} - 0 divisórias - {codigo} - {quantidade}x"
-                
+                    linha_produto = f"{nome} - {codigo} - {quantidade}x"
+
                 produto_info.append(linha_produto)
-            
+
             if len(produtos) > 3:
                 produto_info.append(f"... e mais {len(produtos) - 3}")
-                
+
             produtos_text = "\n".join(produto_info)
         else:
             # Fallback para detalhes_produto se produtos[] estiver vazio
@@ -134,45 +113,44 @@ class PedidosCard(QWidget):
                 for i, linha in enumerate(linhas):
                     linha = linha.strip()
                     if linha:
-                        # Adicionar divisórias e código ao formato
                         codigo = f"{8250 + (i * 100):04d}"
-                        linha_formatada = f"{linha} - 0 divisórias - {codigo} - 1x"
+                        linha_formatada = f"{linha} - {codigo} - 1x"
                         produto_info.append(linha_formatada)
-                
+
                 produtos_text = "\n".join(produto_info) if produto_info else "Nenhum produto"
             else:
                 produtos_text = "Nenhum produto"
-            
+
         produtos_label = QLabel(f"Produtos:\n{produtos_text}")
-        produtos_label.setStyleSheet("font-size: 9px; color: #aaaaaa;")
+        produtos_label.setStyleSheet("font-size: 11px; color: #d0d0d0;")
         produtos_label.setWordWrap(True)
         card_layout.addWidget(produtos_label)
-        
+
         # 4. Endereço
         endereco_label = QLabel(f"Endereço: {endereco}")
-        endereco_label.setStyleSheet("font-size: 9px; color: #aaaaaa;")
+        endereco_label.setStyleSheet("font-size: 10px; color: #cccccc;")
         endereco_label.setWordWrap(True)
         card_layout.addWidget(endereco_label)
-        
+
         # 5. Valor
         try:
             valor_formatado = f"R$ {float(valor_total):,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
         except:
             valor_formatado = f"R$ {valor_total}"
-            
+
         valor_label = QLabel(f"Valor: {valor_formatado}")
-        valor_label.setStyleSheet("font-weight: bold; font-size: 10px; color: #90EE90;")
+        valor_label.setStyleSheet("font-weight: bold; font-size: 12px; color: #90EE90;")
         card_layout.addWidget(valor_label)
-        
+
         # Spacer para empurrar botões para baixo
         card_layout.addStretch()
-        
+
         # 6. Botões (4 botões conforme solicitado)
         self._criar_botoes_completos(card_layout, pedido)
-        
+
         # Aplicar estilo básico
         self._aplicar_estilo_basico(card_widget, status)
-        
+
         return card_widget
     
     def _criar_botoes_completos(self, layout, pedido):
@@ -225,39 +203,7 @@ class PedidosCard(QWidget):
         
         layout.addLayout(botoes_layout)
     
-    def _calcular_dias_restantes(self, pedido):
-        """Calcula quantos dias faltam para o prazo de entrega"""
-        try:
-            # O prazo está em dias a partir da data de criação
-            prazo_dias = pedido.get('prazo', 30)  # padrão 30 dias
-            data_criacao = pedido.get('data_criacao', '')
-            
-            if not data_criacao:
-                return None
-                
-            # Tentar diferentes formatos de data
-            from datetime import datetime
-            formatos = ['%Y-%m-%d %H:%M:%S', '%Y-%m-%d', '%d/%m/%Y', '%d-%m-%Y']
-            
-            data_criacao_obj = None
-            for formato in formatos:
-                try:
-                    data_criacao_obj = datetime.strptime(data_criacao, formato)
-                    break
-                except:
-                    continue
-                    
-            if data_criacao_obj:
-                from datetime import timedelta
-                data_prazo = data_criacao_obj + timedelta(days=prazo_dias)
-                hoje = datetime.now()
-                diferenca = (data_prazo.date() - hoje.date()).days
-                return diferenca
-                
-        except Exception as e:
-            print(f"Erro ao calcular dias restantes: {e}")
-            
-        return None
+    # (Remove this entire duplicate block; keep only the most complete version of _calcular_dias_restantes)
     
     def _abrir_whatsapp(self, pedido):
         """Abre o WhatsApp com mensagem sobre o pedido"""
@@ -290,51 +236,26 @@ class PedidosCard(QWidget):
     
     def _abrir_menu_status(self, pedido_id):
         """Abre menu para alterar status do pedido"""
+        # Cria um menu de contexto com opções de status e emite o sinal
         try:
-            from PyQt6.QtWidgets import QMenu
-            from PyQt6.QtCore import QPoint
-            from PyQt6.QtGui import QCursor
-            
             menu = QMenu()
-            
-            # Opções de status
-            status_opcoes = [
-                ("Aguardando", "orange"),
-                ("Em Produção", "blue"),
-                ("Finalizado", "green"),
-                ("Cancelado", "red"),
-                ("Entregue", "darkgreen")
-            ]
-            
-            for status, cor in status_opcoes:
-                action = menu.addAction(status)
-                action.triggered.connect(lambda checked, s=status: self._alterar_status(pedido_id, s))
-                
+
+            # Status disponíveis (texto interno em minúsculas)
+            status_list = ["pendente", "em andamento", "concluído", "cancelado"]
+
+            for status in status_list:
+                # Exibir título amigável
+                action = menu.addAction(status.title())
+
+                # Ao acionar, emitir sinal com pedido_id e o status selecionado
+                # usamos uma closure para capturar o valor correto de `status`
+                action.triggered.connect(lambda checked, s=status: self.status_changed.emit(pedido_id, s))
+
+            # Mostrar o menu na posição do cursor
             menu.exec(QCursor.pos())
-            
+
         except Exception as e:
             print(f"Erro ao abrir menu de status: {e}")
-    
-    def _alterar_status(self, pedido_id, novo_status):
-        """Altera o status do pedido"""
-        try:
-            from database.db_manager import DatabaseManager
-            
-            db = DatabaseManager()
-            db.connect()
-            
-            # Atualiza o status no banco
-            query = "UPDATE pedidos SET status = ? WHERE id = ?"
-            db.execute_query(query, (novo_status, pedido_id))
-            
-            # Emite sinal para atualizar a interface
-            self.pedido_atualizado.emit()
-            
-        except Exception as e:
-            print(f"Erro ao alterar status: {e}")
-        finally:
-            if 'db' in locals():
-                db.close()
     
     def _gerar_codigo_produto(self, descricao, index):
         """Gera um código de produto realista baseado na descrição"""
@@ -347,70 +268,6 @@ class PedidosCard(QWidget):
         codigo = 18000000 + (base % 999999)
         return f"{codigo:08d}"
     
-    def _gerar_codigo_produto_curto(self, descricao, index):
-        """Gera um código de produto curto de 4 dígitos"""
-        # Usar hash da descrição para gerar código consistente
-        base = hash(descricao) % 10000
-        if base < 0:
-            base = -base
-            
-        # Garantir que seja de 4 dígitos (1000-9999)
-        codigo = 1000 + (base % 9000)
-        return str(codigo)
-    
-    def _aplicar_estilo_basico(self, card_widget, status):
-        """Aplica estilo muito básico ao card"""
-        card_widget.setStyleSheet("""
-            QFrame {
-                background-color: #404040;
-                border: 1px solid #666666;
-                border-radius: 4px;
-            }
-            QPushButton {
-                background-color: #555555;
-                color: white;
-                border: 1px solid #777777;
-                border-radius: 2px;
-                font-size: 9px;
-            }
-            QPushButton:hover {
-                background-color: #666666;
-            }
-        """)
-    
-    # Métodos antigos comentados - não são mais usados no design simples
-    """
-    def _criar_header(self, layout, pedido):
-        # Método comentado para manter o design simples
-        pass
-    
-    def _criar_conteudo(self, layout, pedido):
-        # Método comentado para manter o design simples  
-        pass
-        
-    def _criar_botoes(self, layout, pedido):
-        # Método comentado para manter o design simples
-        pass
-    """
-    
-    def _abrir_menu_status(self, pedido_id):
-        """Abre menu de status para o pedido"""
-        try:
-            # Criar menu de contexto para status
-            menu = QMenu()
-            
-            # Definir status disponíveis
-            status_list = ["pendente", "em andamento", "concluído", "cancelado"]
-            
-            for status in status_list:
-                action = menu.addAction(status.title())
-                action.triggered.connect(lambda checked, s=status: self.status_changed.emit(pedido_id, s))
-            
-            # Mostrar menu
-            menu.exec(QCursor.pos())
-        except Exception as e:
-            print(f"Erro ao abrir menu de status: {e}")
-            
     def _abrir_whatsapp(self, pedido):
         """Abre WhatsApp para o cliente do pedido"""
         try:
@@ -426,43 +283,6 @@ class PedidosCard(QWidget):
             print(f"Erro ao abrir WhatsApp: {e}")
             
     # Métodos auxiliares necessários para funcionalidade básica
-        content_layout.setContentsMargins(8, 8, 8, 8)
-        content_layout.setSpacing(8)
-        
-        # Cliente (destacado com melhor formatação)
-        cliente = pedido.get('nome_cliente', 'Cliente não informado')
-        cliente_label = QLabel(f"👤 {cliente}")
-        cliente_label.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
-        cliente_label.setStyleSheet("""
-            color: #ffffff; 
-            background: rgba(13, 115, 119, 0.2); 
-            padding: 6px 10px; 
-            border-radius: 6px;
-            border-left: 3px solid #0d7377;
-        """)
-        cliente_label.setWordWrap(True)
-        content_layout.addWidget(cliente_label)
-        
-        # Prazo/Entrega com melhor design
-        prazo_texto, prazo_cor = self._formatar_prazo_texto(pedido)
-        if prazo_texto:
-            lbl_prazo = QLabel(f"📅 {prazo_texto}")
-            lbl_prazo.setFont(QFont("Segoe UI", 9, QFont.Weight.Medium))
-            lbl_prazo.setStyleSheet(f"""
-                color: {prazo_cor}; 
-                background: rgba(64, 64, 64, 0.3);
-                padding: 4px 8px;
-                border-radius: 4px;
-            """)
-            content_layout.addWidget(lbl_prazo)
-        
-        # Seção de valores melhorada
-        self._criar_secao_valores(content_layout, pedido)
-        
-        # Resumo dos produtos
-        self._criar_resumo_produtos(content_layout, pedido)
-        
-        layout.addWidget(content_frame)
     
     def _criar_secao_valores(self, layout, dados):
         """Cria a seção de valores"""
@@ -695,27 +515,6 @@ class PedidosCard(QWidget):
                 mensagem = f"Olá {cliente}! Sobre a OS #{numero_os}"
                 url = f"https://wa.me/{telefone_limpo}?text={mensagem}"
                 webbrowser.open(url)
-        botoes_layout.addWidget(btn_excluir)
-
-        # Botão de Status (ao lado do WhatsApp)
-        btn_status = QPushButton("📝 Status")
-        btn_status.setMinimumWidth(85)
-        btn_status.clicked.connect(lambda: self._abrir_menu_status(pedido_id))
-        botoes_layout.addWidget(btn_status)
-
-        # Botão WhatsApp (se houver telefone)
-        telefone = pedido.get('telefone_cliente', '')
-        if telefone:
-            btn_whatsapp = QPushButton("📱 WhatsApp")
-            btn_whatsapp.setMinimumWidth(90)
-            btn_whatsapp.clicked.connect(lambda: self._abrir_whatsapp(pedido))
-            botoes_layout.addWidget(btn_whatsapp)
-        
-        botoes_layout.addStretch()
-        layout.addWidget(botoes_frame)
-        
-        # Aplicar estilo aos botões
-        self._aplicar_estilo_botoes(botoes_frame)
 
     # --- Prazo / Entrega helpers -------------------------------------------------
     def _formatar_prazo_texto(self, pedido):
@@ -854,6 +653,39 @@ class PedidosCard(QWidget):
                 padding: 8px;
             }}
         """)
+
+    def _aplicar_estilo_basico(self, card_widget, status):
+        """Aplica estilo básico ao card_widget baseado no status (compatibilidade com chamadas existentes).
+
+        Mantém aparência coerente com _aplicar_estilo_card e usa cores helper.
+        """
+        try:
+            status = (status or 'pendente').lower()
+            border = self._get_status_border_color(status)
+            bg = '#2f2f2f' if status != 'entregue' else '#263822'
+            light_bg = self._lighten_color(border)
+
+            # Aplicar estilo simples ao QFrame
+            card_widget.setStyleSheet(f"""
+                QFrame {{
+                    background-color: {bg};
+                    border: 1px solid {border};
+                    border-radius: 4px;
+                    margin: 2px;
+                    padding: 8px;
+                }}
+            """)
+
+            # Se o widget tiver um _status_label, atualize sua cor
+            try:
+                if hasattr(self, '_status_label'):
+                    cor = self._get_status_color(status)
+                    self._status_label.setStyleSheet(f"color: {cor}; background: transparent;")
+            except Exception:
+                pass
+        except Exception as e:
+            # Nunca levante exceção de estilização — apenas logue
+            print(f"Erro ao aplicar estilo básico: {e}")
     
     def _aplicar_estilo_botoes(self, botoes_frame):
         """Aplica estilo muito simples aos botões do card"""

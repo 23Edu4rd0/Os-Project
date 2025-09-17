@@ -16,43 +16,44 @@ def criar_produtos_ui(self, parent_layout, pedido_data):
     produtos_group.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
     produtos_layout = QVBoxLayout(produtos_group)
     
-    # Layout compacto principal - tudo em uma linha
-    linha_principal = QHBoxLayout()
-    linha_principal.setSpacing(15)
-    
-    # 1. Campo de produto com autocomplete (maior parte do espaço)
+    # --- FORMULÁRIO VERTICAL: produto / valor / cor ---
+    form_col = QVBoxLayout()
+    form_col.setSpacing(8)
+
+    # Produto
+    produto_label = QLabel('Produto')
+    produto_label.setStyleSheet('color: #ffffff; font-weight: 600;')
     input_produto = QLineEdit()
     input_produto.setPlaceholderText('Insira o produto...')
     input_produto.setClearButtonEnabled(True)
-    input_produto.setMinimumWidth(250)
-    
-    # Configurar autocomplete para produtos
-    try:
-        from database.db_manager import db_manager
-        produtos_existentes = db_manager.listar_produtos()
-        nomes_produtos = [produto[1] for produto in produtos_existentes if produto[1]]  # índice 1 = nome
-        
-        completer = QCompleter(nomes_produtos)
-        completer.setCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
-        completer.setFilterMode(Qt.MatchFlag.MatchContains)
-        input_produto.setCompleter(completer)
-    except Exception as e:
-        print(f"Erro ao configurar autocomplete: {e}")
-    
-    linha_principal.addWidget(QLabel("Produto:"))
-    linha_principal.addWidget(input_produto, 1)  # Flex grow
-    
-    # 2. Campo de valor na mesma linha
+    input_produto.setMinimumWidth(360)
+    form_col.addWidget(produto_label)
+    form_col.addWidget(input_produto)
+
+    # Valor
+    valor_label = QLabel('Valor (R$)')
+    valor_label.setStyleSheet('color: #ffffff; font-weight: 600;')
     input_valor = QLineEdit()
-    input_valor.setPlaceholderText('Valor (R$)')
-    input_valor.setFixedWidth(120)
-    linha_principal.addWidget(QLabel("Valor:"))
-    linha_principal.addWidget(input_valor)
-    
-    # 3. Botão adicionar na mesma linha
+    input_valor.setPlaceholderText('0,00')
+    input_valor.setFixedWidth(160)
+    form_col.addWidget(valor_label)
+    form_col.addWidget(input_valor)
+
+    # Cor
+    cor_label = QLabel('Cor')
+    cor_label.setStyleSheet('color: #ffffff; font-weight: 600;')
+    campos_cor = QComboBox()
+    campos_cor.addItems(['', 'Branco', 'Amarelo', 'Azul', 'Verde', 'Vermelho', 'Preto', 'Personalizado'])
+    campos_cor.setFixedWidth(220)
+    form_col.addWidget(cor_label)
+    form_col.addWidget(campos_cor)
+
+    # Botão adicionar alinhado à direita
+    btn_row = QHBoxLayout()
+    btn_row.addStretch()
     btn_add = QPushButton('+ Adicionar')
     btn_add.setFixedHeight(32)
-    btn_add.setMinimumWidth(100)
+    btn_add.setMinimumWidth(120)
     btn_add.setStyleSheet('''
         QPushButton {
             background-color: #4CAF50;
@@ -63,104 +64,13 @@ def criar_produtos_ui(self, parent_layout, pedido_data):
             font-size: 13px;
             padding: 6px 12px;
         }
-        QPushButton:hover { 
-            background-color: #45a049; 
-        }
-        QPushButton:pressed { 
-            background-color: #3d8b40; 
-        }
+        QPushButton:hover { background-color: #45a049; }
+        QPushButton:pressed { background-color: #3d8b40; }
     ''')
-    try:
-        btn_add.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
-    except:
-        pass
-    linha_principal.addWidget(btn_add)
-    
-    produtos_layout.addLayout(linha_principal)
-    
-    # Segunda linha - Divisórias e Cor
-    linha_secundaria = QHBoxLayout()
-    linha_secundaria.setSpacing(20)
-    
-    # Divisórias
-    linha_secundaria.addWidget(QLabel("Divisórias:"))
-    campos_div = QSpinBox()
-    campos_div.setMinimum(0)
-    campos_div.setMaximum(99)
-    campos_div.setValue(0)
-    campos_div.setFixedSize(80, 32)
-    campos_div.setStyleSheet('''
-        QSpinBox {
-            background-color: #404040;
-            border: 2px solid #666666;
-            border-radius: 6px;
-            color: #ffffff;
-            font-size: 13px;
-            padding: 4px 8px;
-        }
-        QSpinBox:focus {
-            border-color: #999999;
-            background-color: #505050;
-        }
-        QSpinBox:hover {
-            border-color: #888888;
-        }
-        QSpinBox::up-button, QSpinBox::down-button {
-            background-color: #666666;
-            border: none;
-            width: 20px;
-        }
-        QSpinBox::up-button:hover, QSpinBox::down-button:hover {
-            background-color: #777777;
-        }
-    ''')
-    linha_secundaria.addWidget(campos_div)
-    
-    linha_secundaria.addStretch()
-    
-    # Cor
-    linha_secundaria.addWidget(QLabel("Cor:"))
-    campos_cor = QComboBox()
-    campos_cor.addItems(['', 'Branco', 'Amarelo', 'Azul', 'Verde', 'Vermelho', 'Preto', 'Personalizado'])
-    campos_cor.setFixedWidth(150)
-    campos_cor.setStyleSheet('''
-        QComboBox {
-            background-color: #404040;
-            border: 2px solid #666666;
-            border-radius: 6px;
-            color: #ffffff;
-            font-size: 13px;
-            padding: 4px 8px;
-            min-height: 20px;
-        }
-        QComboBox:focus {
-            border-color: #999999;
-            background-color: #505050;
-        }
-        QComboBox:hover {
-            border-color: #888888;
-        }
-        QComboBox::drop-down {
-            border: none;
-            width: 25px;
-        }
-        QComboBox::down-arrow {
-            border: 3px solid transparent;
-            border-top: 6px solid #ffffff;
-            margin-right: 5px;
-        }
-        QComboBox QAbstractItemView {
-            background-color: #404040;
-            color: #ffffff;
-            selection-background-color: #666666;
-            border: 1px solid #666666;
-        }
-    ''')
-    linha_secundaria.addWidget(campos_cor)
-    
-    linha_secundaria.addStretch()
-    
-    produtos_layout.addLayout(linha_secundaria)
+    btn_row.addWidget(btn_add)
+    form_col.addLayout(btn_row)
+
+    produtos_layout.addLayout(form_col)
     
     # Lista de produtos adicionados em tabela
     lista_label = QLabel('Produtos adicionados:')
@@ -169,31 +79,40 @@ def criar_produtos_ui(self, parent_layout, pedido_data):
     produtos_layout.addWidget(lista_label)
     
     from PyQt6.QtWidgets import QTableWidget, QHeaderView
-    lista_table = QTableWidget(0, 5)  # 5 colunas: Nome, Valor, Cor, Divisórias, Ações
-    lista_table.setHorizontalHeaderLabels(['Nome', 'Valor (R$)', 'Cor', 'Divisórias', 'Ações'])
-    
+
+    # Tabela de produtos: colunas -> Nome, Código, Valor, Cor, Ações
+    lista_table = QTableWidget(0, 5)
+    lista_table.setHorizontalHeaderLabels(['Nome', 'Código', 'Valor (R$)', 'Cor', 'Ações'])
+
     # Configurar redimensionamento das colunas
     header = lista_table.horizontalHeader()
     header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)  # Nome - ocupa espaço restante
-    header.setSectionResizeMode(1, QHeaderView.ResizeMode.Fixed)    # Valor - largura fixa
-    header.setSectionResizeMode(2, QHeaderView.ResizeMode.Fixed)    # Cor - largura fixa  
-    header.setSectionResizeMode(3, QHeaderView.ResizeMode.Fixed)    # Divisórias - largura fixa
-    header.setSectionResizeMode(4, QHeaderView.ResizeMode.Fixed)    # Ações - largura fixa
-    
-    # Definir larguras específicas
-    lista_table.setColumnWidth(1, 100)  # Valor
-    lista_table.setColumnWidth(2, 100)  # Cor
-    lista_table.setColumnWidth(3, 80)   # Divisórias
-    lista_table.setColumnWidth(4, 80)   # Ações
-    
-    # Estilo da tabela - tema simplificado
+    # Código, Valor, Cor, Ações terão largura fixa
+    header.setSectionResizeMode(1, QHeaderView.ResizeMode.Fixed)
+    header.setSectionResizeMode(2, QHeaderView.ResizeMode.Fixed)
+    header.setSectionResizeMode(3, QHeaderView.ResizeMode.Fixed)
+    header.setSectionResizeMode(4, QHeaderView.ResizeMode.Fixed)
+
+    # Definir larguras específicas para colunas fixas
+    lista_table.setColumnWidth(1, 80)   # Código - pequeno
+    lista_table.setColumnWidth(2, 120)  # Valor
+    lista_table.setColumnWidth(3, 120)  # Cor
+    lista_table.setColumnWidth(4, 260)  # Ações - aumentado para caber botões
+
+    # Ajustes de aparência e altura das linhas
+    lista_table.verticalHeader().setVisible(False)
+    lista_table.setShowGrid(False)
+    lista_table.setAlternatingRowColors(False)
+    lista_table.verticalHeader().setDefaultSectionSize(44)  # altura padrão das linhas
+    lista_table.setWordWrap(False)
+
+    # Estilo da tabela
     lista_table.setStyleSheet('''
         QTableWidget {
             background-color: #404040;
-            border: 2px solid #666666;
-            border-radius: 6px;
             color: #ffffff;
-            gridline-color: #666666;
+            border: none;
+            gridline-color: #555555;
             font-size: 13px;
         }
         QHeaderView::section {
@@ -205,7 +124,7 @@ def criar_produtos_ui(self, parent_layout, pedido_data):
             border-right: 1px solid #888888;
         }
         QTableWidget::item {
-            padding: 8px;
+            padding: 10px 12px;
             border-bottom: 1px solid #666666;
             background: transparent;
         }
@@ -216,7 +135,7 @@ def criar_produtos_ui(self, parent_layout, pedido_data):
             background-color: #555555;
         }
     ''')
-    
+
     lista_table.setMaximumHeight(200)
     produtos_layout.addWidget(lista_table)
     
@@ -278,8 +197,7 @@ def criar_produtos_ui(self, parent_layout, pedido_data):
         'input_produto': input_produto,  # Nome novo
         'btn_add': btn_add,
         'input_valor': input_valor,
-        'campos_cor': campos_cor,
-        'campos_div': campos_div,
+    'campos_cor': campos_cor,
         'lista_table': lista_table,
         'valor_total': valor_total,
         'container_widget': produtos_group

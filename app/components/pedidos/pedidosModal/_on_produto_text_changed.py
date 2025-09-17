@@ -3,6 +3,16 @@
 from .__init__ import PedidosModal
 
 def _on_produto_text_changed(self, texto: str):
+    def parse_preco_seguro(valor):
+        """Converte valor para float de forma segura, retornando 0.0 se inválido"""
+        try:
+            if valor is None:
+                return 0.0
+            valor_str = str(valor).replace('R$', '').replace(' ', '').replace(',', '.')
+            return float(valor_str)
+        except:
+            return 0.0
+    
     if not texto:
         return
     try:
@@ -11,21 +21,17 @@ def _on_produto_text_changed(self, texto: str):
             num = ''.join(ch for ch in parte if ch.isdigit() or ch in ',.')
             if num:
                 num = num.replace('.', '').replace(',', '.')
-                self.input_valor.setText(str(f"{float(num):.2f}"))
+                preco_float = parse_preco_seguro(num)
+                self.input_valor.setText(str(f"{preco_float:.2f}"))
     except Exception:
         self.input_valor.setText("")
+    
     if texto in self.produtos_dict:
         p = self.produtos_dict.get(texto, {})
         preco = p.get('preco', 0)
-        try:
-            preco_float = float(preco)
-        except Exception:
-            preco_float = 0.0
+        preco_float = parse_preco_seguro(preco)
         self.input_valor.setText(str(f"{preco_float:.2f}"))
-        try:
-            self._base_produto_valor = float(preco_float)
-        except Exception:
-            pass
+        self._base_produto_valor = preco_float
         try:
             self.input_desc.setText(str(p.get('nome', texto)))
         except Exception:

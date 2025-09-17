@@ -3,6 +3,16 @@
 from .__init__ import PedidosModal
 
 def _on_produto_completer_activated(self, texto: str):
+    def parse_preco_seguro(valor):
+        """Converte valor para float de forma segura, retornando 0.0 se inválido"""
+        try:
+            if valor is None:
+                return 0.0
+            valor_str = str(valor).replace('R$', '').replace(' ', '').replace(',', '.')
+            return float(valor_str)
+        except:
+            return 0.0
+    
     if texto in self.produtos_dict:
         p = self.produtos_dict[texto]
         try:
@@ -13,13 +23,14 @@ def _on_produto_completer_activated(self, texto: str):
             pass
         try:
             was_blocked = self.input_valor.blockSignals(True)
-            self.input_valor.setText(str(f"{float(p.get('preco', 0)):.2f}"))
+            preco_float = parse_preco_seguro(p.get('preco', 0))
+            self.input_valor.setText(str(f"{preco_float:.2f}"))
             self.input_valor.blockSignals(was_blocked)
         except Exception:
             pass
         try:
             # armazenar preço base para uso com divisórias
-            self._base_produto_valor = float(p.get('preco', 0) or 0.0)
+            self._base_produto_valor = parse_preco_seguro(p.get('preco', 0))
         except Exception:
             pass
         # preencher reforco (checkbox) e cor se disponíveis

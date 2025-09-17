@@ -23,7 +23,10 @@ def _salvar_pedido(self, numero_os=None, pedido_data=None):
         else:
             # Modo normal, ler dos widgets
             nome_cliente = (self.campos.get('nome_cliente') and self.campos['nome_cliente'].text()) or ''
-            cpf_cliente = (self.campos.get('cpf_cliente') and self.campos['cpf_cliente'].text()) or ''
+            cpf_cliente = ''
+            cpf_widget = self.campos.get('cpf_cliente')
+            if cpf_widget and hasattr(cpf_widget, 'text'):
+                cpf_cliente = cpf_widget.text()
             telefone_cliente = (self.campos.get('telefone_cliente') and self.campos['telefone_cliente'].text()) or ''
 
         # Produtos -> monta texto e soma valores
@@ -35,8 +38,6 @@ def _salvar_pedido(self, numero_os=None, pedido_data=None):
             extras = []
             if p.get('cor'):
                 extras.append(f"Cor: {p.get('cor')}")
-            if 'divisorias' in p:
-                extras.append(f"Divisórias: {p.get('divisorias', 0)}")
             extras_txt = ("  —  " + "  |  ".join(extras)) if extras else ""
             # Formatação simples para salvar
             linhas.append(f"• {desc}{extras_txt} - R$ {valor:.2f}")
@@ -106,8 +107,7 @@ def _salvar_pedido(self, numero_os=None, pedido_data=None):
             'prazo': int(prazo or 0),
             'status': (self.campos.get('status') and self.campos['status'].currentText()) or 'em produção',
             'desconto': float(desconto or 0.0),
-            'cor': cor,
-            'divisorias': int(divisorias)
+            'cor': cor
         }
 
         # Attach structured produtos list (descricao, valor) so CRUD can compute totals reliably
@@ -122,7 +122,8 @@ def _salvar_pedido(self, numero_os=None, pedido_data=None):
                     valor = float(str(p.get('valor') or '0').replace(',', '.'))
                 except Exception:
                     valor = 0.0
-            structured.append({'descricao': desc, 'valor': valor, 'cor': p.get('cor'), 'divisorias': p.get('divisorias', 0)})
+            # Do not include 'divisorias' per-product anymore; divisórias are separate products
+            structured.append({'descricao': desc, 'valor': valor, 'cor': p.get('cor')})
         dados['produtos'] = structured
 
         # Salvar novo ou atualizar existente
@@ -165,11 +166,11 @@ def _salvar_pedido(self, numero_os=None, pedido_data=None):
                 }
                 resp = db_manager.atualizar_pedido(pedido_id, campos)
                 # atualizar JSON com status/desconto/cor/divisórias
+                # Não atualizar 'divisorias' a nível de ordem — divisórias agora são produtos separados
                 _ = db_manager.atualizar_json_campos(pedido_id, {
                     'status': dados['status'],
                     'desconto': dados['desconto'],
-                    'cor': dados['cor'],
-                    'divisorias': dados['divisorias']
+                    'cor': dados['cor']
                 })
                 if resp:
                     try:

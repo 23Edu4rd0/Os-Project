@@ -4,6 +4,16 @@ from PyQt6.QtCore import Qt
 from .__init__ import PedidosModal
 
 def _montar_produtos_completer(self, categoria: str | None = None):
+    def parse_preco_seguro(valor):
+        """Converte valor para float de forma segura, retornando 0.0 se inválido"""
+        try:
+            if valor is None:
+                return 0.0
+            valor_str = str(valor).replace('R$', '').replace(' ', '').replace(',', '.')
+            return float(valor_str)
+        except:
+            return 0.0
+    
     try:
         dic = {}
         source = getattr(self, '_produtos_rows', [])
@@ -11,7 +21,7 @@ def _montar_produtos_completer(self, categoria: str | None = None):
             if categoria and categoria != "Todas" and (r[4] or "") != categoria:
                 continue
             nome = (r[1] or '').strip()
-            preco = float(r[2] or 0)
+            preco = parse_preco_seguro(r[2])  # Usar função segura
             # Mapear reforco e cor se presentes no row
             reforco = None
             cor = None

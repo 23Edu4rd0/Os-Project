@@ -31,5 +31,10 @@ def _editar_produto(self, index):
                 self.campos['divisorias'].setValue(int(prod.get('divisorias', 0)))
         except Exception:
             pass
+        try:
+            if 'divisorias' in prod and hasattr(self.campos.get('divisorias'), 'setValue'):
+                self.campos['divisorias'].setValue(int(prod.get('divisorias', 0)))
+        except Exception:
+            pass
     except Exception:
         pass
