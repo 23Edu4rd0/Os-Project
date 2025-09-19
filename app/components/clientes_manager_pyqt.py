@@ -136,10 +136,9 @@ class ClienteDetailDialog(QDialog):
             return
         try:
             pedido_id = int(pedido_id_item.text())
-            from app.components.pedidos.novo_pedidos_modal import NovoPedidosModal
-            modal = NovoPedidosModal(self, pedido_id=pedido_id)
-            modal.setWindowState(modal.windowState() | Qt.WindowState.WindowMaximized)
-            modal.exec()
+            from app.components.pedidos.pedidos_modal import PedidosModal
+            pm = PedidosModal(self)
+            pm.abrir_modal_edicao(pedido_id)
         except Exception as e:
             QMessageBox.critical(self, "Erro", f"Erro ao abrir pedido: {e}")
 
@@ -253,10 +252,9 @@ class ClienteDetailDialog(QDialog):
                     # fallback to opening full modal if status menu not available
                     pass
             # open full modal edit for other columns (or fallback)
-            from app.components.pedidos.novo_pedidos_modal import NovoPedidosModal
-            modal = NovoPedidosModal(self, pedido_id=pedido_id)
-            modal.setWindowState(modal.windowState() | Qt.WindowState.WindowMaximized)
-            modal.exec()
+            from app.components.pedidos.pedidos_modal import PedidosModal
+            pm = PedidosModal(self)
+            pm.abrir_modal_edicao(pedido_id)
         except Exception as e:
             QMessageBox.critical(self, "Erro", f"Erro ao abrir pedido: {e}")
 
@@ -331,9 +329,8 @@ class ClienteDetailDialog(QDialog):
     def abrir_ordem_completa(self):
         """Abre o modal de novo pedido já preenchendo e travando os dados do cliente."""
         try:
-            from app.components.pedidos.novo_pedidos_modal import NovoPedidosModal
-            
-            # Preparar dados do cliente
+            from app.components.pedidos.pedidos_modal import PedidosModal
+            pedidos_modal = PedidosModal(self)
             cli = {
                 'nome': self.cliente.get('nome',''),
                 'cpf': self.cliente.get('cpf',''),
@@ -343,25 +340,60 @@ class ClienteDetailDialog(QDialog):
                 'numero': self.cliente.get('numero',''),
                 'cidade': self.cliente.get('cidade','')
             }
-            
-            # Criar modal com dados do cliente preenchidos
-            modal = NovoPedidosModal(self, dados_cliente=cli)
-            
-            # Conectar sinal para atualizar dados quando pedido for salvo
-            if hasattr(modal, 'pedido_salvo'):
-                modal.pedido_salvo.connect(lambda: self.carregar_pedidos())
-                
-                # Conectar à aba principal de Pedidos
+            # Preenche o modelo com os dados do cliente
+            try:
+                pedidos_modal.model.preencher({
+                    'nome_cliente': cli.get('nome',''),
+                    'cpf_cliente': cli.get('cpf',''),
+                    'telefone_cliente': cli.get('telefone',''),
+                    'endereco_cliente': f"{cli.get('rua','')} {cli.get('numero','')}"
+                })
+                try:
+                    pedidos_modal._preencher_dados_cliente(cli)
+                except Exception:
+                    pass
+            except Exception:
+                pass
+            try:
+                pedidos_modal.setWindowState(pedidos_modal.windowState() | Qt.WindowState.WindowMaximized)
+            except Exception:
+                pass
+            # Conectar o sinal para atualizar este dialog quando o pedido for salvo
+            try:
+                pedidos_modal.pedido_salvo.connect(lambda: self.carregar_pedidos())
+            except Exception:
+                pass
+            # Também conectar para atualizar a aba principal de Pedidos
+            try:
                 main_win = self.window()
                 if main_win and hasattr(main_win, 'pedidos_manager'):
-                    modal.pedido_salvo.connect(lambda: main_win.pedidos_manager.carregar_dados())
-            
-            # Maximizar e exibir modal
-            modal.setWindowState(modal.windowState() | Qt.WindowState.WindowMaximized)
-            modal.exec()
-            
+                    pedidos_modal.pedido_salvo.connect(lambda: main_win.pedidos_manager.carregar_dados())
+                else:
+                    # fallback: procurar top-level widgets que tenham pedidos_manager
+                    from PyQt6.QtWidgets import QApplication
+                    for w in QApplication.topLevelWidgets():
+                        if hasattr(w, 'pedidos_manager'):
+                            try:
+                                pedidos_modal.pedido_salvo.connect(lambda: w.pedidos_manager.carregar_dados())
+                                break
+                            except Exception:
+                                continue
+            except Exception:
+                pass
+            # Chama o modal com cliente_fixo=True, passando rótulo com CPF e cidade para exibição no cabeçalho
+            from app.utils.formatters import formatar_cpf
+            cpf_fmt = formatar_cpf(cli.get('cpf',''))
+            cidade = cli.get('cidade','')
+            nome_label = cli.get('nome','')
+            extra = []
+            if cpf_fmt:
+                extra.append(f"CPF: {cpf_fmt}")
+            if cidade:
+                extra.append(cidade)
+            if extra:
+                nome_label = f"{nome_label} — { ' | '.join(extra) }"
+            pedidos_modal._criar_modal_completo(None, cliente_fixo=True, nome_cliente_label=nome_label)
         except Exception as e:
-            from PyQt6.QtWidgets import QMessageBox
             QMessageBox.critical(self, "Erro", f"Não foi possível abrir modal completo: {e}")
 
 

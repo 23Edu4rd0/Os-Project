@@ -30,14 +30,14 @@ except ModuleNotFoundError:
 # Imports dos componentes (funciona tanto como pacote quanto executado direto)
 try:
 	from .pedidos_card import PedidosCard
-	from .novo_pedidos_modal import NovoPedidosModal
+	from .pedidosModal import PedidosModal
 except Exception:
 	import sys, pathlib
 	ROOT = pathlib.Path(__file__).resolve().parents[3]
 	if str(ROOT) not in sys.path:
 		sys.path.insert(0, str(ROOT))
 	from app.components.pedidos.pedidos_card import PedidosCard  # type: ignore
-	from app.components.pedidos.novo_pedidos_modal import NovoPedidosModal  # type: ignore
+	from app.components.pedidos.pedidosModal import PedidosModal  # type: ignore
 
 
 class PedidosInterface(QWidget):
@@ -305,18 +305,14 @@ class PedidosInterface(QWidget):
 
 	# Ações públicas ---------------------------------------------------------
 	def novo_pedido(self):
-		modal = NovoPedidosModal(self)
-		if hasattr(modal, 'pedido_salvo'):
-			modal.pedido_salvo.connect(lambda: self.carregar_dados(force_refresh=True))
-		modal.setWindowState(modal.windowState() | Qt.WindowState.WindowMaximized)
-		modal.exec()
+		modal = PedidosModal(self)
+		modal.pedido_salvo.connect(lambda: self.carregar_dados(force_refresh=True))
+		modal.abrir_modal_novo()
 
 	def editar_pedido(self, pedido_id: int):
-		modal = NovoPedidosModal(self, pedido_id=pedido_id)
-		if hasattr(modal, 'pedido_salvo'):
-			modal.pedido_salvo.connect(lambda: self.carregar_dados(force_refresh=True))
-		modal.setWindowState(modal.windowState() | Qt.WindowState.WindowMaximized)
-		modal.exec()
+		modal = PedidosModal(self)
+		modal.pedido_salvo.connect(lambda: self.carregar_dados(force_refresh=True))
+		modal.abrir_modal_edicao(pedido_id)
 
 	def excluir_pedido(self, pedido_id: int):
 		try:

@@ -5,11 +5,11 @@ Módulo de gerenciamento de pedidos em PyQt6
 from PyQt6.QtWidgets import QWidget, QVBoxLayout
 
 from .pedidos_interface import PedidosInterface
-from .novo_pedidos_modal import NovoPedidosModal
+from .pedidosModal import PedidosModal
 from .pedidos_card import PedidosCard
 from .pedidos_actions import PedidosActions
 
-__all__ = ['PedidosInterface', 'NovoPedidosModal', 'PedidosCard', 'PedidosActions', 'PedidosManager']
+__all__ = ['PedidosInterface', 'PedidosModal', 'PedidosCard', 'PedidosActions', 'PedidosManager']
 
 # Classe principal que substitui o PedidosManager
 class PedidosManager(QWidget):

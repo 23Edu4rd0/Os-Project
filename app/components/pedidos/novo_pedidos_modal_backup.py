@@ -147,7 +147,7 @@ class NovoPedidosModal(QDialog):
                 min-height: 25px;
             }
             QScrollBar::handle:vertical:hover {
-                background-color: #cccccc;
+                background-color: #0d7377;
             }
         """)
         
@@ -416,7 +416,7 @@ class NovoPedidosModal(QDialog):
         pagamento_group.setStyleSheet("""
             QGroupBox {
                 background-color: #3a3a3a;
-                border: 2px solid #cccccc;
+                border: 2px solid #0d7377;
                 border-radius: 10px;
                 margin: 10px 0;
                 padding-top: 20px;
@@ -428,7 +428,7 @@ class NovoPedidosModal(QDialog):
                 subcontrol-origin: margin;
                 left: 15px;
                 padding: 0 5px 0 5px;
-                color: #cccccc;
+                color: #0d7377;
                 font-weight: bold;
                 font-size: 16px;
             }
@@ -455,7 +455,7 @@ class NovoPedidosModal(QDialog):
         # Título da seção
         valores_title = QLabel("💰 Valores Financeiros")
         valores_title.setStyleSheet("""
-            color: #cccccc; 
+            color: #0d7377; 
             font-weight: bold; 
             font-size: 16px; 
             margin-bottom: 15px;
@@ -521,7 +521,7 @@ class NovoPedidosModal(QDialog):
         # Título da seção
         metodos_title = QLabel("💳 Métodos e Prazos")
         metodos_title.setStyleSheet("""
-            color: #cccccc; 
+            color: #0d7377; 
             font-weight: bold; 
             font-size: 16px; 
             margin-bottom: 15px;
@@ -607,7 +607,7 @@ class NovoPedidosModal(QDialog):
         # Título da seção
         totais_title = QLabel("🧮 Totais")
         totais_title.setStyleSheet("""
-            color: #cccccc; 
+            color: #0d7377; 
             font-weight: bold; 
             font-size: 16px; 
             margin-bottom: 15px;
@@ -622,11 +622,11 @@ class NovoPedidosModal(QDialog):
         total_label_text.setStyleSheet("color: #ffffff; font-weight: bold; min-width: 140px; font-size: 14px;")
         self.total_label = QLabel("R$ 0,00")
         self.total_label.setStyleSheet("""
-            color: #cccccc; 
+            color: #0d7377; 
             font-weight: bold; 
             font-size: 18px; 
             background-color: #1a1a1a;
-            border: 2px solid #cccccc;
+            border: 2px solid #0d7377;
             border-radius: 8px;
             padding: 12px;
         """)
@@ -641,11 +641,11 @@ class NovoPedidosModal(QDialog):
         receber_label_text.setStyleSheet("color: #ffffff; font-weight: bold; min-width: 140px; font-size: 14px;")
         self.valor_receber_label = QLabel("R$ 0,00")
         self.valor_receber_label.setStyleSheet("""
-            color: #ffffff; 
+            color: #00ff00; 
             font-weight: bold; 
             font-size: 18px; 
             background-color: #1a1a1a;
-            border: 2px solid #ffffff;
+            border: 2px solid #00ff00;
             border-radius: 8px;
             padding: 12px;
         """)
@@ -661,43 +661,398 @@ class NovoPedidosModal(QDialog):
         self.desconto_input.textChanged.connect(self._calcular_total)
         
         layout.addWidget(pagamento_group)
-
-    def _calcular_total(self):
-        """Calcula o total do pedido"""
+        entrada_label = QLabel("Entrada (R$):")
+        entrada_label.setStyleSheet("color: #ffffff; font-weight: bold; min-width: 120px; font-size: 13px;")
+        self.entrada_input = QLineEdit()
+        self.entrada_input.setPlaceholderText("0,00")
+        self.entrada_input.setObjectName("entradaInput")
+        self.entrada_input.setMinimumHeight(40)
+        entrada_layout.addWidget(entrada_label)
+        entrada_layout.addWidget(self.entrada_input)
+        valores_section_layout.addLayout(entrada_layout)
+        
+        # Frete
+        frete_layout = QHBoxLayout()
+        frete_layout.setSpacing(15)
+        frete_label = QLabel("Frete (R$):")
+        frete_label.setStyleSheet("color: #ffffff; font-weight: bold; min-width: 120px; font-size: 13px;")
+        self.frete_input = QLineEdit()
+        self.frete_input.setPlaceholderText("0,00")
+        self.frete_input.setObjectName("freteInput")
+        self.frete_input.setMinimumHeight(40)
+        frete_layout.addWidget(frete_label)
+        frete_layout.addWidget(self.frete_input)
+        valores_section_layout.addLayout(frete_layout)
+        
+        # Desconto
+        desconto_layout = QHBoxLayout()
+        desconto_layout.setSpacing(15)
+        desconto_label = QLabel("Desconto (R$):")
+        desconto_label.setStyleSheet("color: #ffffff; font-weight: bold; min-width: 120px; font-size: 13px;")
+        self.desconto_input = QLineEdit()
+        self.desconto_input.setPlaceholderText("0,00")
+        self.desconto_input.setObjectName("descontoInput")
+        self.desconto_input.setMinimumHeight(40)
+        desconto_layout.addWidget(desconto_label)
+        desconto_layout.addWidget(self.desconto_input)
+        valores_section_layout.addLayout(desconto_layout)
+        
+        group_layout.addWidget(valores_section)
+        
+        # === MÉTODO DE PAGAMENTO E PRAZOS ===
+        metodos_section = QFrame()
+        metodos_section.setStyleSheet("""
+            QFrame {
+                background-color: #3a3a3a;
+                border: 1px solid #555555;
+                border-radius: 10px;
+                padding: 18px;
+                margin-bottom: 15px;
+            }
+        """)
+        metodos_section_layout = QVBoxLayout(metodos_section)
+        metodos_section_layout.setSpacing(15)
+        
+        # Título da seção
+        metodos_title = QLabel("💳 Métodos e Prazos")
+        metodos_title.setStyleSheet("""
+            color: #ffffff; 
+            font-weight: bold; 
+            font-size: 15px; 
+            margin-bottom: 10px;
+            padding: 5px 0;
+        """)
+        metodos_section_layout.addWidget(metodos_title)
+        
+        # Método de Pagamento
+        metodo_layout = QHBoxLayout()
+        metodo_layout.setSpacing(15)
+        metodo_label = QLabel("Método Pagamento:")
+        metodo_label.setStyleSheet("color: #ffffff; font-weight: bold; min-width: 120px; font-size: 13px;")
+        self.metodo_pagamento = QComboBox()
+        self.metodo_pagamento.setObjectName("metodoPagamento")
+        self.metodo_pagamento.setMinimumHeight(40)
+        self.metodo_pagamento.addItems([
+            "PIX",
+            "Cartão de Crédito", 
+            "Cartão de Débito",
+            "Dinheiro",
+            "Transferência Bancária",
+            "Boleto",
+            "Cheque",
+            "Crediário"
+        ])
+        metodo_layout.addWidget(metodo_label)
+        metodo_layout.addWidget(self.metodo_pagamento)
+        metodos_section_layout.addLayout(metodo_layout)
+        
+        # Prazo de Entrega
+        prazo_layout = QHBoxLayout()
+        prazo_layout.setSpacing(15)
+        prazo_label = QLabel("Prazo Entrega:")
+        prazo_label.setStyleSheet("color: #ffffff; font-weight: bold; min-width: 120px; font-size: 13px;")
+        self.prazo_entrega = QLineEdit()
+        self.prazo_entrega.setPlaceholderText("Ex: 30 dias")
+        self.prazo_entrega.setObjectName("prazoEntrega")
+        self.prazo_entrega.setMinimumHeight(40)
+        prazo_layout.addWidget(prazo_label)
+        prazo_layout.addWidget(self.prazo_entrega)
+        metodos_section_layout.addLayout(prazo_layout)
+        
+        # Status
+        status_layout = QHBoxLayout()
+        status_layout.setSpacing(15)
+        status_label = QLabel("Status Pedido:")
+        status_label.setStyleSheet("color: #ffffff; font-weight: bold; min-width: 120px; font-size: 13px;")
+        self.status_pedido = QComboBox()
+        self.status_pedido.setObjectName("statusPedido")
+        self.status_pedido.setMinimumHeight(40)
         try:
-            # Total dos produtos
-            total_produtos = sum(p['valor'] for p in self.produtos_list)
+            from app.utils.statuses import load_statuses
+            self.status_pedido.addItems(load_statuses())
+        except Exception:
+            self.status_pedido.addItems([
+                "Em Produção",
+                "Aguardando Material", 
+                "Pronto",
+                "Enviado",
+                "Entregue",
+                "Cancelado"
+            ])
+        status_layout.addWidget(status_label)
+        status_layout.addWidget(self.status_pedido)
+        metodos_section_layout.addLayout(status_layout)
+        
+        group_layout.addWidget(metodos_section)
+        
+                # === TOTAIS ===
+        totais_section = QFrame()
+        totais_section.setStyleSheet("""
+            QFrame {
+                background-color: #3a3a3a;
+                border: 1px solid #555555;
+                border-radius: 10px;
+                padding: 18px;
+                margin-bottom: 15px;
+            }
+        """)
+        totais_section_layout = QVBoxLayout(totais_section)
+        totais_section_layout.setSpacing(15)
+        
+        # Título da seção
+        totais_title = QLabel("🧮 Totais")
+        totais_title.setStyleSheet("""
+            color: #ffffff; 
+            font-weight: bold; 
+            font-size: 15px; 
+            margin-bottom: 10px;
+            padding: 5px 0;
+        """)
+        totais_section_layout.addWidget(totais_title)
+        
+        # Total Geral
+        total_layout = QHBoxLayout()
+        total_layout.setSpacing(15)
+        total_label_text = QLabel("Total Geral:")
+        total_label_text.setStyleSheet("color: #ffffff; font-weight: bold; min-width: 120px; font-size: 13px;")
+        self.total_label = QLabel("R$ 0,00")
+        self.total_label.setStyleSheet("""
+            color: #0d7377; 
+            font-weight: bold; 
+            font-size: 16px; 
+            background-color: #2d2d2d;
+            border: 1px solid #0d7377;
+            border-radius: 5px;
+            padding: 10px;
+        """)
+        total_layout.addWidget(total_label_text)
+        total_layout.addWidget(self.total_label)
+        totais_section_layout.addLayout(total_layout)
+        
+        # Valor a Receber
+        receber_layout = QHBoxLayout()
+        receber_layout.setSpacing(15)
+        receber_label_text = QLabel("Valor a Receber:")
+        receber_label_text.setStyleSheet("color: #ffffff; font-weight: bold; min-width: 120px; font-size: 13px;")
+        self.valor_receber_label = QLabel("R$ 0,00")
+        self.valor_receber_label.setStyleSheet("""
+            color: #00ff00; 
+            font-weight: bold; 
+            font-size: 16px; 
+            background-color: #2d2d2d;
+            border: 1px solid #00ff00;
+            border-radius: 5px;
+            padding: 10px;
+        """)
+        receber_layout.addWidget(receber_label_text)
+        receber_layout.addWidget(self.valor_receber_label)
+        totais_section_layout.addLayout(receber_layout)
+        
+        group_layout.addWidget(totais_section)
+        
+        # Conectar cálculos
+        self.entrada_input.textChanged.connect(self._calcular_total)
+        self.frete_input.textChanged.connect(self._calcular_total)
+        self.desconto_input.textChanged.connect(self._calcular_total)
+        
+        # === SEÇÃO 2: MÉTODO E PRAZO ===
+        metodo_frame = QFrame()
+        metodo_frame.setStyleSheet("""
+            QFrame {
+                background-color: #2a2a2a;
+                border: 1px solid #444444;
+                border-radius: 8px;
+                padding: 15px;
+                margin-bottom: 10px;
+            }
+        """)
+        metodo_layout = QVBoxLayout(metodo_frame)
+        metodo_layout.setSpacing(12)
+        
+        # Status do Pedido
+        status_layout = QHBoxLayout()
+        status_icon = QLabel("�")
+        status_icon.setFixedWidth(30)
+        status_icon.setStyleSheet("font-size: 16px;")
+        status_label = QLabel("Status:")
+        status_label.setStyleSheet("color: #ffffff; font-weight: bold; min-width: 120px;")
+        self.status_pedido = QComboBox()
+        self.status_pedido.setObjectName("statusPedido")
+        try:
+            from app.utils.statuses import load_statuses
+            self.status_pedido.addItems(load_statuses())
+        except Exception:
+            self.status_pedido.addItems([
+                "Em Produção",
+                "Aguardando Material", 
+                "Pronto",
+                "Enviado",
+                "Entregue",
+                "Cancelado"
+            ])
+        status_layout.addWidget(status_icon)
+        status_layout.addWidget(status_label)
+        status_layout.addWidget(self.status_pedido)
+        metodo_layout.addLayout(status_layout)
+        
+        # Método de Pagamento
+        metodo_pagamento_layout = QHBoxLayout()
+        metodo_icon = QLabel("💳")
+        metodo_icon.setFixedWidth(30)
+        metodo_icon.setStyleSheet("font-size: 16px;")
+        metodo_label = QLabel("Forma de Pagamento:")
+        metodo_label.setStyleSheet("color: #ffffff; font-weight: bold; min-width: 120px;")
+        self.metodo_pagamento = QComboBox()
+        self.metodo_pagamento.setObjectName("metodoPagamento")
+        self.metodo_pagamento.addItems([
+            "PIX",
+            "Cartão de Crédito", 
+            "Cartão de Débito",
+            "Dinheiro",
+            "Transferência Bancária",
+            "Boleto",
+            "Cheque",
+            "Crediário"
+        ])
+        metodo_pagamento_layout.addWidget(metodo_icon)
+        metodo_pagamento_layout.addWidget(metodo_label)
+        metodo_pagamento_layout.addWidget(self.metodo_pagamento)
+        metodo_layout.addLayout(metodo_pagamento_layout)
+        
+        # Prazo para Entrega (em dias)
+        prazo_layout = QHBoxLayout()
+        prazo_icon = QLabel("📅")
+        prazo_icon.setFixedWidth(30)
+        prazo_icon.setStyleSheet("font-size: 16px;")
+        prazo_label = QLabel("Prazo de Entrega:")
+        prazo_label.setStyleSheet("color: #ffffff; font-weight: bold; min-width: 120px;")
+        self.prazo_entrega = QLineEdit()
+        self.prazo_entrega.setPlaceholderText("Ex: 30 dias")
+        self.prazo_entrega.setObjectName("prazoEntrega")
+        prazo_layout.addWidget(prazo_icon)
+        prazo_layout.addWidget(prazo_label)
+        prazo_layout.addWidget(self.prazo_entrega)
+        metodo_layout.addLayout(prazo_layout)
+        
+        group_layout.addWidget(metodo_frame)
+        
+                # === SEÇÃO 3: TOTAIS ===
+        totais_frame = QFrame()
+        totais_frame.setStyleSheet("""
+            QFrame {
+                background-color: #1a4a4c;
+                border: 2px solid #0d7377;
+                border-radius: 8px;
+                padding: 15px;
+            }
+        """)
+        totais_layout = QVBoxLayout(totais_frame)
+        totais_layout.setSpacing(10)
+        
+        # Total Geral
+        total_layout = QHBoxLayout()
+        total_icon = QLabel("💰")
+        total_icon.setFixedWidth(30)
+        total_icon.setStyleSheet("font-size: 16px;")
+        total_titulo = QLabel("Total Geral:")
+        total_titulo.setStyleSheet("color: #ffffff; font-weight: bold; font-size: 14px; min-width: 120px;")
+        self.total_label = QLabel("R$ 0,00")
+        self.total_label.setObjectName("totalLabel")
+        self.total_label.setStyleSheet("""
+            QLabel {
+                color: #ffffff;
+                font-size: 16px;
+                font-weight: bold;
+                padding: 8px 12px;
+                background-color: #1a5a5c;
+                border: 2px solid #0d7377;
+                border-radius: 6px;
+                min-height: 25px;
+            }
+        """)
+        total_layout.addWidget(total_icon)
+        total_layout.addWidget(total_titulo)
+        total_layout.addWidget(self.total_label)
+        totais_layout.addLayout(total_layout)
+        
+        # Valor a Receber
+        receber_layout = QHBoxLayout()
+        receber_icon = QLabel("💵")
+        receber_icon.setFixedWidth(30)
+        receber_icon.setStyleSheet("font-size: 16px;")
+        receber_titulo = QLabel("Valor a Receber:")
+        receber_titulo.setStyleSheet("color: #ffffff; font-weight: bold; font-size: 14px; min-width: 120px;")
+        self.valor_receber_label = QLabel("R$ 0,00")
+        self.valor_receber_label.setObjectName("valorReceberLabel")
+        self.valor_receber_label.setStyleSheet("""
+            QLabel {
+                color: #ffffff;
+                font-size: 16px;
+                font-weight: bold;
+                padding: 8px 12px;
+                background-color: #1a5a5c;
+                border: 2px solid #0d7377;
+                border-radius: 6px;
+                min-height: 25px;
+            }
+        """)
+        receber_layout.addWidget(receber_icon)
+        receber_layout.addWidget(receber_titulo)
+        receber_layout.addWidget(self.valor_receber_label)
+        totais_section_layout.addLayout(receber_layout)
+        
+        group_layout.addWidget(totais_section)
+        
+        # Conectar cálculos
+        self.entrada_input.textChanged.connect(self._calcular_total)
+        self.frete_input.textChanged.connect(self._calcular_total)
+        self.desconto_input.textChanged.connect(self._calcular_total)
+        
+        layout.addWidget(pagamento_group)
+    
+    def _calcular_total(self):
+        """Calcula o total com entrada, frete e desconto"""
+        try:
+            # Soma dos produtos
+            total_produtos = 0.0
+            for row in range(self.table_produtos.rowCount()):
+                try:
+                    valor_item = self.table_produtos.item(row, 2)  # Coluna "Valor"
+                    if valor_item:
+                        valor_text = valor_item.text().replace('R$ ', '').replace(',', '.')
+                        total_produtos += float(valor_text)
+                except:
+                    continue
             
-            # Valores financeiros (entrada, frete, desconto)
+            # Valores de entrada, frete e desconto
             try:
-                entrada_text = self.entrada_input.text().replace('R$', '').replace(',', '.').strip()
-                entrada = float(entrada_text) if entrada_text else 0.0
-            except ValueError:
+                entrada = float(self.entrada_input.text().replace(',', '.')) if self.entrada_input.text() else 0.0
+            except:
                 entrada = 0.0
-            
+                
             try:
-                frete_text = self.frete_input.text().replace('R$', '').replace(',', '.').strip()
-                frete = float(frete_text) if frete_text else 0.0
-            except ValueError:
+                frete = float(self.frete_input.text().replace(',', '.')) if self.frete_input.text() else 0.0
+            except:
                 frete = 0.0
-            
+                
             try:
-                desconto_text = self.desconto_input.text().replace('R$', '').replace(',', '.').strip()
-                desconto = float(desconto_text) if desconto_text else 0.0
-            except ValueError:
+                desconto = float(self.desconto_input.text().replace(',', '.')) if self.desconto_input.text() else 0.0
+            except:
                 desconto = 0.0
             
-            # Calcular total final
+            # Total final = produtos + frete - desconto
             total_final = total_produtos + frete - desconto
+            
+            # Valor a receber = total final - entrada
             valor_a_receber = total_final - entrada
             
-            # Atualizar os labels
+            # Atualizar labels
             if hasattr(self, 'total_label'):
                 self.total_label.setText(f"R$ {total_final:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.'))
             
             if hasattr(self, 'valor_receber_label'):
                 self.valor_receber_label.setText(f"R$ {valor_a_receber:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.'))
-                
+            
         except Exception as e:
             print(f"Erro ao calcular total: {e}")
     
@@ -831,11 +1186,7 @@ class NovoPedidosModal(QDialog):
             # Altura da linha
             self.table_produtos.setRowHeight(row, 50)
         
-        # Atualizar label total dos produtos
-        if hasattr(self, 'label_total'):
-            self.label_total.setText(f"R$ {total:.2f}")
-        
-        # Recalcular totais gerais
+        # Recalcular totais
         self._calcular_total()
     
     def _remover_produto(self, index):
@@ -1060,8 +1411,8 @@ class NovoPedidosModal(QDialog):
             }
             
             #btnFullscreen {
-                background-color: #cccccc;
-                color: #000000;
+                background-color: #0d7377;
+                color: #ffffff;
                 padding: 8px 16px;
                 font-size: 12px;
                 min-height: 15px;
@@ -1069,7 +1420,7 @@ class NovoPedidosModal(QDialog):
             }
             
             #btnFullscreen:hover {
-                background-color: #dddddd;
+                background-color: #0f8a8f;
             }
             
             /* Estilos específicos para seção de pagamento */
