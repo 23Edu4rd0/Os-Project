@@ -2,11 +2,12 @@
 Modal de Pedidos Simplificado
 Design moderno em tons de cinza, sem camadas desnecessárias
 """
+import json
 
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, 
                             QLineEdit, QComboBox, QGroupBox, QTableWidget, QTableWidgetItem,
                             QHeaderView, QWidget, QMessageBox, QCompleter, QFrame, QFormLayout,
-                            QScrollArea)
+                            QScrollArea, QAbstractScrollArea)
 from PyQt6.QtCore import Qt, pyqtSignal, QStringListModel
 from PyQt6.QtGui import QFont
 
@@ -25,6 +26,17 @@ class NovoPedidosModal(QDialog):
         self.dados_cliente_inicial = dados_cliente
         self.pedido_id = pedido_id
         
+        # Variáveis para controle de edição
+        self.is_editing = False
+        self.numero_os_original = None
+        self.pedido_id_editando = None  # ID do pedido sendo editado
+        self.titulo_label = None  # Referência para atualizar o título
+        
+        # Compatibilidade com modal antigo - criar objeto model fake
+        self.model = type('Model', (), {
+            'preencher': self._preencher_compatibilidade
+        })()
+        
         if pedido_id:
             self.setWindowTitle(f"Editar Ordem de Serviço Nº {pedido_id:05d}")
         else:
@@ -35,10 +47,10 @@ class NovoPedidosModal(QDialog):
         from PyQt6.QtCore import Qt
         
         screen = QApplication.primaryScreen().geometry()
-        width = int(screen.width() * 0.7)  # 70% da largura da tela
-        height = int(screen.height() * 0.8)  # 80% da altura da tela
+        width = int(screen.width() * 0.75)  # 75% da largura da tela (era 70%)
+        height = int(screen.height() * 0.85)  # 85% da altura da tela (era 80%)
         
-        self.setMinimumSize(1000, 800)  # Tamanho mínimo
+        self.setMinimumSize(1100, 900)  # Tamanho mínimo aumentado
         self.resize(width, height)
         self.setModal(True)
         
@@ -181,12 +193,16 @@ class NovoPedidosModal(QDialog):
         header_frame = QFrame()
         header_layout = QHBoxLayout(header_frame)
         
-        # Número da OS
-        numero_os = Contador().get_proximo_numero()
-        titulo = QLabel(f"Ordem de Serviço Nº {numero_os:05d}")
-        titulo.setObjectName("titulo")
+        # Número da OS - será atualizado dinamicamente
+        if self.is_editing and self.numero_os_original:
+            numero_os = self.numero_os_original
+        else:
+            numero_os = Contador().get_proximo_numero()
+            
+        self.titulo_label = QLabel(f"Ordem de Serviço Nº {numero_os:05d}")
+        self.titulo_label.setObjectName("titulo")
         
-        header_layout.addWidget(titulo)
+        header_layout.addWidget(self.titulo_label)
         header_layout.addStretch()
         
         layout.addWidget(header_frame)
@@ -369,11 +385,14 @@ class NovoPedidosModal(QDialog):
         self.table_produtos.setColumnWidth(1, 100)  # Código
         self.table_produtos.setColumnWidth(2, 120)  # Valor
         self.table_produtos.setColumnWidth(3, 100)  # Cor
-        self.table_produtos.setColumnWidth(4, 200)  # Ações
+        self.table_produtos.setColumnWidth(4, 120)  # Ações - ajustado para o botão
         
         # Altura das linhas
         self.table_produtos.verticalHeader().setDefaultSectionSize(50)
         self.table_produtos.verticalHeader().setVisible(False)
+        
+        # Definir altura inicial para a tabela
+        self.table_produtos.setFixedHeight(200)  # Altura inicial quando vazia
         
         group_layout.addWidget(self.table_produtos)
         
@@ -733,15 +752,43 @@ class NovoPedidosModal(QDialog):
     
     def _on_produto_changed(self, texto):
         """Evento quando o texto do produto muda"""
+        
+        # Buscar por nome exato primeiro
         if texto in self.produtos_dict:
             produto = self.produtos_dict[texto]
-            self.input_valor.setText(f"{produto['preco']:.2f}")
+            preco = produto.get('preco', 0.0)
+            self.input_valor.setText(f"{preco:.2f}")
+            return
+        
+        # Buscar por nome lowercase
+        texto_lower = texto.lower()
+        if texto_lower in self.produtos_dict:
+            produto = self.produtos_dict[texto_lower]
+            preco = produto.get('preco', 0.0)
+            self.input_valor.setText(f"{preco:.2f}")
+            return
+            
+        print(f"DEBUG: Produto não encontrado no dicionário")
     
     def _on_produto_selecionado(self, texto):
         """Evento quando um produto é selecionado no completer"""
+        
+        # Buscar por nome exato primeiro
         if texto in self.produtos_dict:
             produto = self.produtos_dict[texto]
-            self.input_valor.setText(f"{produto['preco']:.2f}")
+            preco = produto.get('preco', 0.0)
+            self.input_valor.setText(f"{preco:.2f}")
+            return
+        
+        # Buscar por nome lowercase
+        texto_lower = texto.lower()
+        if texto_lower in self.produtos_dict:
+            produto = self.produtos_dict[texto_lower]
+            preco = produto.get('preco', 0.0)
+            self.input_valor.setText(f"{preco:.2f}")
+            return
+            
+        print(f"DEBUG: Produto selecionado não encontrado no dicionário")
     
     def _adicionar_produto(self):
         """Adiciona um produto à lista"""
@@ -800,8 +847,9 @@ class NovoPedidosModal(QDialog):
         total = 0
         
         for row, produto in enumerate(self.produtos_list):
-            # Nome
-            self.table_produtos.setItem(row, 0, QTableWidgetItem(produto['nome']))
+            # Nome (pode ser 'nome' ou 'descricao' dependendo da origem)
+            nome = produto.get('nome', produto.get('descricao', ''))
+            self.table_produtos.setItem(row, 0, QTableWidgetItem(nome))
             
             # Código
             codigo = produto.get('codigo', '')
@@ -819,17 +867,24 @@ class NovoPedidosModal(QDialog):
             # Ações
             btn_widget = QWidget()
             btn_layout = QHBoxLayout(btn_widget)
-            btn_layout.setContentsMargins(5, 5, 5, 5)
+            btn_layout.setContentsMargins(2, 2, 2, 2)
+            btn_layout.setSpacing(2)
             
             btn_remover = QPushButton("Remover")
             btn_remover.setObjectName("btnRemover")
+            btn_remover.setMaximumWidth(100)  # Largura máxima para não cortar
+            btn_remover.setMinimumHeight(30)  # Altura mínima
             btn_remover.clicked.connect(lambda checked, idx=row: self._remover_produto(idx))
             btn_layout.addWidget(btn_remover)
+            btn_layout.addStretch()  # Espaço extra para centralizar
             
             self.table_produtos.setCellWidget(row, 4, btn_widget)
             
             # Altura da linha
             self.table_produtos.setRowHeight(row, 50)
+        
+        # Ajustar altura da tabela dinamicamente
+        self._ajustar_altura_tabela()
         
         # Atualizar label total dos produtos
         if hasattr(self, 'label_total'):
@@ -837,6 +892,26 @@ class NovoPedidosModal(QDialog):
         
         # Recalcular totais gerais
         self._calcular_total()
+    
+    def _ajustar_altura_tabela(self):
+        """Ajusta a altura da tabela com base no número de produtos"""
+        num_produtos = len(self.produtos_list)
+        
+        if num_produtos == 0:
+            # Altura mínima quando vazia (mostra pelo menos 3 linhas vazias)
+            altura_ideal = 200
+        else:
+            # Calcular altura com base no conteúdo
+            altura_header = 40  # Altura do header
+            altura_linha = 50   # Altura de cada linha
+            padding = 20        # Padding interno
+            
+            altura_ideal = altura_header + (num_produtos * altura_linha) + padding
+            
+            # Limitar entre 200 e 400 pixels
+            altura_ideal = max(200, min(400, altura_ideal))
+        
+        self.table_produtos.setFixedHeight(altura_ideal)
     
     def _remover_produto(self, index):
         """Remove um produto da lista"""
@@ -903,27 +978,83 @@ class NovoPedidosModal(QDialog):
             valor_final = valor_total + frete - desconto
             valor_a_receber = valor_final - entrada
             
+            # Número da OS - usar original se for edição, caso contrário gerar novo
+            if self.is_editing and self.numero_os_original:
+                numero_os = self.numero_os_original
+                print(f"Usando número OS original: {numero_os}")
+            else:
+                numero_os = Contador().get_proximo_numero()
+                print(f"Gerando novo número OS: {numero_os}")
+            
             # Dados do pedido
-            numero_os = Contador().get_proximo_numero()
-            pedido_data = {
-                'numero_os': numero_os,
-                'cliente_id': cliente_id,
-                'cliente_nome': cliente_data['nome'],
-                'valor_total': valor_final,
-                'valor_entrada': entrada,
-                'valor_a_receber': valor_a_receber,
-                'frete': frete,
-                'desconto': desconto,
-                'forma_pagamento': self.metodo_pagamento.currentText(),
-                'prazo': prazo,
-                'status': self.status_pedido.currentText(),
-                'produtos': self.produtos_list
-            }
+            if self.is_editing and self.pedido_id_editando:
+                # Gerar detalhes dos produtos para exibição na interface
+                detalhes_produtos = []
+                for produto in self.produtos_list:
+                    nome = produto.get('nome', produto.get('descricao', ''))
+                    valor = produto.get('valor', 0)
+                    cor = produto.get('cor', '')
+                    if cor and cor != '':
+                        detalhes_produtos.append(f"• {nome}  —  Cor: {cor} - R$ {valor:.2f}")
+                    else:
+                        detalhes_produtos.append(f"• {nome} - R$ {valor:.2f}")
+                
+                detalhes_texto = '\n'.join(detalhes_produtos)
+                
+                print(f"DEBUG: Detalhes gerados: {detalhes_texto}")
+                
+                # Para atualização, usar apenas campos que existem na tabela ordem_servico
+                pedido_data = {
+                    'numero_os': numero_os,
+                    'nome_cliente': cliente_data['nome'],
+                    'cpf_cliente': cliente_data['cnpj'],  # CPF/CNPJ vai para cpf_cliente
+                    'telefone_cliente': cliente_data['telefone'],
+                    'detalhes_produto': detalhes_texto,  # Campo que aparece na interface
+                    'valor_produto': valor_total,
+                    'valor_entrada': entrada,
+                    'frete': frete,
+                    'forma_pagamento': self.metodo_pagamento.currentText(),
+                    'prazo': prazo,
+                    'status': self.status_pedido.currentText(),
+                    # dados_json pode conter info adicional como produtos, desconto, etc.
+                    'dados_json': json.dumps({
+                        'produtos': self.produtos_list,
+                        'desconto': desconto,
+                        'valor_total': valor_final,
+                        'valor_a_receber': valor_a_receber
+                    }, ensure_ascii=False)
+                }
+            else:
+                # Para criação, usar estrutura completa
+                pedido_data = {
+                    'numero_os': numero_os,
+                    'cliente_id': cliente_id,
+                    'cliente_nome': cliente_data['nome'],
+                    'valor_total': valor_final,
+                    'valor_entrada': entrada,
+                    'valor_a_receber': valor_a_receber,
+                    'frete': frete,
+                    'desconto': desconto,
+                    'forma_pagamento': self.metodo_pagamento.currentText(),
+                    'prazo': prazo,
+                    'status': self.status_pedido.currentText(),
+                    'produtos': self.produtos_list
+                }
             
-            # Salvar pedido
-            pedido_id = db_manager.salvar_pedido(pedido_data)
+            # Salvar ou atualizar pedido
+            print(f"DEBUG: is_editing={self.is_editing}, pedido_id_editando={self.pedido_id_editando}")
             
-            QMessageBox.information(self, "Sucesso", f"Pedido #{numero_os:05d} salvo com sucesso!")
+            if self.is_editing and self.pedido_id_editando:
+                # Atualizar pedido existente
+                print(f"Atualizando pedido ID: {self.pedido_id_editando}")
+                resultado = db_manager.atualizar_pedido(self.pedido_id_editando, pedido_data)
+                pedido_id = self.pedido_id_editando
+                QMessageBox.information(self, "Sucesso", f"Pedido #{numero_os:05d} atualizado com sucesso!")
+            else:
+                # Criar novo pedido
+                print(f"Criando novo pedido")
+                pedido_id = db_manager.salvar_ordem(pedido_data)
+                QMessageBox.information(self, "Sucesso", f"Pedido #{numero_os:05d} salvo com sucesso!")
             
             # Emitir sinal e fechar
             self.pedido_salvo.emit()
@@ -1144,6 +1275,150 @@ class NovoPedidosModal(QDialog):
                 
         except Exception as e:
             print(f"Erro ao preencher dados do cliente: {e}")
+
+    def abrir_modal_edicao(self, pedido_id):
+        """Abre modal para editar pedido - compatibilidade com gerenciador de clientes"""
+        try:
+            print(f"=== ABRIR_MODAL_EDICAO: pedido_id={pedido_id} ===")
+            pedidos = db_manager.listar_pedidos_ordenados_por_prazo()
+            print(f"Pedidos carregados: {len(pedidos) if pedidos else 0}")
+            
+            pedido_data = None
+            for i, pedido in enumerate(pedidos):
+                print(f"  Pedido {i}: {type(pedido)} - ID: {pedido.get('id', 'SEM_ID')}")
+                if isinstance(pedido, dict):
+                    print(f"    Chaves: {list(pedido.keys())}")
+                if pedido.get('id') == pedido_id:
+                    pedido_data = pedido
+                    print(f"  ENCONTRADO! Pedido {i}")
+                    break
+                    
+            if pedido_data:
+                print(f"Carregando dados do pedido: {type(pedido_data)}")
+                self._carregar_dados_pedido(pedido_data)
+                print("Mostrando modal...")
+                self.show()
+                print("Modal mostrado com sucesso")
+            else:
+                print("ERRO: Pedido não encontrado na lista!")
+                QMessageBox.warning(self, "Erro", "Pedido não encontrado!")
+                
+        except Exception as e:
+            print(f"=== ERRO em abrir_modal_edicao: {e} ===")
+            import traceback
+            traceback.print_exc()
+            QMessageBox.critical(self, "Erro", f"Erro ao carregar pedido: {e}")
+
+    def _carregar_dados_pedido(self, pedido_data):
+        """Carrega dados do pedido para edição"""
+        try:
+            # Marcar como edição e salvar número da OS original
+            self.is_editing = True
+            if 'id' in pedido_data:
+                self.pedido_id_editando = pedido_data['id']
+                print(f"DEBUG: Definindo pedido_id_editando = {self.pedido_id_editando}")
+            if 'numero_os' in pedido_data:
+                self.numero_os_original = pedido_data['numero_os']
+                print(f"DEBUG: Definindo numero_os_original = {self.numero_os_original}")
+                
+                # Atualizar o título se já foi criado
+                if self.titulo_label:
+                    self.titulo_label.setText(f"Ordem de Serviço Nº {self.numero_os_original:05d}")
+            
+            print(f"DEBUG: is_editing={self.is_editing}, pedido_id_editando={self.pedido_id_editando}")
+            
+            # Preencher dados do cliente - mapeando os campos do banco
+            # Mapear nome_cliente para cliente
+            if 'nome_cliente' in pedido_data:
+                self.input_cliente.setText(pedido_data['nome_cliente'])
+            elif 'cliente' in pedido_data:
+                self.input_cliente.setText(pedido_data['cliente'])
+                
+            # Mapear telefone_cliente para telefone
+            if 'telefone_cliente' in pedido_data:
+                self.input_telefone.setText(pedido_data['telefone_cliente'])
+            elif 'telefone' in pedido_data:
+                self.input_telefone.setText(pedido_data['telefone'])
+                
+            # Mapear endereco_cliente para endereco
+            if 'endereco_cliente' in pedido_data:
+                self.input_endereco.setText(pedido_data['endereco_cliente'])
+            elif 'endereco' in pedido_data:
+                self.input_endereco.setText(pedido_data['endereco'])
+                
+            # Mapear cpf_cliente para cnpj
+            if 'cpf_cliente' in pedido_data:
+                self.input_cnpj.setText(pedido_data['cpf_cliente'])
+            elif 'cnpj' in pedido_data:
+                self.input_cnpj.setText(pedido_data['cnpj'])
+                
+            # Carregar produtos se houver
+            if 'produtos' in pedido_data and pedido_data['produtos']:
+                for produto in pedido_data['produtos']:
+                    self.produtos_list.append(produto)
+                self._atualizar_tabela_produtos()
+                
+            # Preencher dados de pagamento - mapeando os campos do banco
+            # Mapear valor_entrada para entrada_input
+            if 'valor_entrada' in pedido_data:
+                self.entrada_input.setText(str(pedido_data['valor_entrada']))
+            elif 'entrada' in pedido_data:
+                self.entrada_input.setText(str(pedido_data['entrada']))
+                
+            if 'frete' in pedido_data:
+                self.frete_input.setText(str(pedido_data['frete']))
+            if 'desconto' in pedido_data:
+                self.desconto_input.setText(str(pedido_data['desconto']))
+                
+            # Mapear forma_pagamento para metodo_pagamento
+            if 'forma_pagamento' in pedido_data:
+                index = self.metodo_pagamento.findText(pedido_data['forma_pagamento'])
+                if index >= 0:
+                    self.metodo_pagamento.setCurrentIndex(index)
+            elif 'metodo_pagamento' in pedido_data:
+                index = self.metodo_pagamento.findText(pedido_data['metodo_pagamento'])
+                if index >= 0:
+                    self.metodo_pagamento.setCurrentIndex(index)
+                    
+            if 'prazo' in pedido_data:
+                self.prazo_entrega.setText(str(pedido_data['prazo']))
+            if 'status' in pedido_data:
+                index = self.status_pedido.findText(pedido_data['status'])
+                if index >= 0:
+                    self.status_pedido.setCurrentIndex(index)
+                    
+        except Exception as e:
+            print(f"Erro ao carregar dados do pedido: {e}")
+            import traceback
+            traceback.print_exc()
+
+    def _preencher_compatibilidade(self, dados):
+        """Método de compatibilidade com modal antigo"""
+        try:
+            if 'nome_cliente' in dados:
+                self.input_cliente.setText(dados['nome_cliente'])
+            if 'cpf_cliente' in dados:
+                self.input_cnpj.setText(dados['cpf_cliente'])
+            if 'telefone_cliente' in dados:
+                self.input_telefone.setText(dados['telefone_cliente'])
+            if 'endereco_cliente' in dados:
+                self.input_endereco.setText(dados['endereco_cliente'])
+        except Exception as e:
+            print(f"Erro na compatibilidade: {e}")
+
+    def _criar_modal_completo(self, pedido_data=None, cliente_fixo=False, nome_cliente_label=None):
+        """Método de compatibilidade com modal antigo"""
+        try:
+            if pedido_data:
+                self._carregar_dados_pedido(pedido_data)
+            
+            # Se há nome do cliente no label, usar no título
+            if nome_cliente_label:
+                self.setWindowTitle(f"Pedido para: {nome_cliente_label}")
+            
+            self.show()
+        except Exception as e:
+            print(f"Erro ao criar modal completo: {e}")
 
 
 def abrir_novo_pedido(parent=None):

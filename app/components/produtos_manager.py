@@ -8,8 +8,8 @@ from PyQt6.QtWidgets import (
     QTableWidgetItem, QLabel, QDialog, QFormLayout, QComboBox, QTextEdit, 
     QMessageBox, QHeaderView, QAbstractItemView, QFrame
 )
-from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import QFont, QPalette, QColor
+from PyQt6.QtCore import Qt, pyqtSignal, QSize, QPointF
+from PyQt6.QtGui import QFont, QPalette, QColor, QIcon, QPainter, QPixmap, QPolygonF, QBrush
 import re
 from database import db_manager
 
@@ -122,8 +122,76 @@ class SimpleProdutoDialog(QDialog):
         self.price_input = QLineEdit()
         self.price_input.setPlaceholderText("Ex: 99,90 ou 1.234,56")
         
+        # Combobox de categoria: colocamos dentro de um widget com uma seta separada
+        # para evitar problemas de renderização do glifo em algumas fontes/sistemas.
         self.category_input = QComboBox()
         self.category_input.setEditable(True)
+        self.category_input.setPlaceholderText("Selecione ou digite uma categoria...")
+
+        # Container que segura a combobox e a seta clicável
+        self.category_widget = QWidget()
+        cw_layout = QHBoxLayout(self.category_widget)
+        cw_layout.setContentsMargins(0, 0, 0, 0)
+        cw_layout.setSpacing(6)
+        cw_layout.addWidget(self.category_input)
+
+        # Label da seta (usamos um caractere mais simples e confiável)
+        self.category_arrow = QLabel('▾')
+        self.category_arrow.setStyleSheet("""
+            QLabel { color: #cccccc; font-size: 14px; background: transparent; }
+        """)
+        self.category_arrow.setFixedWidth(18)
+        self.category_arrow.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        # clicar na seta abre o popup da combobox
+        self.category_arrow.mousePressEvent = lambda event: self.category_input.showPopup()
+
+        cw_layout.addWidget(self.category_arrow)
+
+        # Estilo simples e limpo aplicado à combobox (sem tentar customizar a seta nativa)
+        self.category_input.setStyleSheet("""
+            QComboBox {
+                background-color: #3a3a3a;
+                border: 2px solid #555;
+                border-radius: 6px;
+                padding: 8px 12px;
+                font-size: 14px;
+                color: #ffffff;
+                min-height: 20px;
+            }
+            QComboBox:hover {
+                border-color: #777;
+                background-color: #404040;
+            }
+            QComboBox:focus {
+                border-color: #0078d4;
+                background-color: #404040;
+            }
+            QComboBox::drop-down { border: none; width: 0; }
+            QComboBox::down-arrow { image: none; width: 0; height: 0; }
+            QComboBox QAbstractItemView {
+                background-color: #3a3a3a;
+                border: 2px solid #555;
+                border-radius: 6px;
+                selection-background-color: #0078d4;
+                selection-color: #ffffff;
+                color: #ffffff;
+                padding: 4px;
+                outline: none;
+            }
+            QComboBox QAbstractItemView::item {
+                padding: 8px 12px;
+                border-radius: 4px;
+                margin: 1px;
+                min-height: 20px;
+            }
+            QComboBox QAbstractItemView::item:hover {
+                background-color: #4a4a4a;
+            }
+            QComboBox QAbstractItemView::item:selected {
+                background-color: #0078d4;
+            }
+        """)
+        
         self._load_categories()
         
         self.code_input = QLineEdit()
@@ -136,7 +204,7 @@ class SimpleProdutoDialog(QDialog):
         # Adicionar ao formulário
         form.addRow("📝 Nome *:", self.name_input)
         form.addRow("💰 Preço *:", self.price_input)
-        form.addRow("📂 Categoria:", self.category_input)
+        form.addRow("📂 Categoria:", self.category_widget)
         form.addRow("🏷️ Código:", self.code_input)
         form.addRow("📄 Descrição:", self.desc_input)
         

@@ -699,3 +699,131 @@ class DatabaseManager:
         except Exception as e:
             print(f"Erro ao contar caixas: {e}")
             return 0
+
+    def get_pedido_por_id(self, pedido_id):
+        """Busca um pedido específico por ID"""
+        import json
+        try:
+            query = '''
+            SELECT id, numero_os, data_criacao, nome_cliente, cpf_cliente, 
+                   telefone_cliente, detalhes_produto, valor_produto, valor_entrada, 
+                   frete, forma_pagamento, prazo, nome_pdf, dados_json, status
+            FROM ordem_servico 
+            WHERE id = ?
+            '''
+            self.cursor.execute(query, (pedido_id,))
+            row = self.cursor.fetchone()
+            
+            if not row:
+                return None
+            
+            # Converter para dicionário
+            pedido = {
+                'id': row[0],
+                'numero_os': row[1],
+                'data_criacao': row[2],
+                'cliente_nome': row[3],
+                'cpf_cliente': row[4],
+                'telefone_cliente': row[5],
+                'detalhes_produto': row[6],
+                'valor_total': row[7] or 0.0,
+                'entrada': row[8] or 0.0,
+                'frete': row[9] or 0.0,
+                'metodo_pagamento': row[10],
+                'prazo': row[11],
+                'nome_pdf': row[12],
+                'dados_json': row[13],
+                'status': row[14] or 'Pendente'
+            }
+            
+            # Tentar extrair dados do JSON para campos adicionais
+            if pedido['dados_json']:
+                try:
+                    json_data = json.loads(pedido['dados_json'])
+                    pedido.update({
+                        'desconto': json_data.get('desconto', 0.0),
+                        'observacoes': json_data.get('observacoes', '')
+                    })
+                    # Sobrescrever status se houver no JSON
+                    if 'status' in json_data:
+                        pedido['status'] = json_data['status']
+                except:
+                    pass
+            
+            return pedido
+            
+        except Exception as e:
+            print(f"Erro ao buscar pedido por ID: {e}")
+            return None
+
+    def get_produtos_do_pedido(self, pedido_id):
+        """Extrai lista de produtos de um pedido"""
+        try:
+            pedido = self.get_pedido_por_id(pedido_id)
+            if not pedido:
+                return []
+            
+            produtos = []
+            
+            # Tentar extrair do JSON primeiro
+            if pedido.get('dados_json'):
+                try:
+                    import json
+                    json_data = json.loads(pedido['dados_json'])
+                    produtos_json = json_data.get('produtos', [])
+                    if produtos_json:
+                        for i, p in enumerate(produtos_json):
+                            print(f"Processando produto JSON {i}: {p}, tipo: {type(p)}")
+                            if isinstance(p, dict):
+                                produtos.append({
+                                    'nome': p.get('descricao', p.get('nome', 'Produto')),
+                                    'quantidade': p.get('quantidade', 1),
+                                    'valor_unitario': p.get('valor', p.get('preco', 0.0))
+                                })
+                            else:
+                                print(f"ERRO: Produto não é dict: {p}")
+                                produtos.append({
+                                    'nome': str(p),
+                                    'quantidade': 1,
+                                    'valor_unitario': 0.0
+                                })
+                        return produtos
+                except Exception as e:
+                    print(f"Erro ao processar JSON de produtos: {e}")
+                    pass
+            
+            # Fallback: extrair do campo detalhes_produto (texto)
+            detalhes = pedido.get('detalhes_produto', '')
+            if detalhes:
+                linhas = detalhes.replace('\r', '\n').split('\n')
+                for linha in linhas:
+                    linha = linha.strip()
+                    if linha and not linha.startswith('-'):
+                        if ' - R$ ' in linha:
+                            try:
+                                nome = linha.split(' - R$ ')[0].strip()
+                                valor_str = linha.split(' - R$ ')[1].strip()
+                                valor = float(valor_str.replace(',', '.'))
+                                produtos.append({
+                                    'nome': nome,
+                                    'quantidade': 1,
+                                    'valor_unitario': valor
+                                })
+                            except Exception as e:
+                                print(f"Erro ao processar linha de produto: {linha}, erro: {e}")
+                                pass
+                        else:
+                            # Produto sem valor especificado
+                            produtos.append({
+                                'nome': linha,
+                                'quantidade': 1,
+                                'valor_unitario': 0.0
+                            })
+            
+            return produtos
+            
+        except Exception as e:
+            print(f"Erro ao buscar produtos do pedido: {e}")
+            import traceback
+            traceback.print_exc()
+            return []

@@ -101,7 +101,7 @@ class ClienteConfirmDialog(QDialog):
     def _formatar_dados(self):
         """Formata os dados do cliente para exibição"""
         dados = []
-        dados.append("=== DADOS DO CLIENTE ===")
+        dados.append("=== CONFIRMAR DADOS ===")
         dados.append("")
         
         if self.cliente_data.get('nome'):
@@ -143,6 +143,15 @@ class ClienteConfirmDialog(QDialog):
         
         dados.append("")
         dados.append("======================")
+        dados.append("Por favor, confira e CONFIRME se os dados acima estão corretos.")
+        dados.append("")
+        dados.append("✓ Dados corretos garantem entrega mais rápida")
+        dados.append("✓ Evitam envios para endereços errados")
+        dados.append("✓ Facilitam contato em caso de necessidade")
+        dados.append("✓ Agilizam o processo de atendimento")
+        dados.append("")
+        dados.append("Ao confirmar, você declara que as informações estão corretas.")
+        dados.append("Em caso de dúvidas, entre em contato conosco para esclarecimentos.")
         
         return "\n".join(dados)
     

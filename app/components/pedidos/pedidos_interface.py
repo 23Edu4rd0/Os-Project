@@ -30,14 +30,14 @@ except ModuleNotFoundError:
 # Imports dos componentes (funciona tanto como pacote quanto executado direto)
 try:
 	from .pedidos_card import PedidosCard
-	from .pedidosModal import PedidosModal
+	from .novo_pedidos_modal import NovoPedidosModal
 except Exception:
 	import sys, pathlib
 	ROOT = pathlib.Path(__file__).resolve().parents[3]
 	if str(ROOT) not in sys.path:
 		sys.path.insert(0, str(ROOT))
 	from app.components.pedidos.pedidos_card import PedidosCard  # type: ignore
-	from app.components.pedidos.pedidosModal import PedidosModal  # type: ignore
+	from app.components.pedidos.novo_pedidos_modal import NovoPedidosModal  # type: ignore
 
 
 class PedidosInterface(QWidget):
@@ -305,12 +305,12 @@ class PedidosInterface(QWidget):
 
 	# Ações públicas ---------------------------------------------------------
 	def novo_pedido(self):
-		modal = PedidosModal(self)
+		modal = NovoPedidosModal(self)
 		modal.pedido_salvo.connect(lambda: self.carregar_dados(force_refresh=True))
-		modal.abrir_modal_novo()
+		modal._criar_modal_completo()
 
 	def editar_pedido(self, pedido_id: int):
-		modal = PedidosModal(self)
+		modal = NovoPedidosModal(self)
 		modal.pedido_salvo.connect(lambda: self.carregar_dados(force_refresh=True))
 		modal.abrir_modal_edicao(pedido_id)
 

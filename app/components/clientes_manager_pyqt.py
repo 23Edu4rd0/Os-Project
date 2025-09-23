@@ -63,8 +63,8 @@ class ClienteDetailDialog(QDialog):
         main_layout.addWidget(table_label)
 
         self.orders_table = QTableWidget()
-        self.orders_table.setColumnCount(6)
-        self.orders_table.setHorizontalHeaderLabels(["ID","Nº OS","Produto","Valor","Prazo","Status"])
+        self.orders_table.setColumnCount(3)
+        self.orders_table.setHorizontalHeaderLabels(["OS", "Status", "Ações"])
         self.orders_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.orders_table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
         self.orders_table.setStyleSheet("""
@@ -73,12 +73,18 @@ class ClienteDetailDialog(QDialog):
             QTableWidget::item:selected { background: #2d8cff; color: #fff; }
         """)
         self.orders_table.verticalHeader().setVisible(False)
-        self.orders_table.horizontalHeader().setStretchLastSection(True)
+        
+        # Configurar larguras das colunas
+        header = self.orders_table.horizontalHeader()
+        self.orders_table.setColumnWidth(0, 150)  # Coluna OS (aumentada)
+        self.orders_table.setColumnWidth(1, 200)  # Coluna Status (aumentada)
+        self.orders_table.setColumnWidth(2, 270)  # Coluna Ações (aumentada)
+        header.setStretchLastSection(True)  # Permite que a última coluna se expanda
+        
         self.orders_table.setAlternatingRowColors(True)
         self.orders_table.setShowGrid(True)
-        self.orders_table.setMinimumHeight(220)
-        self.orders_table.cellClicked.connect(self._on_order_table_click)
-        self.orders_table.cellDoubleClicked.connect(self._on_order_table_double_click)
+        self.orders_table.setMinimumHeight(350)  # Aumentado de 220 para 350
+        self.orders_table.cellDoubleClicked.connect(self._on_status_double_click)
         main_layout.addWidget(self.orders_table)
 
         # Rodapé: botões de ação
@@ -136,143 +142,198 @@ class ClienteDetailDialog(QDialog):
             return
         try:
             pedido_id = int(pedido_id_item.text())
-            from app.components.pedidos.pedidos_modal import PedidosModal
-            pm = PedidosModal(self)
+            from app.components.pedidos.novo_pedidos_modal import NovoPedidosModal
+            pm = NovoPedidosModal(self)
+            # Conectar sinal para atualizar a interface após salvar
+            pm.pedido_salvo.connect(lambda: self.carregar_pedidos())
             pm.abrir_modal_edicao(pedido_id)
         except Exception as e:
             QMessageBox.critical(self, "Erro", f"Erro ao abrir pedido: {e}")
 
     def carregar_pedidos(self):
-        import json
+        print(f"=== CARREGAR_PEDIDOS INICIO para cliente: {self.cliente.get('nome', 'SEM_NOME')} ===")
         nome = self.cliente.get('nome', '')
         cpf = self.cliente.get('cpf', '')
         # Busca por CPF normalizado (apenas dígitos)
         cpf_digits = ''.join(ch for ch in str(cpf) if ch.isdigit())
+        print(f"Nome: '{nome}', CPF: '{cpf}', CPF digits: '{cpf_digits}'")
+        
         # Choose query
         if cpf_digits:
+            print("Buscando por CPF...")
             rows = db_manager.buscar_pedidos_por_cpf(cpf_digits)
         else:
+            print("Buscando por nome...")
             rows = db_manager.buscar_pedidos_por_cliente(nome)
 
-        # Debug: report what was requested and how many rows returned
-        try:
-            print(f"carregar_pedidos: buscando nome='{nome}' cpf_digits='{cpf_digits}' -> {len(rows)} rows fetched")
-        except Exception:
-            print("carregar_pedidos: fetched rows (unable to compute length)")
+        print(f"carregar_pedidos: buscando nome='{nome}' cpf_digits='{cpf_digits}' -> {len(rows) if rows else 0} rows fetched")
 
         self.orders_table.setRowCount(0)
+        print(f"Processando {len(rows) if rows else 0} pedidos...")
+        
         for idx, r in enumerate(rows):
-            # Tenta mapear campos: id, numero_os, detalhes_produto, valor_produto, prazo, status (de dados_json)
+            print(f"=== PROCESSANDO PEDIDO {idx} ===")
             try:
-                pedido_id = r[0]
-                numero_os = r[1] if len(r) > 1 else ''
-                detalhes = r[6] if len(r) > 6 else ''
-                valor = r[7] if len(r) > 7 else ''
-                prazo = r[11] if len(r) > 11 else ''
-                status = ''
-                # Tenta pegar status do último campo (dados_json)
-                if len(r) > 12:
-                    dados_json = r[-1]
-                    if dados_json:
-                        try:
-                            parsed = json.loads(dados_json)
-                            status = parsed.get('status', '')
-                        except Exception:
-                            status = ''
-            except Exception:
-                # Fallback conservative mapping
-                try:
-                    pedido_id = r[0]
-                except Exception:
-                    pedido_id = ''
-                numero_os = r[1] if len(r) > 1 else ''
-                detalhes = ''
-                valor = ''
-                prazo = ''
-                status = ''
+                # Parse dados básicos
+                pedido_id = r[0] if r and len(r) > 0 else 0
+                numero_os = r[1] if r and len(r) > 1 else 0
+                
+                # Tenta extrair status do JSON
+                status = 'Em Andamento'  # default
+                if r and len(r) > 13:
+                    try:
+                        import json
+                        dados_json = r[13] if r[13] else '{}'
+                        parsed = json.loads(dados_json)
+                        status = parsed.get('status', 'Em Andamento')
+                    except Exception:
+                        pass
+                
+                print(f"  Dados: id={pedido_id}, numero_os={numero_os}, status={status}")
+                
+                # Adicionar linha simplificada
+                row = self.orders_table.rowCount()
+                self.orders_table.insertRow(row)
+                
+                # Coluna 1: "OS X"
+                os_text = f"OS {numero_os:03d}"
+                os_item = QTableWidgetItem(os_text)
+                os_item.setData(Qt.ItemDataRole.UserRole, pedido_id)  # Guardar ID
+                os_item.setFlags(os_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+                os_item.setForeground(QColor('#e6e6e6'))
+                self.orders_table.setItem(row, 0, os_item)
+                
+                # Coluna 2: Status (editável)
+                status_item = QTableWidgetItem(status)
+                status_item.setData(Qt.ItemDataRole.UserRole, pedido_id)  # Guardar ID também aqui
+                status_item.setForeground(QColor('#b0e0ff'))  # Cor diferente para indicar que é editável
+                status_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+                self.orders_table.setItem(row, 1, status_item)
+                
+                # Coluna 3: Container com botões "Visualizar" e "Deletar"
+                actions_widget = QWidget()
+                actions_layout = QHBoxLayout(actions_widget)
+                actions_layout.setContentsMargins(5, 2, 5, 2)
+                actions_layout.setSpacing(5)
+                
+                # Botão Visualizar
+                btn_visualizar = QPushButton("Visualizar")
+                btn_visualizar.setStyleSheet("""
+                    QPushButton {
+                        background-color: #2d8cff;
+                        color: white;
+                        border: none;
+                        border-radius: 4px;
+                        padding: 6px 10px;
+                        font-weight: bold;
+                        font-size: 12px;
+                    }
+                    QPushButton:hover {
+                        background-color: #1e7ae6;
+                    }
+                """)
+                btn_visualizar.clicked.connect(lambda checked, pid=pedido_id: self._visualizar_pedido(pid))
+                
+                # Botão Deletar
+                btn_deletar = QPushButton("Deletar")
+                btn_deletar.setStyleSheet("""
+                    QPushButton {
+                        background-color: #ff4757;
+                        color: white;
+                        border: none;
+                        border-radius: 4px;
+                        padding: 6px 10px;
+                        font-weight: bold;
+                        font-size: 12px;
+                    }
+                    QPushButton:hover {
+                        background-color: #e74c3c;
+                    }
+                """)
+                btn_deletar.clicked.connect(lambda checked, pid=pedido_id: self._deletar_pedido(pid))
+                
+                actions_layout.addWidget(btn_visualizar)
+                actions_layout.addWidget(btn_deletar)
+                self.orders_table.setCellWidget(row, 2, actions_widget)
+                
+                print(f"  Linha {idx} criada com sucesso")
+                
+            except Exception as e:
+                print(f"=== ERRO ao processar pedido {idx}: {e} ===")
+                import traceback
+                traceback.print_exc()
+        
+        print(f"=== CARREGAR_PEDIDOS FIM: {self.orders_table.rowCount()} linhas adicionadas ===")
+    
 
-            # Print a concise row summary for debugging
-            try:
-                print(f"  row[{idx}] id={pedido_id} numero_os={numero_os} detalhes='{str(detalhes)[:40]}' valor={valor} prazo={prazo} status={status}")
-            except Exception:
-                pass
-
-            row = self.orders_table.rowCount()
-            self.orders_table.insertRow(row)
-
-            # Create items and ensure visibility and non-editable flags
-            it_id = QTableWidgetItem(str(pedido_id))
-            it_id.setFlags(it_id.flags() & ~Qt.ItemFlag.ItemIsEditable)
-            it_id.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-            it_id.setForeground(QColor('#e6e6e6'))
-
-            it_num = QTableWidgetItem(str(numero_os))
-            it_num.setFlags(it_num.flags() & ~Qt.ItemFlag.ItemIsEditable)
-            it_num.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-            it_num.setForeground(QColor('#e6e6e6'))
-
-            it_det = QTableWidgetItem(str(detalhes))
-            it_det.setFlags(it_det.flags() & ~Qt.ItemFlag.ItemIsEditable)
-            it_det.setForeground(QColor('#e6e6e6'))
-
-            it_val = QTableWidgetItem(str(valor))
-            it_val.setFlags(it_val.flags() & ~Qt.ItemFlag.ItemIsEditable)
-            it_val.setForeground(QColor('#e6e6e6'))
-
-            it_prazo = QTableWidgetItem(str(prazo))
-            it_prazo.setFlags(it_prazo.flags() & ~Qt.ItemFlag.ItemIsEditable)
-            it_prazo.setForeground(QColor('#e6e6e6'))
-
-            it_status = QTableWidgetItem(str(status))
-            it_status.setFlags(it_status.flags() & ~Qt.ItemFlag.ItemIsEditable)
-            it_status.setForeground(QColor('#e6e6e6'))
-
-            self.orders_table.setItem(row, 0, it_id)
-            self.orders_table.setItem(row, 1, it_num)
-            self.orders_table.setItem(row, 2, it_det)
-            self.orders_table.setItem(row, 3, it_val)
-            self.orders_table.setItem(row, 4, it_prazo)
-            self.orders_table.setItem(row, 5, it_status)
-
-    def _on_order_table_double_click(self, row, column):
-        """Open full PedidosModal for the clicked order unless the status column was double-clicked."""
+    def _on_status_double_click(self, row, column):
+        """Trata duplo clique na coluna de status para editá-lo."""
+        if column != 1:  # Só permite editar a coluna de status (índice 1)
+            return
+            
         try:
-            # status column index = 5
-            pedido_item = self.orders_table.item(row, 0)
-            if not pedido_item:
+            # Obter dados do pedido
+            status_item = self.orders_table.item(row, 1)
+            
+            if not status_item:
                 return
-            pedido_id = int(pedido_item.text())
-            if column == 5:
-                # If status column, open the status menu (double-click to change status)
-                try:
-                    from app.components.pedidos.status_editor import show_status_menu
-                    show_status_menu(self, pedido_id)
-                    return
-                except Exception:
-                    # fallback to opening full modal if status menu not available
-                    pass
-            # open full modal edit for other columns (or fallback)
-            from app.components.pedidos.pedidos_modal import PedidosModal
-            pm = PedidosModal(self)
-            pm.abrir_modal_edicao(pedido_id)
-        except Exception as e:
-            QMessageBox.critical(self, "Erro", f"Erro ao abrir pedido: {e}")
-
-    def _on_order_table_click(self, row, column):
-        """Handle single click on order table cells (used to open status menu)."""
-        try:
-            if column != 5:
-                return
-            # get pedido id
-            item = self.orders_table.item(row, 0)
-            if not item:
-                return
-            pedido_id = int(item.text())
-            # delegate to standalone helper to avoid position/indentation issues
+                
+            pedido_id = status_item.data(Qt.ItemDataRole.UserRole)
+            
+            print(f"Editando status do pedido {pedido_id}")
+            
+            # Usar o menu de status existente
             from app.components.pedidos.status_editor import show_status_menu
             show_status_menu(self, pedido_id)
+            
+            # Recarregar os pedidos para atualizar a interface
+            QTimer.singleShot(100, self.carregar_pedidos)
+                        
         except Exception as e:
-            QMessageBox.critical(self, "Erro", f"Erro ao abrir menu de status: {e}")
+            print(f"Erro ao editar status: {e}")
+            QMessageBox.critical(self, "Erro", f"Erro ao editar status: {e}")
+
+    def _visualizar_pedido(self, pedido_id):
+        """Abre o dialog de resumo do pedido."""
+        try:
+            print(f"Visualizando pedido ID: {pedido_id}")
+            from app.components.dialogs.pedido_resumo_dialog import PedidoResumoDialog
+            dialog = PedidoResumoDialog(pedido_id, self)
+            dialog.exec()
+        except Exception as e:
+            print(f"Erro ao visualizar pedido: {e}")
+            QMessageBox.critical(self, "Erro", f"Erro ao abrir resumo do pedido: {e}")
+
+    def _deletar_pedido(self, pedido_id):
+        """Deleta um pedido após confirmação."""
+        try:
+            # Confirmação de exclusão
+            reply = QMessageBox.question(
+                self, 
+                "Confirmar Exclusão", 
+                f"Tem certeza que deseja deletar a OS {pedido_id}?\n\nEsta ação não pode ser desfeita.",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No
+            )
+            
+            if reply == QMessageBox.StandardButton.Yes:
+                print(f"Deletando pedido ID: {pedido_id}")
+                
+                # Chama função de deletar do banco de dados
+                from database.db_manager import db_manager
+                sucesso = db_manager.deletar_pedido(pedido_id)
+                
+                if sucesso:
+                    QMessageBox.information(self, "Sucesso", "Pedido deletado com sucesso!")
+                    # Recarrega a tabela para atualizar a interface
+                    self.carregar_pedidos()
+                else:
+                    QMessageBox.warning(self, "Erro", "Não foi possível deletar o pedido.")
+                    
+        except Exception as e:
+            print(f"Erro ao deletar pedido: {e}")
+            QMessageBox.critical(self, "Erro", f"Erro ao deletar pedido: {e}")
+    
 
     def salvar_ordem(self):
         # Constrói o dicionário esperado por OrderCRUD.criar_ordem via db_manager.salvar_ordem
@@ -329,8 +390,8 @@ class ClienteDetailDialog(QDialog):
     def abrir_ordem_completa(self):
         """Abre o modal de novo pedido já preenchendo e travando os dados do cliente."""
         try:
-            from app.components.pedidos.pedidos_modal import PedidosModal
-            pedidos_modal = PedidosModal(self)
+            from app.components.pedidos.novo_pedidos_modal import NovoPedidosModal
+            pedidos_modal = NovoPedidosModal(self)
             cli = {
                 'nome': self.cliente.get('nome',''),
                 'cpf': self.cliente.get('cpf',''),
@@ -1094,6 +1155,8 @@ class ClienteModal(QDialog):
         
         self.campos['nome'].setText(self.dados.get('nome', ''))
         self.campos['cpf'].setText(self.dados.get('cpf', ''))
+        self.campos['cnpj'].setText(self.dados.get('cnpj', ''))
+        self.campos['inscricao_estadual'].setText(self.dados.get('inscricao_estadual', ''))
         self.campos['telefone'].setText(self.dados.get('telefone', ''))
         self.campos['email'].setText(self.dados.get('email', ''))
         self.campos['rua'].setText(self.dados.get('rua', ''))
