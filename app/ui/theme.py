@@ -5,14 +5,112 @@ from PyQt6.QtGui import QIcon
 def apply_app_theme(app: QApplication):
     """Apply a compact, app-wide stylesheet for a consistent look."""
     style = """
-    QWidget { background: #262626; color: #e6e6e6; }
-    QTabWidget::pane { border: none; }
-    QLabel#header { color: #ffffff; font-weight: 600; font-size: 16px; }
-    QListWidget { background: #1f1f1f; border: 1px solid #393939; border-radius: 6px; padding: 6px; }
-    QPushButton { background: #323232; border: 1px solid #444444; border-radius: 6px; color: #eaeaea; }
-    QPushButton:hover { background: #3d3d3d; }
-    QPlainTextEdit { background: #141414; border: 1px solid #333333; border-radius: 6px; }
-    QToolTip { background: #111111; color: #eaeaea; border: 1px solid #333333; }
+    /* Cores e estilo base */
+    QWidget {
+        background: #1e1e1e;
+        color: #e6e6e6;
+    }
+
+    /* Tabs principais */
+    QTabWidget::pane {
+        border: none;
+        background: #1e1e1e;
+    }
+    
+    QTabBar::tab {
+        background: #2d2d2d;
+        color: #b0b0b0;
+        border: none;
+        padding: 8px 20px;
+        margin: 0;
+        margin-right: 2px;
+    }
+    
+    QTabBar::tab:selected {
+        background: #0d7377;
+        color: white;
+    }
+    
+    QTabBar::tab:hover:!selected {
+        background: #3d3d3d;
+    }
+
+    /* Headers e labels */
+    QLabel#header {
+        color: #ffffff;
+        font-weight: 600;
+        font-size: 16px;
+    }
+    
+    QLabel#sectionLabel {
+        color: #0d7377;
+        font-weight: 500;
+        font-size: 14px;
+    }
+
+    /* Listas e tabelas */
+    QListWidget, QTableWidget {
+        background: #2d2d2d;
+        border: 1px solid #404040;
+        border-radius: 8px;
+        padding: 8px;
+    }
+    
+    QTableWidget::item {
+        padding: 8px;
+    }
+    
+    QTableWidget::item:selected {
+        background: #0d7377;
+    }
+
+    /* Botões */
+    QPushButton {
+        background: #2d2d2d;
+        border: 1px solid #404040;
+        border-radius: 6px;
+        color: #e6e6e6;
+        padding: 8px 16px;
+        font-weight: 500;
+    }
+    
+    QPushButton:hover {
+        background: #3d3d3d;
+        border-color: #0d7377;
+    }
+    
+    QPushButton:pressed {
+        background: #0d7377;
+    }
+
+    /* Campos de texto */
+    QLineEdit, QTextEdit, QPlainTextEdit {
+        background: #2d2d2d;
+        border: 1px solid #404040;
+        border-radius: 6px;
+        padding: 8px;
+        selection-background-color: #0d7377;
+    }
+    
+    QLineEdit:focus, QTextEdit:focus, QPlainTextEdit:focus {
+        border-color: #0d7377;
+    }
+
+    /* Tooltips */
+    QToolTip {
+        background: #2d2d2d;
+        color: #e6e6e6;
+        border: 1px solid #404040;
+        border-radius: 4px;
+        padding: 6px;
+    }
+
+    /* Cards */
+    QFrame#card {
+        background: #2d2d2d;
+        border: 1px solid #404040;
+        border-radius: 10px;
+    }
     """
     app.setStyleSheet(style)
 

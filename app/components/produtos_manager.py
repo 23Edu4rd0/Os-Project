@@ -9,7 +9,7 @@ from PyQt6.QtWidgets import (
     QMessageBox, QHeaderView, QAbstractItemView, QFrame
 )
 from PyQt6.QtCore import Qt, pyqtSignal, QSize, QPointF
-from PyQt6.QtGui import QFont, QPalette, QColor, QIcon, QPainter, QPixmap, QPolygonF, QBrush
+from PyQt6.QtGui import QFont, QPalette, QColor, QIcon, QPainter, QPixmap, QPolygonF, QBrush, QShortcut, QKeySequence
 import re
 from database import db_manager
 
@@ -90,9 +90,38 @@ class SimpleProdutoDialog(QDialog):
         
         self._create_ui()
         self._setup_styles()
+        self._setup_enter_navigation()
         
         if self.is_editing:
             self._load_product_data()
+    
+    def _setup_enter_navigation(self):
+        """Configurar navegação com Enter entre os campos"""
+        # Instalar filtro de eventos para cada campo de entrada
+        fields = [self.name_input, self.price_input, self.category_input, self.code_input]
+        for field in fields:
+            field.installEventFilter(self)
+    
+    def eventFilter(self, obj, event):
+        """Filtro de eventos para capturar Enter antes que feche o dialog"""
+        if event.type() == event.Type.KeyPress:
+            if event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+                # Determinar próximo campo baseado no objeto atual
+                if obj == self.name_input:
+                    self.price_input.setFocus()
+                    return True  # Consumir evento
+                elif obj == self.price_input:
+                    self.category_input.setFocus()
+                    return True
+                elif obj == self.category_input:
+                    self.code_input.setFocus()
+                    return True
+                elif obj == self.code_input:
+                    self.desc_input.setFocus()
+                    return True
+        
+        # Para outros eventos, comportamento padrão
+        return super().eventFilter(obj, event)
     
     def _create_ui(self):
         """Criar interface"""
@@ -122,75 +151,22 @@ class SimpleProdutoDialog(QDialog):
         self.price_input = QLineEdit()
         self.price_input.setPlaceholderText("Ex: 99,90 ou 1.234,56")
         
-        # Combobox de categoria: colocamos dentro de um widget com uma seta separada
-        # para evitar problemas de renderização do glifo em algumas fontes/sistemas.
+        # Combobox de categoria simples
         self.category_input = QComboBox()
         self.category_input.setEditable(True)
         self.category_input.setPlaceholderText("Selecione ou digite uma categoria...")
-
-        # Container que segura a combobox e a seta clicável
-        self.category_widget = QWidget()
-        cw_layout = QHBoxLayout(self.category_widget)
-        cw_layout.setContentsMargins(0, 0, 0, 0)
-        cw_layout.setSpacing(6)
-        cw_layout.addWidget(self.category_input)
-
-        # Label da seta (usamos um caractere mais simples e confiável)
-        self.category_arrow = QLabel('▾')
-        self.category_arrow.setStyleSheet("""
-            QLabel { color: #cccccc; font-size: 14px; background: transparent; }
-        """)
-        self.category_arrow.setFixedWidth(18)
-        self.category_arrow.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        # clicar na seta abre o popup da combobox
-        self.category_arrow.mousePressEvent = lambda event: self.category_input.showPopup()
-
-        cw_layout.addWidget(self.category_arrow)
-
-        # Estilo simples e limpo aplicado à combobox (sem tentar customizar a seta nativa)
-        self.category_input.setStyleSheet("""
-            QComboBox {
-                background-color: #3a3a3a;
-                border: 2px solid #555;
-                border-radius: 6px;
-                padding: 8px 12px;
-                font-size: 14px;
-                color: #ffffff;
-                min-height: 20px;
-            }
-            QComboBox:hover {
-                border-color: #777;
-                background-color: #404040;
-            }
-            QComboBox:focus {
-                border-color: #0078d4;
-                background-color: #404040;
-            }
-            QComboBox::drop-down { border: none; width: 0; }
-            QComboBox::down-arrow { image: none; width: 0; height: 0; }
-            QComboBox QAbstractItemView {
-                background-color: #3a3a3a;
-                border: 2px solid #555;
-                border-radius: 6px;
-                selection-background-color: #0078d4;
-                selection-color: #ffffff;
-                color: #ffffff;
-                padding: 4px;
-                outline: none;
-            }
-            QComboBox QAbstractItemView::item {
-                padding: 8px 12px;
-                border-radius: 4px;
-                margin: 1px;
-                min-height: 20px;
-            }
-            QComboBox QAbstractItemView::item:hover {
-                background-color: #4a4a4a;
-            }
-            QComboBox QAbstractItemView::item:selected {
-                background-color: #0078d4;
-            }
-        """)
+        
+        # Make the entire combobox clickable to open dropdown
+        def show_popup():
+            self.category_input.showPopup()
+        
+        # Override mouse press to always open popup
+        original_mousePressEvent = self.category_input.mousePressEvent
+        def new_mousePressEvent(event):
+            show_popup()
+            original_mousePressEvent(event)
+        
+        self.category_input.mousePressEvent = new_mousePressEvent
         
         self._load_categories()
         
@@ -204,7 +180,7 @@ class SimpleProdutoDialog(QDialog):
         # Adicionar ao formulário
         form.addRow("📝 Nome *:", self.name_input)
         form.addRow("💰 Preço *:", self.price_input)
-        form.addRow("📂 Categoria:", self.category_widget)
+        form.addRow("📂 Categoria:", self.category_input)
         form.addRow("🏷️ Código:", self.code_input)
         form.addRow("📄 Descrição:", self.desc_input)
         
@@ -217,6 +193,12 @@ class SimpleProdutoDialog(QDialog):
         self.cancel_btn = QPushButton("❌ Cancelar")
         self.save_btn = QPushButton("💾 Salvar")
         
+        # Garantir que os botões não sejam padrão (não ativados por Enter)
+        self.cancel_btn.setDefault(False)
+        self.cancel_btn.setAutoDefault(False)
+        self.save_btn.setDefault(False)
+        self.save_btn.setAutoDefault(False)
+        
         self.cancel_btn.clicked.connect(self.reject)
         self.save_btn.clicked.connect(self._save_product)
         
@@ -224,6 +206,30 @@ class SimpleProdutoDialog(QDialog):
         buttons_layout.addWidget(self.save_btn)
         
         layout.addLayout(buttons_layout)
+
+    def keyPressEvent(self, event):
+        """Handle Enter key para botões e campo de descrição"""
+        if event.key() == Qt.Key.Key_Return or event.key() == Qt.Key.Key_Enter:
+            focused = self.focusWidget()
+            
+            # Apenas para botões e campo de descrição
+            if focused == self.desc_input:
+                # No campo de descrição, permite Enter para quebra de linha
+                super().keyPressEvent(event)
+                return
+            elif focused == self.save_btn:
+                self._save_product()
+                return
+            elif focused == self.cancel_btn:
+                self.reject()
+                return
+            else:
+                # Para outros widgets, consumir o evento para não fechar dialog
+                event.accept()
+                return
+        
+        # Para outras teclas, comportamento padrão
+        super().keyPressEvent(event)
     
     def _load_categories(self):
         """Carregar categorias"""
