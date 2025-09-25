@@ -17,8 +17,8 @@ class MetricCard(QFrame):
         """Configura a interface do card"""
         # Layout principal
         self._layout = QVBoxLayout(self)
-        self._layout.setSpacing(8)
-        self._layout.setContentsMargins(20, 15, 20, 15)
+        self._layout.setSpacing(12)  # Aumentado de 8 para 12
+        self._layout.setContentsMargins(24, 20, 24, 20)  # Aumentado as margens
         
         # Header com ícone e título
         header = QHBoxLayout()
@@ -50,9 +50,9 @@ class MetricCard(QFrame):
         value_label = QLabel(str(value))
         value_label.setStyleSheet(f"""
             color: {color};
-            font-size: 28px;
+            font-size: 32px;  # Aumentado de 28px para 32px
             font-weight: bold;
-            margin: 5px 0px;
+            margin: 8px 0px;  # Aumentado de 5px para 8px
         """)
         value_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         self._layout.addWidget(value_label)

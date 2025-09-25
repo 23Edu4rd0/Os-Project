@@ -36,13 +36,15 @@ class OrderCRUD:
                     try:
                         descricao = str(p.get('descricao') or p.get('nome') or '').strip()
                         valor = float(p.get('valor') or p.get('preco') or 0)
+                        quantidade = int(p.get('quantidade', 1))
                     except Exception:
                         descricao = str(p.get('descricao') or '').strip()
                         try:
                             valor = float(str(p.get('valor') or '0').replace(',', '.'))
                         except Exception:
                             valor = 0.0
-                    produtos_struct.append({'descricao': descricao, 'valor': valor})
+                        quantidade = int(p.get('quantidade', 1))
+                    produtos_struct.append({'descricao': descricao, 'valor': valor, 'quantidade': quantidade})
             else:
                 detalhes = dados.get('detalhes_produto', '') or ''
                 for linha in [l.strip() for l in detalhes.replace('\r', '\n').split('\n') if l.strip() and not l.strip().startswith('-')]:

@@ -55,11 +55,9 @@ class PedidoFormModel:
                         desc, valtxt = linha.rsplit(' - R$ ', 1)
                         valtxt_original = valtxt.strip()
                         valconv = valtxt_original.replace('.', '').replace(',', '.') if ',' in valtxt_original else valtxt_original
-                        print(f"[DEBUG] Valor original: '{valtxt_original}' | Valor convertido: '{valconv}'")
                         valor = float(valconv) if valconv else 0.0
                         self.produtos_list.append({'descricao': desc.strip('\u2022 ').strip(), 'valor': valor})
                     except Exception as e:
-                        print(f"[DEBUG] Erro ao converter valor: {e} | Linha: {linha}")
                         self.produtos_list.append({'descricao': linha.strip('\u2022 ').strip(), 'valor': 0.0})
                 else:
                     self.produtos_list.append({'descricao': linha.strip('\u2022 ').strip(), 'valor': 0.0})

@@ -4,22 +4,18 @@ from .__init__ import PedidosModal
 
 def _refresh_produtos_ui(self):
     from PyQt6.QtWidgets import QTableWidget, QTableWidgetItem, QWidget, QHBoxLayout, QPushButton
-    print('[DEBUG] Iniciando _refresh_produtos_ui...')
     try:
         # localizar a tabela em múltiplos atributos possíveis
         table = getattr(self, 'lista_produtos_table', None) or getattr(self, 'lista_table', None) or getattr(self, 'lista_produtos_container', None)
-        print(f'[DEBUG] Tabela encontrada: {table is not None}')
         
         # criar fallback mínimo se necessário (não anexa ao layout automaticamente)
         if table is None:
-            print('[DEBUG] Nenhuma tabela encontrada. Criando tabela fallback mínima (não anexada).')
             table = QTableWidget()
             table.setColumnCount(4)
             table.setHorizontalHeaderLabels(['Produto', 'Valor', 'Cor', 'Ações'])
             self.lista_produtos_table = table
 
         produtos_list = getattr(self, 'produtos_list', []) or []
-        print(f'[DEBUG] Lista de produtos tem {len(produtos_list)} itens')
 
         # Limpar e preencher tabela
         table.setRowCount(0)
@@ -39,12 +35,29 @@ def _refresh_produtos_ui(self):
 
         name_col = _find_col(['nome', 'produto'])
         code_col = _find_col(['cód', 'cod', 'codigo'])
+        qtd_col = _find_col(['qtd', 'quantidade'])
         valor_col = _find_col(['valor'])
         cor_col = _find_col(['cor'])
         acoes_col = _find_col(['ação', 'acao', 'ações', 'acoes', 'aç'])
 
         # Fallbacks conforme o número de colunas
-        if table.columnCount() >= 5:
+        if table.columnCount() >= 6:
+            name_col = 0 if name_col is None else name_col
+            code_col = 1 if code_col is None else code_col
+            qtd_col = 2 if qtd_col is None else qtd_col
+            valor_col = 3 if valor_col is None else valor_col
+            cor_col = 4 if cor_col is None else cor_col
+            acoes_col = 5 if acoes_col is None else acoes_col
+            # Ajustar larguras para layout com código e quantidade
+            try:
+                table.setColumnWidth(code_col, 80)
+                table.setColumnWidth(qtd_col, 50)
+                table.setColumnWidth(valor_col, 120)
+                table.setColumnWidth(cor_col, 120)
+                table.setColumnWidth(acoes_col, 220)
+            except Exception:
+                pass
+        elif table.columnCount() >= 5:
             name_col = 0 if name_col is None else name_col
             code_col = 1 if code_col is None else code_col
             valor_col = 2 if valor_col is None else valor_col
@@ -86,6 +99,11 @@ def _refresh_produtos_ui(self):
             codigo_val = prod.get('codigo') or prod.get('cod') or prod.get('sku') or ''
             if code_col is not None and codigo_val:
                 table.setItem(idx, code_col, QTableWidgetItem(str(codigo_val)))
+            
+            # Quantidade (se houver coluna de quantidade)
+            quantidade = prod.get('quantidade', 1)
+            if qtd_col is not None:
+                table.setItem(idx, qtd_col, QTableWidgetItem(str(quantidade)))
 
             # Valor/Preço
             try:
@@ -125,19 +143,15 @@ def _refresh_produtos_ui(self):
             except Exception:
                 pass
 
-        print(f'[DEBUG] Tabela atualizada com {table.rowCount()} linhas')
 
         # Atualizar total
         try:
             total = sum(float(p.get('valor', 0) or 0) for p in produtos_list)
             if hasattr(self, 'campos') and 'valor_total' in self.campos:
                 self.campos['valor_total'].setText(f"R$ {total:.2f}")
-                print(f'[DEBUG] Total atualizado: R$ {total:.2f}')
         except Exception as e:
-            print(f'[DEBUG] Erro ao atualizar total: {e}')
+            pass
 
-        print('[DEBUG] _refresh_produtos_ui concluído!')
     except Exception as e:
-        print(f'[DEBUG] Erro em _refresh_produtos_ui: {e}')
         import traceback
         traceback.print_exc()

@@ -51,7 +51,6 @@ class DatabaseManager:
                     total_produtos = sum([float(p.get('valor', 0) or 0) for p in produtos])
                 except Exception:
                     total_produtos = None
-            print(f"[DB DEBUG] salvar_ordem: numero_os={dados.get('numero_os')}, nome_cliente={dados.get('nome_cliente')}, total_produtos={total_produtos}")
         except Exception:
             pass
         return self.order_crud.criar_ordem(dados, nome_pdf)
@@ -262,6 +261,48 @@ class DatabaseManager:
         except Exception as e:
             print(f"Erro ao listar clientes: {e}")
             return []
+    
+    def buscar_cliente_por_cpf(self, cpf):
+        """Busca dados completos do cliente por CPF"""
+        try:
+            if not cpf:
+                return None
+            
+            cpf_normalizado = ''.join(ch for ch in str(cpf) if ch.isdigit())
+            if not cpf_normalizado:
+                return None
+                
+            query = '''
+            SELECT id, nome, cpf, cnpj, inscricao_estadual, telefone, email, 
+                   rua, numero, bairro, cidade, estado, referencia
+            FROM clientes 
+            WHERE replace(replace(replace(cpf, '.', ''), '-', ''), ' ', '') = ?
+            LIMIT 1
+            '''
+            self.cursor.execute(query, (cpf_normalizado,))
+            row = self.cursor.fetchone()
+            
+            if row:
+                return {
+                    'id': row[0],
+                    'nome': row[1],
+                    'cpf': row[2],
+                    'cnpj': row[3],
+                    'inscricao_estadual': row[4],
+                    'telefone': row[5],
+                    'email': row[6],
+                    'rua': row[7],
+                    'numero': row[8],
+                    'bairro': row[9],
+                    'cidade': row[10],
+                    'estado': row[11],
+                    'referencia': row[12]
+                }
+            return None
+            
+        except Exception as e:
+            print(f"Erro ao buscar cliente por CPF: {e}")
+            return None
 
     def atualizar_cliente(self, cliente_id, nome, cpf=None, telefone=None, email=None,
                           endereco=None, referencia=None, rua=None, numero=None,
@@ -286,18 +327,18 @@ class DatabaseManager:
             return False
 
     def atualizar_cliente_completo(self, cliente_id, nome, cpf=None, cnpj=None, inscricao_estadual=None,
-                                  telefone=None, email=None, rua=None, numero=None,
+                                  telefone=None, email=None, cep=None, rua=None, numero=None,
                                   bairro=None, cidade=None, estado=None, referencia=None):
-        """Atualiza um cliente existente com todos os campos, incluindo CNPJ e IE."""
+        """Atualiza um cliente existente com todos os campos, incluindo CNPJ, IE e CEP."""
         try:
             self.cursor.execute(
                 """
                 UPDATE clientes
                 SET nome = ?, cpf = ?, cnpj = ?, inscricao_estadual = ?, telefone = ?, email = ?,
-                    rua = ?, numero = ?, bairro = ?, cidade = ?, estado = ?, referencia = ?
+                    cep = ?, rua = ?, numero = ?, bairro = ?, cidade = ?, estado = ?, referencia = ?
                 WHERE id = ?
                 """,
-                (nome, cpf, cnpj, inscricao_estadual, telefone, email, 
+                (nome, cpf, cnpj, inscricao_estadual, telefone, email, cep,
                  rua, numero, bairro, cidade, estado, referencia, int(cliente_id))
             )
             self.conn.commit()
@@ -307,9 +348,9 @@ class DatabaseManager:
             return False
 
     def criar_cliente_completo(self, nome, cpf=None, cnpj=None, inscricao_estadual=None,
-                              telefone=None, email=None, rua=None, numero=None,
+                              telefone=None, email=None, cep=None, rua=None, numero=None,
                               bairro=None, cidade=None, estado=None, referencia=None):
-        """Cria um novo cliente com todos os campos, incluindo CNPJ e IE."""
+        """Cria um novo cliente com todos os campos, incluindo CNPJ, IE e CEP."""
         try:
             from datetime import datetime
             data_atual = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
@@ -317,10 +358,10 @@ class DatabaseManager:
             self.cursor.execute(
                 """
                 INSERT INTO clientes (nome, cpf, cnpj, inscricao_estadual, telefone, email,
-                                    rua, numero, bairro, cidade, estado, referencia, data_criacao)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                    cep, rua, numero, bairro, cidade, estado, referencia, data_criacao)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
-                (nome, cpf, cnpj, inscricao_estadual, telefone, email,
+                (nome, cpf, cnpj, inscricao_estadual, telefone, email, cep,
                  rua, numero, bairro, cidade, estado, referencia, data_atual)
             )
             self.conn.commit()
@@ -777,6 +818,7 @@ class DatabaseManager:
                             if isinstance(p, dict):
                                 produtos.append({
                                     'nome': p.get('descricao', p.get('nome', 'Produto')),
+                                    'codigo': p.get('codigo', 'S/Código'),
                                     'quantidade': p.get('quantidade', 1),
                                     'valor_unitario': p.get('valor', p.get('preco', 0.0))
                                 })

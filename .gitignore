@@ -1,9 +1,48 @@
+# Arquivos de cache Python
 __pycache__/
-.gitignore
 *.pyc
-.venv
+*.pyo
+*.pyd
+*.pdb
+
+# Ambiente virtual
+.venv/
+venv/
+env/
+
+# Build e distribuição
 dist/
 build/
+*.egg-info/
 main.spec
+
+# Logs da aplicação
+*.log
+app.log*
+
+# Arquivos de desenvolvimento e teste
+debug_*.py
+test_*.py
+teste_*.py
+*_test.py
+*.tmp
+
+# Ferramentas de teste
+.pytest_cache/
+.coverage
+.tox/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Sistema operacional
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Arquivos específicos do projeto
 icon.ico
 ordem_servico.pdf

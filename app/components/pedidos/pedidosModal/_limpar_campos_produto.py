@@ -11,6 +11,12 @@ def limpar_campos_produto(self):
                 self.input_valor.clear()
             except Exception:
                 pass
+        # Limpar quantidade e resetar para 1
+        if hasattr(self, 'input_quantidade') and self.input_quantidade is not None:
+            try:
+                self.input_quantidade.setValue(1)
+            except Exception:
+                pass
         # cor and divisórias
         if 'cor' in getattr(self, 'campos', {}):
             try:

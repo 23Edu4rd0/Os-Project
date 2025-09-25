@@ -11,6 +11,7 @@ def _criar_secao_produtos_pedidos(self, layout, pedido_data):
     # Mapear widgets para os nomes já usados pelo modal
     self.input_desc = widgets['input_desc']
     self.input_valor = widgets['input_valor']
+    self.input_quantidade = widgets.get('input_quantidade')  # Conectar campo de quantidade
     self.campos['cor'] = widgets['campos_cor']
     # nova tabela de produtos (aceita ambos os nomes para compatibilidade)
     self.lista_produtos_table = widgets.get('lista_table') or widgets.get('lista_produtos_table')
@@ -99,7 +100,7 @@ def _criar_secao_produtos_pedidos(self, layout, pedido_data):
     try:
         # Garantir que exista uma tabela; se não existir, apenas logar
         if getattr(self, 'lista_produtos_table', None) is None:
-            print('[DEBUG] Aviso: nenhuma tabela de produtos encontrada no modal ao criar seção')
+            pass
         else:
             self._refresh_produtos_ui()
     except Exception:

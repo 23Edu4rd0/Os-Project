@@ -7,7 +7,7 @@ import json
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, 
                             QLineEdit, QComboBox, QGroupBox, QTableWidget, QTableWidgetItem,
                             QHeaderView, QWidget, QMessageBox, QCompleter, QFrame, QFormLayout,
-                            QScrollArea, QAbstractScrollArea)
+                            QScrollArea, QAbstractScrollArea, QSpinBox)
 from PyQt6.QtCore import Qt, pyqtSignal, QStringListModel
 from PyQt6.QtGui import QFont
 
@@ -329,99 +329,228 @@ class NovoPedidosModal(QDialog):
     def _criar_secao_produtos(self, layout):
         """Cria a seção de produtos"""
         group = QGroupBox("Produtos")
+        group.setFont(QFont("Segoe UI", 12, QFont.Weight.Bold))
         group_layout = QVBoxLayout(group)
-        group_layout.setSpacing(12)  # Espaçamento reduzido entre elementos
-        group_layout.setContentsMargins(15, 15, 15, 15)  # Padding interno reduzido
+        group_layout.setSpacing(20)
+        group_layout.setContentsMargins(25, 25, 25, 20)
         
-        # Formulário de adição
-        form_layout = QHBoxLayout()
-        form_layout.setSpacing(15)  # Espaçamento reduzido entre campos
+        # Estilo minimalista do GroupBox
+        group.setStyleSheet("""
+            QGroupBox {
+                color: #ffffff;
+                border: 1px solid #666666;
+                border-radius: 6px;
+                margin-top: 12px;
+                padding-top: 12px;
+                background-color: transparent;
+                font-size: 13px;
+                font-weight: normal;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                left: 15px;
+                padding: 0 8px 0 8px;
+                color: #cccccc;
+                font-weight: normal;
+                font-size: 13px;
+            }
+        """)
+        
+        # Container do formulário com grade
+        form_container = QWidget()
+        form_layout = QHBoxLayout(form_container)
+        form_layout.setSpacing(18)
+        form_layout.setContentsMargins(0, 0, 0, 0)
+        
+        # Estilo comum para labels
+        label_style = """
+            QLabel {
+                color: #cccccc;
+                font-size: 12px;
+                font-weight: normal;
+                margin-bottom: 3px;
+            }
+        """
+        
+        # Estilo comum para todos os campos
+        campo_style = """
+            QLineEdit, QSpinBox, QComboBox {
+                background-color: #404040;
+                border: 1px solid #555555;
+                border-radius: 4px;
+                color: #ffffff;
+                font-size: 13px;
+                padding: 8px 12px;
+                min-height: 32px;
+                max-height: 32px;
+            }
+            QLineEdit:focus, QSpinBox:focus, QComboBox:focus {
+                border-color: #6c7b7f;
+                background-color: #454545;
+            }
+            QLineEdit::placeholder {
+                color: #aaaaaa;
+            }
+        """
         
         # Produto
         produto_layout = QVBoxLayout()
-        produto_layout.addWidget(QLabel("Produto:"))
+        produto_label = QLabel("Produto:")
+        produto_label.setStyleSheet(label_style)
+        produto_layout.addWidget(produto_label)
+        
         self.input_produto = QLineEdit()
         self.input_produto.setPlaceholderText("Digite o nome do produto...")
-        self.input_produto.setMinimumHeight(50)
-        self.input_produto.setFixedHeight(55)
+        self.input_produto.setStyleSheet(campo_style)
         produto_layout.addWidget(self.input_produto)
         form_layout.addLayout(produto_layout, 2)
         
+        # Quantidade
+        quantidade_layout = QVBoxLayout()
+        quantidade_label = QLabel("Qtd:")
+        quantidade_label.setStyleSheet(label_style)
+        quantidade_layout.addWidget(quantidade_label)
+        
+        self.input_quantidade = QSpinBox()
+        self.input_quantidade.setMinimum(1)
+        self.input_quantidade.setMaximum(9999)
+        self.input_quantidade.setValue(1)
+        self.input_quantidade.setStyleSheet(campo_style + """
+            QSpinBox::up-button, QSpinBox::down-button {
+                background-color: #555555;
+                border: 1px solid #666666;
+                width: 16px;
+            }
+            QSpinBox::up-button:hover, QSpinBox::down-button:hover {
+                background-color: #666666;
+            }
+        """)
+        quantidade_layout.addWidget(self.input_quantidade)
+        form_layout.addLayout(quantidade_layout, 0)
+        
         # Valor
         valor_layout = QVBoxLayout()
-        valor_layout.addWidget(QLabel("Valor (R$):"))
+        valor_label = QLabel("Valor (R$):")
+        valor_label.setStyleSheet(label_style)
+        valor_layout.addWidget(valor_label)
+        
         self.input_valor = QLineEdit()
         self.input_valor.setPlaceholderText("0,00")
-        self.input_valor.setMinimumHeight(50)
-        self.input_valor.setFixedHeight(55)
+        self.input_valor.setStyleSheet(campo_style)
         valor_layout.addWidget(self.input_valor)
         form_layout.addLayout(valor_layout, 1)
-        
+
         # Cor
         cor_layout = QVBoxLayout()
-        cor_layout.addWidget(QLabel("Cor:"))
+        cor_label = QLabel("Cor:")
+        cor_label.setStyleSheet(label_style)
+        cor_layout.addWidget(cor_label)
+        
         self.combo_cor = QComboBox()
         self.combo_cor.addItems(['', 'Branco', 'Preto', 'Azul', 'Verde', 'Vermelho', 'Amarelo', 'Personalizado'])
-        self.combo_cor.setMinimumHeight(50)
-        self.combo_cor.setFixedHeight(55)
+        self.combo_cor.setStyleSheet(campo_style + """
+            QComboBox::drop-down {
+                border: none;
+                width: 20px;
+            }
+            QComboBox::down-arrow {
+                image: none;
+                border-left: 4px solid transparent;
+                border-right: 4px solid transparent;
+                border-top: 4px solid #ffffff;
+            }
+            QComboBox QAbstractItemView {
+                background-color: #404040;
+                border: 1px solid #555555;
+                selection-background-color: #555555;
+                selection-color: #ffffff;
+                color: #ffffff;
+            }
+        """)
         cor_layout.addWidget(self.combo_cor)
         form_layout.addLayout(cor_layout, 1)
         
         # Botão adicionar
-        btn_add = QPushButton("+ Adicionar")
-        btn_add.setFixedHeight(35)
+        btn_add = QPushButton("Adicionar")
+        btn_add.setFixedHeight(32)
+        btn_add.setMinimumWidth(100)
         btn_add.setObjectName("btnAdd")
         btn_add.clicked.connect(self._adicionar_produto)
+        btn_add.setStyleSheet("""
+            QPushButton {
+                background-color: #007acc;
+                color: white;
+                border: none;
+                border-radius: 4px;
+                font-weight: 500;
+                font-size: 13px;
+                padding: 6px 16px;
+                margin-left: 8px;
+            }
+            QPushButton:hover {
+                background-color: #005a9e;
+            }
+            QPushButton:pressed {
+                background-color: #004578;
+            }
+        """)
         form_layout.addWidget(btn_add)
         
-        group_layout.addLayout(form_layout)
+        group_layout.addWidget(form_container)
+        
+        # Espaçamento simples
+        group_layout.addSpacing(15)
         
         # Tabela de produtos
-        self.table_produtos = QTableWidget(0, 5)
-        self.table_produtos.setHorizontalHeaderLabels(['Nome', 'Código', 'Valor (R$)', 'Cor', 'Ações'])
+        self.table_produtos = QTableWidget(0, 6)
+        self.table_produtos.setHorizontalHeaderLabels(['Nome', 'Qtd', 'Código', 'Valor (R$)', 'Cor', 'Ações'])
         
-        # Aplicar estilo específico da tabela
+        # Estilo da tabela melhorado
         self.table_produtos.setStyleSheet("""
             QTableWidget {
-                border: 2px solid #555555;
-                border-radius: 8px;
+                border: 1px solid #555555;
+                border-radius: 6px;
                 background-color: #3a3a3a;
-                gridline-color: #555555;
+                gridline-color: #4a4a4a;
                 font-size: 13px;
                 color: #ffffff;
-                selection-background-color: #555555;
+                selection-background-color: #505050;
+                outline: none;
             }
             
             QTableWidget::item {
-                padding: 12px 8px;
-                border-bottom: 1px solid #555555;
-                border-right: 1px solid #555555;
+                padding: 8px;
+                border-bottom: 1px solid #4a4a4a;
+                border-right: 1px solid #4a4a4a;
                 background-color: #3a3a3a;
                 color: #ffffff;
+                text-align: left;
             }
             
             QTableWidget::item:selected {
-                background-color: #555555;
+                background-color: #505050;
                 color: #ffffff;
             }
             
             QTableWidget::item:hover {
-                background-color: #404040;
+                background-color: #454545;
             }
             
             QHeaderView::section {
                 background-color: #2d2d2d;
-                color: #ffffff;
+                color: #cccccc;
                 padding: 12px 8px;
-                font-weight: bold;
+                font-weight: 600;
                 border: none;
-                border-right: 1px solid #555555;
                 border-bottom: 2px solid #555555;
-                font-size: 13px;
+                border-right: 1px solid #555555;
+                font-size: 12px;
+                text-align: center;
             }
             
             QHeaderView::section:first {
                 border-left: none;
+                text-align: left;
             }
             
             QHeaderView::section:last {
@@ -430,6 +559,7 @@ class NovoPedidosModal(QDialog):
             
             QTableWidget::horizontalHeader {
                 background-color: #2d2d2d;
+                height: 35px;
             }
             
             QTableWidget QScrollBar:vertical {
@@ -449,26 +579,66 @@ class NovoPedidosModal(QDialog):
             }
         """)
         
-        # Configurar colunas
+        # Configurar colunas para garantir proporções fixas em Nome e Ações
         header = self.table_produtos.horizontalHeader()
-        header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)  # Nome
-        header.setSectionResizeMode(1, QHeaderView.ResizeMode.Fixed)    # Código
-        header.setSectionResizeMode(2, QHeaderView.ResizeMode.Fixed)    # Valor
-        header.setSectionResizeMode(3, QHeaderView.ResizeMode.Fixed)    # Cor
-        header.setSectionResizeMode(4, QHeaderView.ResizeMode.Fixed)    # Ações
-        
-        # Larguras das colunas
-        self.table_produtos.setColumnWidth(1, 100)  # Código
-        self.table_produtos.setColumnWidth(2, 120)  # Valor
-        self.table_produtos.setColumnWidth(3, 100)  # Cor
-        self.table_produtos.setColumnWidth(4, 120)  # Ações - ajustado para o botão
-        
-        # Altura das linhas
-        self.table_produtos.verticalHeader().setDefaultSectionSize(50)
+        # Nome: responsiva — ocupa o espaço restante, mas começar pequena
+        header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        # definir tamanho inicial mais compacto antes do stretch
+        header.resizeSection(0, 90)
+        # Qtd, Código, Valor e Cor: ajuste automático ao conteúdo
+        for col in (1, 2, 3, 4):
+            header.setSectionResizeMode(col, QHeaderView.ResizeMode.ResizeToContents)
+        # Ações: largura fixa um pouco maior para melhor usabilidade
+        header.setSectionResizeMode(5, QHeaderView.ResizeMode.Fixed)
+        self.table_produtos.setColumnWidth(5, 72)
+
+        # Melhorias visuais da tabela
+        # compactar linhas, remover grid pesado, e dar hover sutil
+        self.table_produtos.setShowGrid(False)
+        # garantir alternância de linhas para melhorar leitura
+        self.table_produtos.setAlternatingRowColors(True)
+        self.table_produtos.setStyleSheet(self.table_produtos.styleSheet() + """
+            QTableWidget {
+                padding: 4px;
+                background-color: transparent;
+            }
+            QTableWidget::item {
+                padding-top: 6px;
+                padding-bottom: 6px;
+            }
+            QHeaderView::section {
+                background-color: #2b2b2b;
+                color: #dcdcdc;
+                padding: 8px;
+                border: none;
+                font-weight: 600;
+            }
+            QTableWidget::item:selected {
+                background-color: rgba(80, 120, 160, 0.12);
+            }
+            QTableView::item:hover {
+                background-color: rgba(255,255,255,0.02);
+            }
+        """)
+
+        # altura de linha mais compacta, mas legível
+        self.table_produtos.verticalHeader().setDefaultSectionSize(34)
+
+        # centralizar widgets de ação se existirem
+        # (quando inserirmos QPushButton/checkbox nas células)
+        # assegure que os widgets não aumentem a altura
+        self.table_produtos.setWordWrap(False)
+
+        # Configurações gerais da tabela
         self.table_produtos.verticalHeader().setVisible(False)
-        
-        # Definir altura inicial para a tabela
-        self.table_produtos.setFixedHeight(200)  # Altura inicial quando vazia
+        # manter alternating rows habilitado (melhora legibilidade)
+        self.table_produtos.setAlternatingRowColors(True)
+        from PyQt6.QtWidgets import QAbstractItemView
+        self.table_produtos.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.table_produtos.setShowGrid(True)
+        # Permitir que a tabela redimensione sua altura de acordo com o conteúdo
+        self.table_produtos.setMinimumHeight(0)
+        self.table_produtos.setMaximumHeight(16777215)
         
         group_layout.addWidget(self.table_produtos)
         
@@ -850,7 +1020,6 @@ class NovoPedidosModal(QDialog):
             self.input_valor.setText(f"{preco:.2f}")
             return
             
-        print(f"DEBUG: Produto não encontrado no dicionário")
     
     def _on_produto_selecionado(self, texto):
         """Evento quando um produto é selecionado no completer"""
@@ -870,13 +1039,13 @@ class NovoPedidosModal(QDialog):
             self.input_valor.setText(f"{preco:.2f}")
             return
             
-        print(f"DEBUG: Produto selecionado não encontrado no dicionário")
     
     def _adicionar_produto(self):
         """Adiciona um produto à lista"""
         nome = self.input_produto.text().strip()
         valor_texto = self.input_valor.text().strip()
         cor = self.combo_cor.currentText()
+        quantidade = self.input_quantidade.value()
         
         # Validações
         if not nome:
@@ -908,7 +1077,8 @@ class NovoPedidosModal(QDialog):
             'nome': nome,
             'codigo': codigo,
             'valor': valor,
-            'cor': cor
+            'cor': cor,
+            'quantidade': quantidade
         }
         self.produtos_list.append(produto)
         
@@ -919,6 +1089,7 @@ class NovoPedidosModal(QDialog):
         self.input_produto.clear()
         self.input_valor.clear()
         self.combo_cor.setCurrentIndex(0)
+        self.input_quantidade.setValue(1)
         
         # Focar no campo produto
         self.input_produto.setFocus()
@@ -933,37 +1104,65 @@ class NovoPedidosModal(QDialog):
             nome = produto.get('nome', produto.get('descricao', ''))
             self.table_produtos.setItem(row, 0, QTableWidgetItem(nome))
             
+            # Quantidade
+            quantidade = produto.get('quantidade', 1)
+            self.table_produtos.setItem(row, 1, QTableWidgetItem(str(quantidade)))
+            
             # Código
             codigo = produto.get('codigo', '')
-            self.table_produtos.setItem(row, 1, QTableWidgetItem(codigo if codigo else '-'))
+            self.table_produtos.setItem(row, 2, QTableWidgetItem(codigo if codigo else '-'))
             
-            # Valor
-            valor = produto['valor']
-            self.table_produtos.setItem(row, 2, QTableWidgetItem(f"R$ {valor:.2f}"))
-            total += valor
+            # Valor (multiplicado pela quantidade)
+            valor_unitario = produto['valor']
+            valor_total = valor_unitario * quantidade
+            self.table_produtos.setItem(row, 3, QTableWidgetItem(f"R$ {valor_total:.2f}"))
+            total += valor_total
             
             # Cor
             cor = produto.get('cor', '')
-            self.table_produtos.setItem(row, 3, QTableWidgetItem(cor if cor else '-'))
+            self.table_produtos.setItem(row, 4, QTableWidgetItem(cor if cor else '-'))
             
-            # Ações
+            # Ações - Botão mais compacto e bem posicionado
             btn_widget = QWidget()
             btn_layout = QHBoxLayout(btn_widget)
-            btn_layout.setContentsMargins(2, 2, 2, 2)
-            btn_layout.setSpacing(2)
+            btn_layout.setContentsMargins(3, 3, 3, 3)
+            btn_layout.setSpacing(0)
             
-            btn_remover = QPushButton("Remover")
+            # ícone estilo circular pequeno
+            btn_remover = QPushButton("")
             btn_remover.setObjectName("btnRemover")
-            btn_remover.setMaximumWidth(100)  # Largura máxima para não cortar
-            btn_remover.setMinimumHeight(30)  # Altura mínima
+            btn_remover.setFixedSize(28, 28)
+            btn_remover.setToolTip("Remover produto")
+            btn_remover.setStyleSheet("""
+                QPushButton#btnRemover {
+                    background-color: #dc3545;
+                    color: white;
+                    border: none;
+                    border-radius: 14px;
+                    font-weight: bold;
+                    font-size: 14px;
+                }
+                QPushButton#btnRemover::after {
+                    content: '×';
+                }
+                QPushButton#btnRemover:hover {
+                    background-color: #c82333;
+                }
+                QPushButton#btnRemover:pressed {
+                    background-color: #bd2130;
+                }
+            """)
+            # usar um label pequeno dentro do botão para exibir o × (fallback se CSS content não funcionar)
+            btn_remover.setText('×')
             btn_remover.clicked.connect(lambda checked, idx=row: self._remover_produto(idx))
+            btn_layout.addStretch()
             btn_layout.addWidget(btn_remover)
-            btn_layout.addStretch()  # Espaço extra para centralizar
+            btn_layout.addStretch()
             
-            self.table_produtos.setCellWidget(row, 4, btn_widget)
+            self.table_produtos.setCellWidget(row, 5, btn_widget)
             
             # Altura da linha
-            self.table_produtos.setRowHeight(row, 50)
+            self.table_produtos.setRowHeight(row, 40)
         
         # Ajustar altura da tabela dinamicamente
         self._ajustar_altura_tabela()
@@ -978,21 +1177,25 @@ class NovoPedidosModal(QDialog):
     def _ajustar_altura_tabela(self):
         """Ajusta a altura da tabela com base no número de produtos"""
         num_produtos = len(self.produtos_list)
-        
-        if num_produtos == 0:
-            # Altura mínima quando vazia (mostra pelo menos 3 linhas vazias)
-            altura_ideal = 200
+        # obter alturas reais do header/linhas para cálculo mais preciso
+        header_height = self.table_produtos.horizontalHeader().height() or 32
+        # altura da linha configurada (caso tenha sido alterada)
+        default_row_height = self.table_produtos.verticalHeader().defaultSectionSize() or 34
+
+        if num_produtos <= 0:
+            # Mostrar 2 linhas vazias quando não houver produtos, manter compacto
+            visible_rows = 2
         else:
-            # Calcular altura com base no conteúdo
-            altura_header = 40  # Altura do header
-            altura_linha = 50   # Altura de cada linha
-            padding = 20        # Padding interno
-            
-            altura_ideal = altura_header + (num_produtos * altura_linha) + padding
-            
-            # Limitar entre 200 e 400 pixels
-            altura_ideal = max(200, min(400, altura_ideal))
-        
+            # Mostrar até 6 linhas antes de ativar scroll interno
+            visible_rows = min(max(1, num_produtos), 6)
+
+        padding = 8  # padding extra
+        altura_ideal = header_height + (visible_rows * default_row_height) + padding
+
+        # Limitar entre 120 e 360 pixels para evitar espaços mortos
+        altura_ideal = max(120, min(360, altura_ideal))
+
+        # usar setFixedHeight para manter layout consistente dentro do modal
         self.table_produtos.setFixedHeight(altura_ideal)
     
     def _remover_produto(self, index):
@@ -1083,7 +1286,6 @@ class NovoPedidosModal(QDialog):
                 
                 detalhes_texto = '\n'.join(detalhes_produtos)
                 
-                print(f"DEBUG: Detalhes gerados: {detalhes_texto}")
                 
                 # Para atualização, usar apenas campos que existem na tabela ordem_servico
                 pedido_data = {
@@ -1125,7 +1327,6 @@ class NovoPedidosModal(QDialog):
                 }
             
             # Salvar ou atualizar pedido
-            print(f"DEBUG: is_editing={self.is_editing}, pedido_id_editando={self.pedido_id_editando}")
             
             if self.is_editing and self.pedido_id_editando:
                 # Atualizar pedido existente
@@ -1403,16 +1604,13 @@ class NovoPedidosModal(QDialog):
             self.is_editing = True
             if 'id' in pedido_data:
                 self.pedido_id_editando = pedido_data['id']
-                print(f"DEBUG: Definindo pedido_id_editando = {self.pedido_id_editando}")
             if 'numero_os' in pedido_data:
                 self.numero_os_original = pedido_data['numero_os']
-                print(f"DEBUG: Definindo numero_os_original = {self.numero_os_original}")
                 
                 # Atualizar o título se já foi criado
                 if self.titulo_label:
                     self.titulo_label.setText(f"Ordem de Serviço Nº {self.numero_os_original:05d}")
             
-            print(f"DEBUG: is_editing={self.is_editing}, pedido_id_editando={self.pedido_id_editando}")
             
             # Preencher dados do cliente - mapeando os campos do banco
             # Mapear nome_cliente para cliente

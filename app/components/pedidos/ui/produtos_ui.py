@@ -32,6 +32,40 @@ def criar_produtos_ui(self, parent_layout, pedido_data):
     form_col.addWidget(produto_label)
     form_col.addWidget(input_produto)
 
+    # Quantidade
+    quantidade_label = QLabel('Quantidade')
+    quantidade_label.setStyleSheet('color: #ffffff; font-weight: 600;')
+    input_quantidade = QSpinBox()
+    input_quantidade.setMinimum(1)
+    input_quantidade.setMaximum(9999)
+    input_quantidade.setValue(1)
+    input_quantidade.setFixedWidth(100)
+    input_quantidade.setMinimumHeight(50)
+    input_quantidade.setFixedHeight(60)
+    input_quantidade.setStyleSheet('''
+        QSpinBox {
+            background-color: #404040;
+            border: 2px solid #666666;
+            border-radius: 6px;
+            color: #ffffff;
+            font-size: 14px;
+            padding: 8px;
+        }
+        QSpinBox:focus {
+            border-color: #4CAF50;
+        }
+        QSpinBox::up-button, QSpinBox::down-button {
+            background-color: #666666;
+            border: none;
+            width: 20px;
+        }
+        QSpinBox::up-button:hover, QSpinBox::down-button:hover {
+            background-color: #777777;
+        }
+    ''')
+    form_col.addWidget(quantidade_label)
+    form_col.addWidget(input_quantidade)
+
     # Valor
     valor_label = QLabel('Valor (R$)')
     valor_label.setStyleSheet('color: #ffffff; font-weight: 600;')
@@ -86,24 +120,26 @@ def criar_produtos_ui(self, parent_layout, pedido_data):
     
     from PyQt6.QtWidgets import QTableWidget, QHeaderView
 
-    # Tabela de produtos: colunas -> Nome, Código, Valor, Cor, Ações
-    lista_table = QTableWidget(0, 5)
-    lista_table.setHorizontalHeaderLabels(['Nome', 'Código', 'Valor (R$)', 'Cor', 'Ações'])
+    # Tabela de produtos: colunas -> Nome, Código, Qtd, Valor, Cor, Ações
+    lista_table = QTableWidget(0, 6)
+    lista_table.setHorizontalHeaderLabels(['Nome', 'Código', 'Qtd', 'Valor (R$)', 'Cor', 'Ações'])
 
     # Configurar redimensionamento das colunas
     header = lista_table.horizontalHeader()
     header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)  # Nome - ocupa espaço restante
-    # Código, Valor, Cor, Ações terão largura fixa
+    # Código, Qtd, Valor, Cor, Ações terão largura fixa
     header.setSectionResizeMode(1, QHeaderView.ResizeMode.Fixed)
     header.setSectionResizeMode(2, QHeaderView.ResizeMode.Fixed)
     header.setSectionResizeMode(3, QHeaderView.ResizeMode.Fixed)
     header.setSectionResizeMode(4, QHeaderView.ResizeMode.Fixed)
+    header.setSectionResizeMode(5, QHeaderView.ResizeMode.Fixed)
 
     # Definir larguras específicas para colunas fixas
     lista_table.setColumnWidth(1, 80)   # Código - pequeno
-    lista_table.setColumnWidth(2, 120)  # Valor
-    lista_table.setColumnWidth(3, 120)  # Cor
-    lista_table.setColumnWidth(4, 260)  # Ações - aumentado para caber botões
+    lista_table.setColumnWidth(2, 50)   # Quantidade - pequeno
+    lista_table.setColumnWidth(3, 120)  # Valor
+    lista_table.setColumnWidth(4, 120)  # Cor
+    lista_table.setColumnWidth(5, 260)  # Ações - aumentado para caber botões
 
     # Ajustes de aparência e altura das linhas
     lista_table.verticalHeader().setVisible(False)
@@ -201,9 +237,10 @@ def criar_produtos_ui(self, parent_layout, pedido_data):
         'produtos_group': produtos_group,
         'input_desc': input_produto,  # Mapeamento para compatibilidade
         'input_produto': input_produto,  # Nome novo
+        'input_quantidade': input_quantidade,  # Campo de quantidade
         'btn_add': btn_add,
         'input_valor': input_valor,
-    'campos_cor': campos_cor,
+        'campos_cor': campos_cor,
         'lista_table': lista_table,
         'valor_total': valor_total,
         'container_widget': produtos_group

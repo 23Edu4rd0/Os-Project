@@ -49,13 +49,6 @@ class PedidosInterface(QWidget):
 		super().__init__(parent)
 		self.parent = parent
 
-		# listen to status updates so UI can refresh when statuses change
-		try:
-			sig = get_signals()
-			sig.statuses_updated.connect(lambda: self._on_statuses_updated())
-		except Exception:
-			pass
-
 		# Estado
 		self.status_filter = "todos"
 		self._cache_pedidos = None
@@ -64,62 +57,132 @@ class PedidosInterface(QWidget):
 
 		# Helpers
 		self.card_manager = PedidosCard(self)
-		# Removido modal_manager fixo; agora cada modal é criado sob demanda
+		
+		# Conectar sinais para atualizações em tempo real
+		self._conectar_sinais()
 
 		# UI
 		self._setup_interface()
+	
+	def _conectar_sinais(self):
+		"""Conecta os sinais globais para atualização em tempo real"""
+		try:
+			signals = get_signals()
+			# Sinais de status
+			signals.statuses_updated.connect(self._on_statuses_updated)
+			# Sinais de pedidos
+			signals.pedido_criado.connect(self._on_pedido_atualizado)
+			signals.pedido_editado.connect(self._on_pedido_atualizado)
+			signals.pedido_excluido.connect(self._on_pedido_atualizado)
+			signals.pedido_status_atualizado.connect(self._on_status_atualizado)
+			signals.pedidos_atualizados.connect(self._on_pedidos_atualizados)
+		except Exception as e:
+			print(f"Erro ao conectar sinais: {e}")
+	
+	def _on_pedido_atualizado(self, pedido_id: int = None):
+		"""Atualiza a lista quando um pedido é modificado"""
+		self.carregar_dados(force_refresh=True)
+	
+	def _on_status_atualizado(self, pedido_id: int, novo_status: str):
+		"""Atualiza a lista quando o status de um pedido muda"""
+		self.carregar_dados(force_refresh=True)
+	
+	def _on_pedidos_atualizados(self):
+		"""Atualiza a lista quando há mudança geral nos pedidos"""
+		self.carregar_dados(force_refresh=True)
 		# Mostrar estado de carregamento inicial (será substituído após carregar)
 		self._mostrar_msg("Carregando pedidos...", cor="#bbbbbb")
 		self.carregar_dados(force_refresh=True)
 
 	def _setup_interface(self):
 		layout = QVBoxLayout(self)
-		layout.setContentsMargins(10, 10, 10, 10)
-		layout.setSpacing(10)
+		layout.setContentsMargins(15, 15, 15, 15)  # Margens mais generosas
+		layout.setSpacing(15)  # Maior espaçamento vertical
 
-		# Header muito simples
-		header_layout = QHBoxLayout()
+		# Header moderno com gradiente
+		header_container = QFrame()
+		header_container.setStyleSheet("""
+			QFrame {
+				background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+					stop:0 #323232, stop:1 #2a2a2a);
+				border-radius: 10px;
+				padding: 5px;
+			}
+		""")
+		header_container.setFixedHeight(50)
+		header_layout = QHBoxLayout(header_container)
+		header_layout.setContentsMargins(15, 0, 15, 0)
 		
 		titulo = QLabel("Pedidos")
-		titulo.setStyleSheet("font-size: 16px; font-weight: bold; color: #ffffff;")
+		titulo.setStyleSheet("font-size: 18px; font-weight: bold; color: #ffffff;")
 		header_layout.addWidget(titulo)
 		
 		header_layout.addStretch()
 		
-		# Botão novo pedido muito simples
+		# Botão novo pedido modernizado
 		self.btn_novo = QPushButton("Novo Pedido")
 		self.btn_novo.setStyleSheet("""
 			QPushButton {
-				background-color: #555555;
+				background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+					stop:0 #3281e8, stop:1 #1565c0);
 				color: white;
-				border: 1px solid #666666;
+				border: none;
+				border-radius: 6px;
+				border-bottom: 2px solid #104d92;
 				padding: 8px 15px;
-				border-radius: 3px;
-				font-size: 11px;
+				font-size: 12px;
+				font-weight: 600;
 			}
 			QPushButton:hover {
-				background-color: #666666;
+				background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+					stop:0 #3a8af0, stop:1 #1976d2);
+			}
+			QPushButton:pressed {
+				padding-top: 9px;
+				padding-bottom: 7px;
 			}
 		""")
 		self.btn_novo.clicked.connect(self.novo_pedido)
 		header_layout.addWidget(self.btn_novo)
 		
-		layout.addLayout(header_layout)
+		layout.addWidget(header_container)
 		
-		# Filtro muito simples
-		filtros_layout = QHBoxLayout()
+		# Filtro modernizado
+		filtros_container = QFrame()
+		filtros_container.setStyleSheet("""
+			QFrame {
+				background: rgba(255, 255, 255, 0.05);
+				border-radius: 8px;
+			}
+		""")
+		filtros_layout = QHBoxLayout(filtros_container)
+		filtros_layout.setContentsMargins(15, 8, 15, 8)
 		
-		filtros_layout.addWidget(QLabel("Status:"))
+		status_label = QLabel("Status:")
+		status_label.setStyleSheet("color: #cccccc; font-size: 12px;")
+		filtros_layout.addWidget(status_label)
 		
 		self.filtro_status = QComboBox()
 		self.filtro_status.addItems(["Todos", "Pendente", "Em Andamento", "Concluído", "Cancelado"])
 		self.filtro_status.setStyleSheet("""
 			QComboBox {
-				background-color: #404040;
+				background-color: #3a3a3a;
 				color: white;
-				border: 1px solid #555555;
-				padding: 6px;
-				border-radius: 3px;
+				border: 1px solid #505050;
+				padding: 6px 10px;
+				border-radius: 5px;
+				min-width: 130px;
+				font-size: 12px;
+			}
+			QComboBox::drop-down {
+				border: none;
+				width: 24px;
+			}
+			QComboBox QAbstractItemView {
+				background-color: #3a3a3a;
+				color: white;
+				selection-background-color: #505050;
+				border: 1px solid #505050;
 			}
 		""")
 		self.filtro_status.currentTextChanged.connect(self._filtrar_pedidos)
@@ -127,41 +190,51 @@ class PedidosInterface(QWidget):
 		
 		filtros_layout.addStretch()
 		
-		layout.addLayout(filtros_layout)
+		layout.addWidget(filtros_container)
 		
-		# Área de scroll muito simples
+		# Área de scroll modernizada
 		self.scroll_area = QScrollArea()
 		self.scroll_area.setWidgetResizable(True)
 		self.scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
 		self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
 		self.scroll_area.setStyleSheet("""
 			QScrollArea {
-				background-color: #2d2d2d; 
-				border: 1px solid #555555;
+				background-color: #252525; 
+				border: none;
+				border-radius: 10px;
 			}
 			QScrollBar:vertical {
-				background-color: #404040;
-				width: 12px;
-				border-radius: 6px;
+				background-color: #2d2d2d;
+				width: 14px;
+				border-radius: 7px;
+				margin: 0px;
 			}
 			QScrollBar::handle:vertical {
-				background-color: #666666;
-				border-radius: 6px;
-				min-height: 20px;
+				background-color: #505050;
+				border-radius: 7px;
+				min-height: 30px;
+				margin: 2px;
 			}
 			QScrollBar::handle:vertical:hover {
-				background-color: #777777;
+				background-color: #606060;
+			}
+			QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+				height: 0px;
+			}
+			QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
+				background: none;
 			}
 		""")
 		
 		self.scroll_widget = QWidget()
+		self.scroll_widget.setStyleSheet("background-color: #252525;")
 		self.scroll_layout = QVBoxLayout(self.scroll_widget)
-		self.scroll_layout.setContentsMargins(5, 5, 5, 20)  # Margem inferior para espaço
-		self.scroll_layout.setSpacing(8)
+		self.scroll_layout.setContentsMargins(10, 10, 10, 20)  # Margens reduzidas
+		self.scroll_layout.setSpacing(10)  # Espaçamento reduzido
 		
 		# Configurar scroll suave
-		self.scroll_area.verticalScrollBar().setSingleStep(20)
-		self.scroll_area.verticalScrollBar().setPageStep(100)
+		self.scroll_area.verticalScrollBar().setSingleStep(25)
+		self.scroll_area.verticalScrollBar().setPageStep(150)
 		
 		# Configurar política de tamanho do widget de scroll
 		self.scroll_widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
@@ -268,16 +341,18 @@ class PedidosInterface(QWidget):
 	def _criar_grid_cards(self, pedidos):
 		grid = QWidget()
 		grid_l = QGridLayout(grid)
-		grid_l.setSpacing(14)
-		# Margens assimétricas: menos à esquerda, mais à direita
-		# para que a última coluna não fique colada na parede
+		grid_l.setSpacing(12)  # Espaçamento reduzido para permitir mais cards
+		# Margens ajustadas para melhor uso do espaço
 		try:
-			# Diminuir ainda mais a margem esquerda (zero) e manter folga maior à direita
-			grid_l.setContentsMargins(0, 0, 44, 20)  # Margem inferior para espaço final
+			grid_l.setContentsMargins(10, 10, 10, 16)  # Margens reduzidas
 		except Exception:
 			pass
 
 		# Conectar sinais uma vez
+		try:
+			self.card_manager.visualizar_clicked.disconnect()
+		except Exception:
+			pass
 		try:
 			self.card_manager.editar_clicked.disconnect()
 		except Exception:
@@ -290,16 +365,29 @@ class PedidosInterface(QWidget):
 			self.card_manager.status_changed.disconnect()
 		except Exception:
 			pass
+		self.card_manager.visualizar_clicked.connect(self.visualizar_pedido)
 		self.card_manager.editar_clicked.connect(self.editar_pedido)
 		self.card_manager.excluir_clicked.connect(self.excluir_pedido)
 		self.card_manager.status_changed.connect(self.atualizar_status)
 
-		cols = 3
-		# Adicionar uma coluna extra de "respiro" à direita
-		try:
-			grid_l.setColumnStretch(cols, 1)
-		except Exception:
-			pass
+		# Calcular colunas dinamicamente baseado na largura da tela
+		largura_disponivel = max(400, self.width() - 30)  # Margem de segurança menor
+		largura_card = 300  # Largura do card reduzida ainda mais
+		espacamento = 10   # Espaçamento entre cards menor
+		
+		# Forçar 4 colunas se a largura for maior que 1280px
+		if self.width() >= 1280:
+			cols = 4
+		else:
+			cols = max(1, (largura_disponivel + espacamento) // (largura_card + espacamento))
+			cols = min(cols, 4)  # Limitar a 4 conforme solicitado
+		
+		print(f"Largura disponível: {largura_disponivel}px, Colunas calculadas: {cols}")
+		
+		# Configurar stretch para ocupar toda a largura
+		for col in range(cols):
+			grid_l.setColumnStretch(col, 1)
+		
 		r = c = 0
 		for pedido in pedidos:
 			try:
@@ -338,13 +426,36 @@ class PedidosInterface(QWidget):
 	# Ações públicas ---------------------------------------------------------
 	def novo_pedido(self):
 		modal = NovoPedidosModal(self)
-		modal.pedido_salvo.connect(lambda: self.carregar_dados(force_refresh=True))
+		modal.pedido_salvo.connect(self._on_novo_pedido_salvo)
 		modal._criar_modal_completo()
+	
+	def _on_novo_pedido_salvo(self):
+		"""Callback quando um novo pedido é salvo"""
+		signals = get_signals()
+		signals.pedidos_atualizados.emit()
+		# O sinal já vai atualizar a interface através de _on_pedidos_atualizados
+
+	def visualizar_pedido(self, pedido_id: int):
+		"""Abre o dialog de resumo do pedido para visualização"""
+		try:
+			print(f"Visualizando pedido ID: {pedido_id}")
+			from app.components.dialogs.pedido_resumo_dialog import PedidoResumoDialog
+			dialog = PedidoResumoDialog(pedido_id, self)
+			dialog.exec()
+		except Exception as e:
+			print(f"Erro ao visualizar pedido: {e}")
+			from PyQt6.QtWidgets import QMessageBox
+			QMessageBox.critical(self, "Erro", f"Erro ao abrir resumo do pedido: {e}")
 
 	def editar_pedido(self, pedido_id: int):
 		modal = NovoPedidosModal(self)
-		modal.pedido_salvo.connect(lambda: self.carregar_dados(force_refresh=True))
+		modal.pedido_salvo.connect(lambda: self._on_pedido_editado(pedido_id))
 		modal.abrir_modal_edicao(pedido_id)
+	
+	def _on_pedido_editado(self, pedido_id: int):
+		"""Callback quando um pedido é editado"""
+		signals = get_signals()
+		signals.pedido_editado.emit(pedido_id)
 
 	def excluir_pedido(self, pedido_id: int):
 		try:
@@ -352,14 +463,20 @@ class PedidosInterface(QWidget):
 				db_manager.deletar_pedido(pedido_id)
 			else:
 				db_manager.deletar_ordem(pedido_id)
-			self.carregar_dados(force_refresh=True)
+			
+			# Emitir sinal de exclusão
+			signals = get_signals()
+			signals.pedido_excluido.emit(pedido_id)
 		except Exception as e:
 			print(f"Erro ao excluir: {e}")
 
 	def atualizar_status(self, pedido_id: int, novo_status: str):
 		try:
 			db_manager.atualizar_status_pedido(pedido_id, novo_status)
-			self.carregar_dados(force_refresh=True)
+			
+			# Emitir sinal de atualização de status
+			signals = get_signals()
+			signals.pedido_status_atualizado.emit(pedido_id, novo_status)
 		except Exception as e:
 			print(f"Erro ao atualizar status: {e}")
 
@@ -379,3 +496,23 @@ class PedidosInterface(QWidget):
 
 	def refresh_data(self):
 		self.carregar_dados(force_refresh=True)
+	
+	def resizeEvent(self, event):
+		"""Recalcula o layout quando a janela é redimensionada"""
+		super().resizeEvent(event)
+		# Agendar recálculo do layout após um pequeno delay
+		if hasattr(self, 'resize_timer'):
+			self.resize_timer.stop()
+		
+		from PyQt6.QtCore import QTimer
+		self.resize_timer = QTimer()
+		self.resize_timer.setSingleShot(True)
+		self.resize_timer.timeout.connect(self._recalcular_layout)
+		self.resize_timer.start(100)  # 100ms de delay
+	
+	def _recalcular_layout(self):
+		"""Recalcula o layout dos cards"""
+		try:
+			self.carregar_dados(force_refresh=False)
+		except Exception as e:
+			print(f"Erro ao recalcular layout: {e}")

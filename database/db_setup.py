@@ -98,6 +98,12 @@ class DatabaseSetup:
                 cursor.execute("ALTER TABLE ordem_servico ADD COLUMN status TEXT DEFAULT 'Em Andamento'")
             except Exception:
                 pass  # Ignorar se já existir
+
+            # Garantir coluna CEP para clientes (migração)
+            try:
+                cursor.execute("ALTER TABLE clientes ADD COLUMN cep TEXT")
+            except Exception:
+                pass  # Ignorar se já existir
                 
             # Criar índice do CNPJ após garantir que a coluna existe
             try:
