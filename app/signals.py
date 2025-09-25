@@ -26,6 +26,9 @@ class AppSignals(QObject):
     
     # Sinais para categorias
     categorias_atualizadas = pyqtSignal()
+    
+    # Sinais para cores
+    cores_atualizadas = pyqtSignal()
 
 
 # single shared instance

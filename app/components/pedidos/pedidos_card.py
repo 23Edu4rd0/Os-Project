@@ -235,12 +235,31 @@ class PedidosCard(QWidget):
                 tooltip_text = "Produtos:\n"
                 for p in produtos:
                     nome = p.get('descricao', p.get('nome', 'Produto'))
-                    cor = p.get('cor', 'Não especificada')
                     quantidade = p.get('quantidade', 1)
-                    if quantidade > 1:
-                        tooltip_text += f"- {quantidade}x {nome} (Cor: {cor})\n"
+                    
+                    # Processar cores com nova estrutura
+                    cor_display = 'Não especificada'
+                    cor_data = p.get('cor_data')
+                    if cor_data:
+                        if cor_data.get('tipo') == 'separadas':
+                            tampa = cor_data.get('tampa', '')
+                            corpo = cor_data.get('corpo', '')
+                            if tampa or corpo:
+                                cor_display = f"Tampa: {tampa}, Corpo: {corpo}"
+                        elif cor_data.get('tipo') == 'unica':
+                            cor_unica = cor_data.get('cor', '')
+                            if cor_unica:
+                                cor_display = cor_unica
                     else:
-                        tooltip_text += f"- {nome} (Cor: {cor})\n"
+                        # Compatibilidade com formato antigo
+                        cor_antiga = p.get('cor', '')
+                        if cor_antiga:
+                            cor_display = cor_antiga
+                    
+                    if quantidade > 1:
+                        tooltip_text += f"- {quantidade}x {nome} (Cor: {cor_display})\n"
+                    else:
+                        tooltip_text += f"- {nome} (Cor: {cor_display})\n"
                 
 
                 self._setup_tooltip(resumo_label, tooltip_text)
@@ -305,11 +324,30 @@ class PedidosCard(QWidget):
                 
                 # Criar tooltip com detalhes completos
                 nome_completo = produto.get('descricao', produto.get('nome', 'Produto'))
-                cor = produto.get('cor', 'Não especificada')
-                if quantidade > 1:
-                    tooltip = f"Produto: {quantidade}x {nome_completo}\nCor: {cor}"
+                
+                # Processar cores com nova estrutura
+                cor_display = 'Não especificada'
+                cor_data = produto.get('cor_data')
+                if cor_data:
+                    if cor_data.get('tipo') == 'separadas':
+                        tampa = cor_data.get('tampa', '')
+                        corpo = cor_data.get('corpo', '')
+                        if tampa or corpo:
+                            cor_display = f"Tampa: {tampa}, Corpo: {corpo}"
+                    elif cor_data.get('tipo') == 'unica':
+                        cor_unica = cor_data.get('cor', '')
+                        if cor_unica:
+                            cor_display = cor_unica
                 else:
-                    tooltip = f"Produto: {nome_completo}\nCor: {cor}"
+                    # Compatibilidade com formato antigo
+                    cor_antiga = produto.get('cor', '')
+                    if cor_antiga:
+                        cor_display = cor_antiga
+                
+                if quantidade > 1:
+                    tooltip = f"Produto: {quantidade}x {nome_completo}\nCor: {cor_display}"
+                else:
+                    tooltip = f"Produto: {nome_completo}\nCor: {cor_display}"
                 
                 produto_item = QLabel(f"• {descricao_display}")
                 self._setup_tooltip(produto_item, tooltip)

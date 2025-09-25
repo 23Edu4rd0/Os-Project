@@ -2,10 +2,10 @@
 """
 Service Order System v1.0.0
 
-Desktop application for managing service orders, clients, products, and reports.
+Desktop application for managing service orders, clients, products, and backup.
 
 Main features:
-- Tabbed interface for clients, orders, financial dashboard, products, and backup.
+- Tabbed interface for clients, orders, products, and backup.
 - Window state and active tab persistence.
 - Structured logging and global exception handling.
 
@@ -47,7 +47,7 @@ class MainApp(QMainWindow):
     """
     Main application window for the Service Order System.
 
-    Provides a tabbed interface for managing clients, service orders, financial dashboard,
+    Provides a tabbed interface for managing clients, service orders,
     products, and backup/restore operations. Handles window state persistence and logging.
     """
     
@@ -77,18 +77,20 @@ class MainApp(QMainWindow):
         """
         app = QApplication.instance()
         if app:
-            tooltip_style = """
+            global_style = """
                 QToolTip {
-                    background-color: #2b2b2b;
+                    background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1,
+                        stop: 0 #3a3a3a, stop: 1 #2a2a2a);
                     color: #ffffff;
-                    border: 2px solid #555555;
-                    padding: 8px;
-                    font-size: 12px;
-                    font-weight: normal;
-                    border-radius: 4px;
+                    border: 2px solid #007ACC;
+                    border-radius: 8px;
+                    padding: 10px 12px;
+                    font-size: 13px;
+                    font-weight: 500;
+                    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
                 }
             """
-            app.setStyleSheet(tooltip_style)
+            app.setStyleSheet(global_style)
         
     def _setup_ui(self) -> None:
         """
@@ -109,10 +111,97 @@ class MainApp(QMainWindow):
         self.tab_widget = QTabWidget()
         self.tab_widget.setTabPosition(QTabWidget.TabPosition.North)
         self.tab_widget.setDocumentMode(True)
+        self.tab_widget.setMovable(True)
         layout.addWidget(self.tab_widget)
         
+        # Aplicar estilo moderno às abas
+        self._apply_modern_tab_style()
         apply_app_theme(self)
         QTimer.singleShot(100, self._init_tabs)
+    
+    def _apply_modern_tab_style(self) -> None:
+        """
+        Aplica um estilo moderno e atrativo às abas da aplicação.
+        """
+        modern_style = """
+            QTabWidget::pane {
+                border: 2px solid #3a3a3a;
+                border-radius: 10px;
+                background-color: #2b2b2b;
+                margin-top: -1px;
+            }
+            
+            QTabBar {
+                qproperty-drawBase: 0;
+                border-radius: 3px;
+                margin: 0px;
+                padding: 2px;
+                background-color: transparent;
+            }
+            
+            QTabBar::tab {
+                background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1,
+                    stop: 0 #4a4a4a, stop: 0.1 #424242, 
+                    stop: 0.5 #3a3a3a, stop: 0.9 #2e2e2e, stop: 1 #2a2a2a);
+                border: 2px solid #555555;
+                border-bottom: none;
+                border-top-left-radius: 10px;
+                border-top-right-radius: 10px;
+                color: #e0e0e0;
+                font-weight: 600;
+                font-size: 13px;
+                padding: 12px 20px;
+                margin-right: 3px;
+                margin-left: 3px;
+                margin-top: 5px;
+                min-width: 120px;
+                text-align: center;
+            }
+            
+            QTabBar::tab:selected {
+                background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1,
+                    stop: 0 #007ACC, stop: 0.1 #0066BB, 
+                    stop: 0.5 #005AA0, stop: 0.9 #004E88, stop: 1 #004477);
+                border: 2px solid #007ACC;
+                color: #ffffff;
+                font-weight: bold;
+                transform: translateY(-2px);
+            }
+            
+            QTabBar::tab:hover:!selected {
+                background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1,
+                    stop: 0 #5a5a5a, stop: 0.1 #525252, 
+                    stop: 0.5 #4a4a4a, stop: 0.9 #3e3e3e, stop: 1 #3a3a3a);
+                border: 2px solid #666666;
+                color: #f0f0f0;
+                transform: translateY(-1px);
+            }
+            
+            QTabBar::tab:pressed {
+                background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1,
+                    stop: 0 #005588, stop: 0.5 #004466, stop: 1 #003344);
+            }
+            
+            /* Adicionar sombra às abas */
+            QTabBar::tab:selected {
+                box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+            }
+            
+            /* Estilo para o botão de fechar aba */
+            QTabBar::close-button {
+                image: url(close.png);
+                subcontrol-position: right;
+                background: transparent;
+                border-radius: 2px;
+                margin: 2px;
+            }
+            
+            QTabBar::close-button:hover {
+                background: #ff4444;
+                border-radius: 4px;
+            }
+        """
+        self.tab_widget.setStyleSheet(modern_style)
         
     def _init_tabs(self) -> None:
         """
@@ -125,16 +214,14 @@ class MainApp(QMainWindow):
             
             from app.components.clientes_manager_pyqt import ClientesManager
             from app.components.pedidos import PedidosManager
-            from app.components.contas_manager import ContasManager
             from app.components.produtos_manager import ProdutosManager
             from app.ui.backup_tab import BackupTab
             
             tabs_config = [
-                ("👥 Clientes", ClientesManager, "Gestão de clientes"),
-                ("📋 Pedidos", PedidosManager, "Ordens de serviço"),
-                ("💰 Dashboard", ContasManager, "Relatórios financeiros"),
-                ("📦 Produtos", ProdutosManager, "Catálogo de produtos"),
-                ("💾 Backup", BackupTab, "Backup e restauração")
+                ("👥 Clientes", ClientesManager, "Gestão completa de clientes e cadastros"),
+                ("📋 Pedidos", PedidosManager, "Ordens de serviço e acompanhamento"),
+                ("📦 Produtos", ProdutosManager, "Catálogo de produtos e preços"),
+                ("💾 Backup", BackupTab, "Backup e restauração de dados")
             ]
             
             for tab_name, manager_class, tooltip in tabs_config:

@@ -6,6 +6,7 @@ from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 import os
+import re
 
 
 class OrdemServicoPDF:
@@ -13,6 +14,44 @@ class OrdemServicoPDF:
         self.dados = dados
         self.arquivo_pdf = self._gerar_caminho_pdf(dados, arquivo_pdf)
         self.tamanho_folha = tamanho_folha  # "pequena" ou "grande"
+    
+    def _detectar_documento_tipo(self, documento):
+        """Detecta se o documento é CPF ou CNPJ"""
+        if not documento:
+            return "CPF", documento
+        
+        # Remove formatação
+        doc_limpo = re.sub(r'[^0-9]', '', documento)
+        
+        if len(doc_limpo) == 11:
+            return "CPF", documento
+        elif len(doc_limpo) == 14:
+            return "CNPJ", documento
+        else:
+            # Se não conseguir detectar, assume CPF como padrão
+            return "CPF", documento
+    
+    def _formatar_cor_produto(self, produto):
+        """Formata informação de cor do produto"""
+        cor_data = produto.get('cor_data')
+        if not cor_data:
+            return ""
+        
+        if cor_data.get('tipo') == 'separadas':
+            tampa = cor_data.get('tampa', '')
+            corpo = cor_data.get('corpo', '')
+            if tampa and corpo:
+                return f"(Tampa: {tampa}, Corpo: {corpo})"
+            elif tampa:
+                return f"(Tampa: {tampa})"
+            elif corpo:
+                return f"(Corpo: {corpo})"
+        elif cor_data.get('tipo') == 'unica':
+            cor_unica = cor_data.get('cor', '')
+            if cor_unica:
+                return f"(Cor: {cor_unica})"
+        
+        return ""
         
     def _gerar_caminho_pdf(self, dados, arquivo_padrao):
         """
@@ -170,13 +209,25 @@ class OrdemServicoPDF:
 
         c.setFont(font_to_use, 9)
         c.drawString(10, y_position, f'Nome: {nome_cliente}')
-
+        y_position -= 15
+        
+        # Detectar se é CPF ou CNPJ e formatar apropriadamente
+        doc_tipo, doc_formatado = self._detectar_documento_tipo(cpf_cliente)
+        c.drawString(10, y_position, f'{doc_tipo}: {doc_formatado}')
+        y_position -= 15
+        
+        c.drawString(10, y_position, f'Telefone: {telefone_cliente}')
+        y_position -= 25
 
         # --- Seção de Produtos ---
         c.setFont(font_bold_to_use, 12)
         c.drawString(10, y_position, "PRODUTOS")
         c.line(10, y_position - 5, width - 10, y_position - 5)
         y_position -= 20
+        
+        # Definir style para uso posterior
+        style = getSampleStyleSheet()["Normal"]
+        text_width = width - 20
         
         # Usar lista estruturada se disponível, senão usar detalhes_produto como fallback
         if produtos and isinstance(produtos, list):
@@ -187,39 +238,60 @@ class OrdemServicoPDF:
                 valor_unit = produto.get('valor', 0)
                 valor_total_item = quantidade * valor_unit
                 
-                # Exibir: "2x Produto ABC - R$ 50,00 (unit: R$ 25,00)"
+                # Obter informação de cor
+                info_cor = self._formatar_cor_produto(produto)
+                
+                # Exibir: "• Caixa 7 gavetas (Cor: Azul) - R$ 1600,00"
                 if quantidade > 1:
-                    linha_produto = f"{quantidade}x {nome} - R$ {valor_total_item:.2f} (unit: R$ {valor_unit:.2f})"
+                    linha_produto = f"{quantidade} {nome}"
                 else:
-                    linha_produto = f"{nome} - R$ {valor_unit:.2f}"
+                    linha_produto = f"{nome}"
+                
+                # Adicionar cor se disponível
+                if info_cor:
+                    linha_produto += f" {info_cor}"
+                
+                # Adicionar preço
+                if quantidade > 1:
+                    linha_produto += f" - R$ {valor_total_item:.2f}"
+                else:
+                    linha_produto += f" - R$ {valor_unit:.2f}"
                 
                 linha_produto = linha_produto.replace('.', ',')
                 c.drawString(15, y_position, f"• {linha_produto}")
-                y_position -= 12
-            y_position -= 13  # Espaço extra após lista de produtos
+                y_position -= 15
+            y_position -= 10  # Espaço extra após lista de produtos
         else:
             # Fallback para detalhes_produto como string
-            style = getSampleStyleSheet()["Normal"]
-            text_width = width - 20
-            detalhes_paragraph = Paragraph(detalhes_produto, style)
-            _, h = detalhes_paragraph.wrap(text_width, y_position)
-            detalhes_paragraph.drawOn(c, 10, y_position - h)
-            y_position -= h + 25
+            if detalhes_produto:
+                detalhes_paragraph = Paragraph(detalhes_produto, style)
+                _, h = detalhes_paragraph.wrap(text_width, y_position)
+                detalhes_paragraph.drawOn(c, 10, y_position - h)
+                y_position -= h + 15
+            else:
+                c.setFont(font_to_use, 9)
+                c.drawString(15, y_position, "• Nenhum produto especificado")
+                y_position -= 25
 
         c.setFont(font_bold_to_use, 12)
         c.drawString(10, y_position, "ORÇAMENTO")
         c.line(10, y_position - 5, width - 10, y_position - 5)
         y_position -= 20
         c.setFont(font_to_use, 9)
-        valor_produto_fmt = f'{valor_produto:.2f}'.replace('.', ',') if valor_produto is not None else "-"
-        valor_entrada_fmt = f'{valor_entrada:.2f}'.replace('.', ',') if valor_entrada is not None else "-"
+        
+        # Formatação dos valores monetários
+        valor_produto_fmt = f'{valor_produto:.2f}'.replace('.', ',') if valor_produto is not None else "0,00"
+        valor_entrada_fmt = f'{valor_entrada:.2f}'.replace('.', ',') if valor_entrada is not None else "0,00"
         frete_fmt = f'{frete:.2f}'.replace('.', ',') if frete is not None else "0,00"
+        
         c.drawString(10, y_position, f'Valor do produto: R$ {valor_produto_fmt}')
         y_position -= 15
         c.drawString(10, y_position, f'Valor da entrada: R$ {valor_entrada_fmt}')
         y_position -= 15
         c.drawString(10, y_position, f'Frete: R$ {frete_fmt}')
         y_position -= 15
+        
+        # Cálculo do total e restante
         total = 0.0
         restante = 0.0
         try:
@@ -228,12 +300,13 @@ class OrdemServicoPDF:
         except Exception:
             total = 0.0
             restante = 0.0
+            
         c.drawString(10, y_position, f'Total: R$ {total:.2f}'.replace('.', ','))
         y_position -= 15
         c.drawString(10, y_position, f'Restante: R$ {restante:.2f}'.replace('.', ','))
         y_position -= 15
         c.drawString(10, y_position, f'Forma de pagamento: {forma_pagamento}')
-        y_position -= 30
+        y_position -= 25
 
         c.setFont(font_bold_to_use, 12)
         c.drawString(10, y_position, "DATA DE ENTREGA")
@@ -244,24 +317,37 @@ class OrdemServicoPDF:
             10, y_position,
             f'Prazo estimado para entrega: {data_de_entrega}'
         )
-        y_position -= 15
+        y_position -= 25
 
-        y_position -= 20
         c.setFont(font_bold_to_use, 12)
         c.drawString(10, y_position, "TERMOS E CONDIÇÕES")
         c.line(10, y_position - 5, width - 10, y_position - 5)
-        y_position -= 15
-
-        termos_condicoes = """
-        1. O valor e o prazo podem ser ajustados conforme necessidade de materiais, mudanças no pedido ou imprevistos.<br/>
-        2. Mudanças ou condições especiais serão sempre comunicadas e acordadas previamente.<br/>
-        3. Caso precise cancelar ou alterar qualquer informação do pedido (como pagamento, endereço, itens, etc.), entre em contato o quanto antes para avaliarmos juntos a melhor solução.
-        """
-        termos_paragraph = Paragraph(termos_condicoes, style)
-        w, h = termos_paragraph.wrap(text_width, y_position)
-        termos_paragraph.drawOn(c, 10, y_position - h)
-        y_position -= h
         y_position -= 20
+
+        # Termos e condições em texto simples para melhor formatação
+        c.setFont(font_to_use, 9)
+        termos_linhas = [
+            "1. O valor e o prazo podem ser ajustados",
+            "   conforme necessidade de materiais,",
+            "   mudanças no pedido ou imprevistos.",
+            "",
+            "2. Mudanças ou condições especiais serão",
+            "   sempre comunicadas e acordadas",
+            "   previamente.",
+            "",
+            "3. Caso precise cancelar ou alterar qualquer",
+            "   informação do pedido (como pagamento,",
+            "   endereço, itens, etc.), entre em contato",
+            "   o quanto antes para avaliarmos juntos",
+            "   a melhor solução."
+        ]
+        
+        for linha in termos_linhas:
+            if linha.strip():  # Linha não vazia
+                c.drawString(10, y_position, linha)
+            y_position -= 12
+        
+        y_position -= 10
 
         c.showPage()
         c.save()

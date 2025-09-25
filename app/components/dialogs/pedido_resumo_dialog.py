@@ -269,9 +269,42 @@ class PedidoResumoDialog(QDialog):
                             quantidade = produto.get('quantidade', 1)
                             valor_unitario = produto.get('valor_unitario', 0.0)
                             valor_total = quantidade * valor_unitario
+                            
+                            # Processar informações de cor com debug
+                            cor_info = ""
+                            print(f"Processando cores do produto {nome}:")
+                            print(f"  - cor_data: {produto.get('cor_data')}")
+                            print(f"  - cor: {produto.get('cor')}")
+                            
+                            if 'cor_data' in produto and produto['cor_data']:
+                                cor_data = produto['cor_data']
+                                if cor_data.get('tipo') == 'separadas':
+                                    tampa = cor_data.get('tampa', '')
+                                    corpo = cor_data.get('corpo', '')
+                                    if tampa or corpo:
+                                        cor_info = f" — Tampa: {tampa}, Corpo: {corpo}"
+                                elif cor_data.get('tipo') == 'unica':
+                                    cor_unica = cor_data.get('cor', '')
+                                    if cor_unica:
+                                        cor_info = f" — Cor: {cor_unica}"
+                            elif 'cor' in produto and produto['cor']:
+                                cor_antiga = produto['cor']
+                                cor_info = f" — Cor: {cor_antiga}"
+                            
+                            print(f"  - cor_info final: '{cor_info}'")
+                            
+                            # Primeira linha: informações do produto
                             produto_text = f"• {nome} (Código: {codigo}) - Qtd: {quantidade} - R$ {valor_total:.2f}"
                             label_produto = QLabel(produto_text)
+                            label_produto.setStyleSheet("color: #ffffff; font-size: 14px; margin-bottom: 2px;")
                             layout_produtos.addWidget(label_produto)
+                            
+                            # Segunda linha: informações de cor (apenas se houver cores)
+                            if cor_info:
+                                cor_text = f"  {cor_info.lstrip(' — ')}"  # Remove o "—" inicial e adiciona indentação
+                                label_cor = QLabel(cor_text)
+                                label_cor.setStyleSheet("color: #cccccc; font-size: 12px; margin-left: 20px; margin-bottom: 5px; font-style: italic;")
+                                layout_produtos.addWidget(label_cor)
                     except Exception as e:
                         import traceback
                         traceback.print_exc()

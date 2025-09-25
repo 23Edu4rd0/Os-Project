@@ -816,12 +816,23 @@ class DatabaseManager:
                         for i, p in enumerate(produtos_json):
                             print(f"Processando produto JSON {i}: {p}, tipo: {type(p)}")
                             if isinstance(p, dict):
-                                produtos.append({
+                                produto = {
                                     'nome': p.get('descricao', p.get('nome', 'Produto')),
                                     'codigo': p.get('codigo', 'S/Código'),
                                     'quantidade': p.get('quantidade', 1),
                                     'valor_unitario': p.get('valor', p.get('preco', 0.0))
-                                })
+                                }
+                                
+                                # Adicionar informações de cor (estrutura completa)
+                                if 'cor_data' in p:
+                                    produto['cor_data'] = p['cor_data']
+                                elif 'cor' in p:
+                                    produto['cor'] = p['cor']
+                                
+                                # Debug: verificar se as cores estão sendo preservadas
+                                print(f"Produto {produto['nome']}: cor_data={produto.get('cor_data')}, cor={produto.get('cor')}")
+                                
+                                produtos.append(produto)
                             else:
                                 print(f"ERRO: Produto não é dict: {p}")
                                 produtos.append({

@@ -81,7 +81,10 @@ def criar_produtos_ui(self, parent_layout, pedido_data):
     cor_label = QLabel('Cor')
     cor_label.setStyleSheet('color: #ffffff; font-weight: 600;')
     campos_cor = QComboBox()
-    campos_cor.addItems(['', 'Branco', 'Amarelo', 'Azul', 'Verde', 'Vermelho', 'Preto', 'Personalizado'])
+    # Carregar cores dinamicamente
+    from app.ui.color_manager import load_colors
+    cores_disponiveis = [''] + load_colors()
+    campos_cor.addItems(cores_disponiveis)
     campos_cor.setFixedWidth(220)
     campos_cor.setMinimumHeight(50)
     campos_cor.setFixedHeight(60)

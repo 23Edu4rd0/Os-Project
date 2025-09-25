@@ -440,15 +440,46 @@ class NovoPedidosModal(QDialog):
         valor_layout.addWidget(self.input_valor)
         form_layout.addLayout(valor_layout, 1)
 
-        # Cor
+        # Cor - Seção expandida para tampa e corpo
         cor_layout = QVBoxLayout()
-        cor_label = QLabel("Cor:")
+        cor_label = QLabel("Cores:")
         cor_label.setStyleSheet(label_style)
         cor_layout.addWidget(cor_label)
         
-        self.combo_cor = QComboBox()
-        self.combo_cor.addItems(['', 'Branco', 'Preto', 'Azul', 'Verde', 'Vermelho', 'Amarelo', 'Personalizado'])
-        self.combo_cor.setStyleSheet(campo_style + """
+        # Checkbox para ativar cores separadas
+        from PyQt6.QtWidgets import QCheckBox
+        self.checkbox_cores_separadas = QCheckBox("Tampa e corpo com cores diferentes")
+        self.checkbox_cores_separadas.setStyleSheet("""
+            QCheckBox {
+                color: #ffffff;
+                font-size: 12px;
+                spacing: 5px;
+            }
+            QCheckBox::indicator {
+                width: 16px;
+                height: 16px;
+                border: 1px solid #555555;
+                border-radius: 3px;
+                background-color: #2d2d2d;
+            }
+            QCheckBox::indicator:checked {
+                background-color: #007acc;
+                border-color: #007acc;
+            }
+            QCheckBox::indicator:checked::after {
+                content: "✓";
+                color: white;
+                font-weight: bold;
+            }
+        """)
+        self.checkbox_cores_separadas.stateChanged.connect(self._on_cores_separadas_changed)
+        cor_layout.addWidget(self.checkbox_cores_separadas)
+        
+        # Carregar cores dinamicamente
+        from app.ui.color_manager import load_colors
+        cores_disponiveis = [''] + load_colors()
+        
+        combo_style = campo_style + """
             QComboBox::drop-down {
                 border: none;
                 width: 20px;
@@ -466,8 +497,55 @@ class NovoPedidosModal(QDialog):
                 selection-color: #ffffff;
                 color: #ffffff;
             }
-        """)
-        cor_layout.addWidget(self.combo_cor)
+        """
+        
+        # Layout para cores
+        cores_container = QVBoxLayout()
+        
+        # Cor única (padrão)
+        self.cor_unica_widget = QWidget()
+        cor_unica_layout = QHBoxLayout(self.cor_unica_widget)
+        cor_unica_layout.setContentsMargins(0, 0, 0, 0)
+        
+        self.combo_cor = QComboBox()
+        self.combo_cor.addItems(cores_disponiveis)
+        self.combo_cor.setStyleSheet(combo_style)
+        cor_unica_layout.addWidget(self.combo_cor)
+        cores_container.addWidget(self.cor_unica_widget)
+        
+        # Cores separadas (inicialmente oculto)
+        self.cores_separadas_widget = QWidget()
+        cores_separadas_layout = QVBoxLayout(self.cores_separadas_widget)
+        cores_separadas_layout.setContentsMargins(0, 5, 0, 0)
+        
+        # Cor da tampa
+        tampa_layout = QHBoxLayout()
+        tampa_label = QLabel("Tampa:")
+        tampa_label.setStyleSheet(label_style)
+        tampa_label.setFixedWidth(60)
+        tampa_layout.addWidget(tampa_label)
+        self.combo_cor_tampa = QComboBox()
+        self.combo_cor_tampa.addItems(cores_disponiveis)
+        self.combo_cor_tampa.setStyleSheet(combo_style)
+        tampa_layout.addWidget(self.combo_cor_tampa)
+        cores_separadas_layout.addLayout(tampa_layout)
+        
+        # Cor do corpo
+        corpo_layout = QHBoxLayout()
+        corpo_label = QLabel("Corpo:")
+        corpo_label.setStyleSheet(label_style)
+        corpo_label.setFixedWidth(60)
+        corpo_layout.addWidget(corpo_label)
+        self.combo_cor_corpo = QComboBox()
+        self.combo_cor_corpo.addItems(cores_disponiveis)
+        self.combo_cor_corpo.setStyleSheet(combo_style)
+        corpo_layout.addWidget(self.combo_cor_corpo)
+        cores_separadas_layout.addLayout(corpo_layout)
+        
+        self.cores_separadas_widget.setVisible(False)  # Inicialmente oculto
+        cores_container.addWidget(self.cores_separadas_widget)
+        
+        cor_layout.addLayout(cores_container)
         form_layout.addLayout(cor_layout, 1)
         
         # Botão adicionar
@@ -1040,11 +1118,18 @@ class NovoPedidosModal(QDialog):
             return
             
     
+    def _on_cores_separadas_changed(self, state):
+        """Controla a visibilidade das seções de cores"""
+        cores_separadas = state == 2  # Qt.CheckState.Checked
+        
+        # Mostrar/ocultar widgets apropriados
+        self.cor_unica_widget.setVisible(not cores_separadas)
+        self.cores_separadas_widget.setVisible(cores_separadas)
+    
     def _adicionar_produto(self):
         """Adiciona um produto à lista"""
         nome = self.input_produto.text().strip()
         valor_texto = self.input_valor.text().strip()
-        cor = self.combo_cor.currentText()
         quantidade = self.input_quantidade.value()
         
         # Validações
@@ -1072,12 +1157,30 @@ class NovoPedidosModal(QDialog):
             if produto_cat.get('preco', 0) > 0:
                 valor = produto_cat['preco']
         
+        # Determinar cores baseado na configuração
+        cores_separadas = self.checkbox_cores_separadas.isChecked()
+        if cores_separadas:
+            cor_tampa = self.combo_cor_tampa.currentText()
+            cor_corpo = self.combo_cor_corpo.currentText()
+            # Criar estrutura de cores separadas
+            cor_data = {
+                'tipo': 'separadas',
+                'tampa': cor_tampa if cor_tampa else '',
+                'corpo': cor_corpo if cor_corpo else ''
+            }
+        else:
+            cor_unica = self.combo_cor.currentText()
+            cor_data = {
+                'tipo': 'unica',
+                'cor': cor_unica if cor_unica else ''
+            }
+        
         # Adicionar à lista
         produto = {
             'nome': nome,
             'codigo': codigo,
             'valor': valor,
-            'cor': cor,
+            'cor_data': cor_data,  # Estrutura completa de cores
             'quantidade': quantidade
         }
         self.produtos_list.append(produto)
@@ -1089,6 +1192,9 @@ class NovoPedidosModal(QDialog):
         self.input_produto.clear()
         self.input_valor.clear()
         self.combo_cor.setCurrentIndex(0)
+        if cores_separadas:
+            self.combo_cor_tampa.setCurrentIndex(0)
+            self.combo_cor_corpo.setCurrentIndex(0)
         self.input_quantidade.setValue(1)
         
         # Focar no campo produto
@@ -1118,9 +1224,27 @@ class NovoPedidosModal(QDialog):
             self.table_produtos.setItem(row, 3, QTableWidgetItem(f"R$ {valor_total:.2f}"))
             total += valor_total
             
-            # Cor
-            cor = produto.get('cor', '')
-            self.table_produtos.setItem(row, 4, QTableWidgetItem(cor if cor else '-'))
+            # Cor - Exibir baseado na estrutura de dados
+            cor_display = '-'
+            cor_data = produto.get('cor_data')
+            
+            if cor_data:
+                if cor_data.get('tipo') == 'separadas':
+                    tampa = cor_data.get('tampa', '')
+                    corpo = cor_data.get('corpo', '')
+                    if tampa or corpo:
+                        cor_display = f"T:{tampa}/C:{corpo}"
+                elif cor_data.get('tipo') == 'unica':
+                    cor_unica = cor_data.get('cor', '')
+                    if cor_unica:
+                        cor_display = cor_unica
+            else:
+                # Compatibilidade com formato antigo
+                cor_antiga = produto.get('cor', '')
+                if cor_antiga:
+                    cor_display = cor_antiga
+            
+            self.table_produtos.setItem(row, 4, QTableWidgetItem(cor_display))
             
             # Ações - Botão mais compacto e bem posicionado
             btn_widget = QWidget()
@@ -1278,11 +1402,36 @@ class NovoPedidosModal(QDialog):
                 for produto in self.produtos_list:
                     nome = produto.get('nome', produto.get('descricao', ''))
                     valor = produto.get('valor', 0)
-                    cor = produto.get('cor', '')
-                    if cor and cor != '':
-                        detalhes_produtos.append(f"• {nome}  —  Cor: {cor} - R$ {valor:.2f}")
+                    quantidade = produto.get('quantidade', 1)
+                    
+                    # Processar cores com nova estrutura
+                    cor_text = ''
+                    cor_data = produto.get('cor_data')
+                    if cor_data:
+                        if cor_data.get('tipo') == 'separadas':
+                            tampa = cor_data.get('tampa', '')
+                            corpo = cor_data.get('corpo', '')
+                            if tampa or corpo:
+                                cor_text = f"Tampa: {tampa}, Corpo: {corpo}"
+                        elif cor_data.get('tipo') == 'unica':
+                            cor_unica = cor_data.get('cor', '')
+                            if cor_unica:
+                                cor_text = cor_unica
                     else:
-                        detalhes_produtos.append(f"• {nome} - R$ {valor:.2f}")
+                        # Compatibilidade com formato antigo
+                        cor_antiga = produto.get('cor', '')
+                        if cor_antiga:
+                            cor_text = cor_antiga
+                    
+                    # Montar linha do produto
+                    linha_produto = f"• {nome}"
+                    if quantidade > 1:
+                        linha_produto += f" (Qtd: {quantidade})"
+                    if cor_text:
+                        linha_produto += f" — Cor: {cor_text}"
+                    linha_produto += f" - R$ {valor * quantidade:.2f}"
+                    
+                    detalhes_produtos.append(linha_produto)
                 
                 detalhes_texto = '\n'.join(detalhes_produtos)
                 

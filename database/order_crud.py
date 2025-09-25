@@ -44,7 +44,26 @@ class OrderCRUD:
                         except Exception:
                             valor = 0.0
                         quantidade = int(p.get('quantidade', 1))
-                    produtos_struct.append({'descricao': descricao, 'valor': valor, 'quantidade': quantidade})
+                    
+                    # Preservar estrutura completa do produto, incluindo cor_data
+                    produto_completo = {
+                        'descricao': descricao,
+                        'valor': valor,
+                        'quantidade': quantidade
+                    }
+                    
+                    # Preservar cor_data se existir
+                    if 'cor_data' in p:
+                        produto_completo['cor_data'] = p['cor_data']
+                    elif 'cor' in p:  # Compatibilidade com formato antigo
+                        produto_completo['cor'] = p['cor']
+                    
+                    # Preservar outros campos importantes
+                    for campo in ['nome', 'codigo']:
+                        if campo in p:
+                            produto_completo[campo] = p[campo]
+                    
+                    produtos_struct.append(produto_completo)
             else:
                 detalhes = dados.get('detalhes_produto', '') or ''
                 for linha in [l.strip() for l in detalhes.replace('\r', '\n').split('\n') if l.strip() and not l.strip().startswith('-')]:

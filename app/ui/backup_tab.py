@@ -10,6 +10,7 @@ from datetime import datetime
 from app.backup import criar_backup, restaurar_backup, substituir_por_arquivo, apagar_tudo, apagar_anteriores
 from app.ui.category_manager import CategoryManagerDialog
 from app.ui.status_manager import StatusManagerDialog
+from app.ui.color_manager import ColorManagerDialog
 from database.db_setup import DatabaseSetup
 
 
@@ -81,6 +82,11 @@ class BackupTab(QWidget):
         self.btn_manage_statuses.clicked.connect(self.on_manage_statuses)
         right_col.addWidget(self.btn_manage_statuses)
 
+        # color management
+        self.btn_manage_colors = QPushButton("Gerenciar cores")
+        self.btn_manage_colors.clicked.connect(self.on_manage_colors)
+        right_col.addWidget(self.btn_manage_colors)
+
         # visual tweaks for right column buttons
         for b in (self.btn_refresh, self.btn_create, self.btn_restore, self.btn_replace):
             b.setMinimumHeight(36)
@@ -96,6 +102,11 @@ class BackupTab(QWidget):
         self.btn_manage_statuses.setMinimumHeight(36)
         self.btn_manage_statuses.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_manage_statuses.setStyleSheet('padding:6px 12px;')
+
+        # style for manage colors button
+        self.btn_manage_colors.setMinimumHeight(36)
+        self.btn_manage_colors.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_manage_colors.setStyleSheet('padding:6px 12px;')
 
         top_row.addLayout(right_col)
         self.layout().addLayout(top_row)
@@ -239,6 +250,18 @@ class BackupTab(QWidget):
             self.add_log('Status atualizados via Gerenciar status')
             # future: emit signal or refresh pedidos UI if needed
 
+    def on_manage_colors(self):
+        dlg = ColorManagerDialog(self)
+        if dlg.exec():
+            self.add_log('Cores atualizadas via Gerenciar cores')
+            # Emitir sinal para atualizar interfaces que usam cores
+            try:
+                from app.signals import get_signals
+                signals = get_signals()
+                signals.cores_atualizadas.emit()
+            except Exception:
+                pass
+
     def _apply_styles(self):
         """Apply a compact dark stylesheet with subtle rounded panels."""
         style = """
@@ -253,7 +276,8 @@ class BackupTab(QWidget):
         self.setStyleSheet(style)
         # make right column buttons visually consistent width
         maxw = 180
-        for b in (self.btn_refresh, self.btn_create, self.btn_restore, self.btn_replace):
+        for b in (self.btn_refresh, self.btn_create, self.btn_restore, self.btn_replace, 
+                  self.btn_manage_categories, self.btn_manage_statuses, self.btn_manage_colors):
             b.setMaximumWidth(maxw)
         # status bar subtle background
         self.status.setStyleSheet('background: transparent;')

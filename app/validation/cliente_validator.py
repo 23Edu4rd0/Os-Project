@@ -17,7 +17,10 @@ def validar_cpf(cpf):
         return True, ""  # CPF é opcional se tiver CNPJ
     
     cpf = cpf.strip()
-    if len(cpf) != 11 or not cpf.isdigit():
+    # Remove formatação (pontos e traços) para validar apenas os números
+    cpf_numeros = ''.join(filter(str.isdigit, cpf))
+    
+    if len(cpf_numeros) != 11:
         return False, "CPF deve ter 11 dígitos!"
     return True, ""
 

@@ -12,9 +12,14 @@ from PyQt6.QtWidgets import (
 	QFrame,
 	QGridLayout,
 	QSizePolicy,
+	QLineEdit,
+	QDateEdit,
+	QCheckBox,
+	QCalendarWidget,
+	QApplication,
 )
-from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import QFont
+from PyQt6.QtCore import Qt, pyqtSignal, QDate, QTimer
+from PyQt6.QtGui import QFont, QPalette, QColor
 from app.signals import get_signals
 
 # Import robusto do gerenciador de banco de dados
@@ -40,6 +45,205 @@ except Exception:
 	from app.components.pedidos.novo_pedidos_modal import NovoPedidosModal  # type: ignore
 
 
+class CustomDateEdit(QDateEdit):
+	"""QDateEdit customizado com calendário que força a visibilidade dos números"""
+	
+	def __init__(self, parent=None):
+		super().__init__(parent)
+		self.setCalendarPopup(True)
+		self.setup_styles()
+		# Timer para configurar o calendário após ele ser criado
+		self.calendar_timer = QTimer()
+		self.calendar_timer.setSingleShot(True)
+		self.calendar_timer.timeout.connect(self.configure_calendar)
+	
+	def configure_calendar(self):
+		"""Configura o calendário para garantir que todos os números apareçam"""
+		calendar = self.calendarWidget()
+		if calendar:
+			# Configurar tamanho do calendário - mais largo para acomodar todos os números
+			calendar.setMinimumSize(400, 300)
+			calendar.setMaximumSize(500, 400)
+			calendar.resize(420, 320)
+			
+			# Encontrar e configurar a tabela interna
+			table_views = calendar.findChildren(QWidget)
+			for widget in table_views:
+				if hasattr(widget, 'setRowHeight') or 'TableView' in str(type(widget)):
+					widget.setMinimumSize(350, 220)
+			
+			# Aplicar estilos com configurações mais robustas
+			calendar_style = """
+				QCalendarWidget {
+					background-color: #2b2b2b;
+					color: #ffffff;
+					border: 2px solid #007ACC;
+					border-radius: 8px;
+					font-family: 'Segoe UI', Arial;
+					font-size: 14px;
+				}
+				
+				/* Configuração específica para a área de exibição dos dias */
+				QCalendarWidget QAbstractItemView {
+					color: #ffffff !important;
+					background-color: #2b2b2b !important;
+					outline: none;
+					selection-background-color: #007ACC;
+					selection-color: #ffffff;
+					font-size: 16px;
+					font-weight: bold;
+				}
+				
+				/* Tabela principal onde ficam os números dos dias */
+				QCalendarWidget QTableView {
+					color: #ffffff !important;
+					background-color: #2b2b2b !important;
+					gridline-color: #555555;
+					outline: none;
+					selection-background-color: #007ACC;
+					selection-color: #ffffff;
+					font-size: 16px;
+					font-weight: bold;
+					border: none;
+				}
+				
+				/* Células individuais dos dias - MAIS ESPECÍFICO */
+				QCalendarWidget QAbstractItemView::item,
+				QCalendarWidget QTableView::item {
+					color: #ffffff !important;
+					background-color: #2b2b2b !important;
+					padding: 8px !important;
+					margin: 1px !important;
+					font-size: 16px !important;
+					font-weight: bold !important;
+					border: 1px solid #444444 !important;
+					min-width: 40px !important;
+					min-height: 32px !important;
+					max-width: none !important;
+					max-height: none !important;
+					text-align: center !important;
+				}
+				
+				/* Estados hover e selecionado */
+				QCalendarWidget QAbstractItemView::item:hover,
+				QCalendarWidget QTableView::item:hover {
+					background-color: #404040 !important;
+					color: #ffffff !important;
+					border: 1px solid #007ACC !important;
+				}
+				
+				QCalendarWidget QAbstractItemView::item:selected,
+				QCalendarWidget QTableView::item:selected {
+					background-color: #007ACC !important;
+					color: #ffffff !important;
+					border: 1px solid #005AA0 !important;
+				}
+				
+				/* Cabeçalho com dias da semana */
+				QCalendarWidget QHeaderView::section {
+					background-color: #3a3a3a;
+					color: #ffffff;
+					padding: 8px;
+					font-weight: bold;
+					font-size: 14px;
+					border: 1px solid #555555;
+					min-height: 25px;
+				}
+				
+				/* Botões de navegação */
+				QCalendarWidget QToolButton {
+					background-color: #3a3a3a;
+					color: #ffffff;
+					border: 1px solid #555555;
+					border-radius: 4px;
+					padding: 6px;
+					font-weight: bold;
+					font-size: 12px;
+					min-width: 60px;
+				}
+				
+				QCalendarWidget QToolButton:hover {
+					background-color: #007ACC;
+					color: #ffffff;
+				}
+				
+				/* SpinBox para ano */
+				QCalendarWidget QSpinBox {
+					background-color: #3a3a3a;
+					color: #ffffff;
+					border: 1px solid #555555;
+					padding: 4px;
+					font-weight: bold;
+					font-size: 12px;
+					min-width: 70px;
+				}
+			"""
+			calendar.setStyleSheet(calendar_style)
+			
+			# Forçar atualização do layout
+			calendar.updateGeometry()
+			calendar.update()
+	
+	def showEvent(self, event):
+		"""Configurar calendário quando mostrado"""
+		super().showEvent(event)
+		# Atrasar a configuração para garantir que o calendário esteja criado
+		self.calendar_timer.start(100)
+	
+	def setup_styles(self):
+		"""Aplica estilos completos ao QDateEdit"""
+		self.setStyleSheet("""
+			QDateEdit {
+				background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1,
+					stop: 0 #3a3a3a, stop: 1 #2a2a2a);
+				color: white;
+				border: 2px solid #505050;
+				padding: 8px 12px;
+				border-radius: 6px;
+				font-size: 12px;
+				min-width: 120px;
+				font-weight: 500;
+			}
+			QDateEdit:hover {
+				border: 2px solid #007ACC;
+				background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1,
+					stop: 0 #404040, stop: 1 #303030);
+			}
+			QDateEdit:focus {
+				border: 2px solid #007ACC;
+				background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1,
+					stop: 0 #404040, stop: 1 #2f2f2f);
+				box-shadow: 0 0 5px rgba(0, 122, 204, 0.3);
+			}
+			QDateEdit::drop-down {
+				subcontrol-origin: padding;
+				subcontrol-position: top right;
+				width: 26px;
+				border-left: 1px solid #666666;
+				background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+					stop:0 #4a4a4a, stop:1 #3a3a3a);
+				border-top-right-radius: 4px;
+				border-bottom-right-radius: 4px;
+			}
+			QDateEdit::drop-down:hover {
+				background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+					stop:0 #007ACC, stop:1 #005AA0);
+			}
+			QDateEdit::down-arrow {
+				image: none;
+				border-left: 5px solid transparent;
+				border-right: 5px solid transparent;
+				border-top: 6px solid #cccccc;
+				width: 0px;
+				height: 0px;
+				margin-right: 2px;
+			}
+			QDateEdit::drop-down:hover QDateEdit::down-arrow {
+				border-top-color: #ffffff;
+			}
+		""")
+
+
 class PedidosInterface(QWidget):
 	"""Gerencia a interface principal de pedidos."""
 
@@ -54,6 +258,10 @@ class PedidosInterface(QWidget):
 		self._cache_pedidos = None
 		self._cache_timestamp = 0.0
 		self._cache_timeout = 20  # segundos
+		
+		# Variáveis de filtro
+		self.search_text = ""
+		self.date_filter_active = False
 
 		# Helpers
 		self.card_manager = PedidosCard(self)
@@ -147,7 +355,7 @@ class PedidosInterface(QWidget):
 		
 		layout.addWidget(header_container)
 		
-		# Filtro modernizado
+		# Filtros e pesquisa avançados
 		filtros_container = QFrame()
 		filtros_container.setStyleSheet("""
 			QFrame {
@@ -155,12 +363,17 @@ class PedidosInterface(QWidget):
 				border-radius: 8px;
 			}
 		""")
-		filtros_layout = QHBoxLayout(filtros_container)
-		filtros_layout.setContentsMargins(15, 8, 15, 8)
+		filtros_main_layout = QVBoxLayout(filtros_container)
+		filtros_main_layout.setContentsMargins(15, 10, 15, 10)
+		filtros_main_layout.setSpacing(8)
 		
+		# Primeira linha: Status e pesquisa por nome/CPF/telefone
+		primeira_linha = QHBoxLayout()
+		
+		# Status
 		status_label = QLabel("Status:")
-		status_label.setStyleSheet("color: #cccccc; font-size: 12px;")
-		filtros_layout.addWidget(status_label)
+		status_label.setStyleSheet("color: #cccccc; font-size: 12px; font-weight: 600;")
+		primeira_linha.addWidget(status_label)
 		
 		self.filtro_status = QComboBox()
 		self.filtro_status.addItems(["Todos", "Pendente", "Em Andamento", "Concluído", "Cancelado"])
@@ -186,9 +399,118 @@ class PedidosInterface(QWidget):
 			}
 		""")
 		self.filtro_status.currentTextChanged.connect(self._filtrar_pedidos)
-		filtros_layout.addWidget(self.filtro_status)
+		primeira_linha.addWidget(self.filtro_status)
 		
-		filtros_layout.addStretch()
+		primeira_linha.addSpacing(20)
+		
+		# Campo de pesquisa por nome/CPF/telefone
+		search_label = QLabel("Buscar:")
+		search_label.setStyleSheet("color: #cccccc; font-size: 12px; font-weight: 600;")
+		primeira_linha.addWidget(search_label)
+		
+		self.search_input = QLineEdit()
+		self.search_input.setPlaceholderText("Nome, CPF ou telefone do cliente...")
+		self.search_input.setStyleSheet("""
+			QLineEdit {
+				background-color: #3a3a3a;
+				color: white;
+				border: 2px solid #505050;
+				padding: 8px 12px;
+				border-radius: 6px;
+				font-size: 12px;
+				min-width: 250px;
+			}
+			QLineEdit:focus {
+				border: 2px solid #007ACC;
+			}
+			QLineEdit::placeholder {
+				color: #888888;
+			}
+		""")
+		self.search_input.textChanged.connect(self._on_search_changed)
+		primeira_linha.addWidget(self.search_input)
+		
+		primeira_linha.addStretch()
+		
+		# Botão limpar filtros
+		self.btn_limpar = QPushButton("🗙 Limpar")
+		self.btn_limpar.setStyleSheet("""
+			QPushButton {
+				background-color: #d32f2f;
+				color: white;
+				border: none;
+				border-radius: 5px;
+				padding: 8px 12px;
+				font-size: 11px;
+				font-weight: 600;
+			}
+			QPushButton:hover {
+				background-color: #f44336;
+			}
+		""")
+		self.btn_limpar.clicked.connect(self._limpar_filtros)
+		primeira_linha.addWidget(self.btn_limpar)
+		
+		filtros_main_layout.addLayout(primeira_linha)
+		
+		# Segunda linha: Filtro por data
+		segunda_linha = QHBoxLayout()
+		
+		data_label = QLabel("Período:")
+		data_label.setStyleSheet("color: #cccccc; font-size: 12px; font-weight: 600;")
+		segunda_linha.addWidget(data_label)
+		
+		# Data inicial
+		self.data_inicial = CustomDateEdit()
+		self.data_inicial.setDate(QDate.currentDate().addDays(-30))  # 30 dias atrás
+		self.data_inicial.setDisplayFormat("dd/MM/yyyy")  # Formato brasileiro
+
+		self.data_inicial.dateChanged.connect(self._on_date_changed)
+		segunda_linha.addWidget(self.data_inicial)
+		
+		ate_label = QLabel("até")
+		ate_label.setStyleSheet("color: #cccccc; font-size: 12px;")
+		segunda_linha.addWidget(ate_label)
+		
+		# Data final
+		self.data_final = CustomDateEdit()
+		self.data_final.setDate(QDate.currentDate())
+		self.data_final.setDisplayFormat("dd/MM/yyyy")  # Formato brasileiro
+
+		self.data_final.dateChanged.connect(self._on_date_changed)
+		segunda_linha.addWidget(self.data_final)
+		
+		# Checkbox para habilitar filtro de data
+		self.filtro_data_ativo = QCheckBox("Filtrar por período")
+		self.filtro_data_ativo.setStyleSheet("""
+			QCheckBox {
+				color: #cccccc;
+				font-size: 12px;
+				spacing: 5px;
+			}
+			QCheckBox::indicator {
+				width: 16px;
+				height: 16px;
+				border: 1px solid #555555;
+				border-radius: 3px;
+				background-color: #2d2d2d;
+			}
+			QCheckBox::indicator:checked {
+				background-color: #007acc;
+				border-color: #007acc;
+			}
+		""")
+		self.filtro_data_ativo.stateChanged.connect(self._on_date_filter_changed)
+		segunda_linha.addWidget(self.filtro_data_ativo)
+		
+		segunda_linha.addStretch()
+		
+		# Contador de resultados
+		self.label_resultados = QLabel("")
+		self.label_resultados.setStyleSheet("color: #888888; font-size: 11px; font-style: italic;")
+		segunda_linha.addWidget(self.label_resultados)
+		
+		filtros_main_layout.addLayout(segunda_linha)
 		
 		layout.addWidget(filtros_container)
 		
@@ -260,7 +582,7 @@ class PedidosInterface(QWidget):
 				self._mostrar_msg("❌ Erro ao carregar pedidos", cor="#ff6b6b")
 				return
 
-		# Filtrar
+		# Filtrar por status
 		if self.status_filter != "todos":
 			# Tratar sinônimos: 'entregue' ~ 'concluído'
 			filtro = self.status_filter.lower()
@@ -274,6 +596,46 @@ class PedidosInterface(QWidget):
 				st = (status or "").lower()
 				return (st == "entregue") or ("conclu" in st)
 			pedidos = [p for p in pedidos if not _is_concluido(p.get("status", ""))]
+		
+		# Filtrar por texto de busca (nome, CPF, telefone)
+		if hasattr(self, 'search_text') and self.search_text:
+			def _match_search(pedido):
+				search_fields = [
+					pedido.get('nome_cliente', '').lower(),
+					pedido.get('cpf_cliente', '').lower(),
+					pedido.get('telefone_cliente', '').lower(),
+				]
+				return any(self.search_text in field for field in search_fields if field)
+			
+			pedidos = [p for p in pedidos if _match_search(p)]
+		
+		# Filtrar por período de datas
+		if hasattr(self, 'date_filter_active') and self.date_filter_active:
+			from datetime import datetime
+			try:
+				data_inicio = self.data_inicial.date().toPython()
+				data_fim = self.data_final.date().toPython()
+				
+				def _in_date_range(pedido):
+					data_criacao = pedido.get('data_criacao')
+					if not data_criacao:
+						return False
+					try:
+						# Tentar parsear diferentes formatos de data
+						if isinstance(data_criacao, str):
+							for fmt in ('%Y-%m-%d %H:%M:%S', '%Y-%m-%d', '%d/%m/%Y'):
+								try:
+									data_pedido = datetime.strptime(data_criacao, fmt).date()
+									return data_inicio <= data_pedido <= data_fim
+								except ValueError:
+									continue
+						return False
+					except Exception:
+						return False
+				
+				pedidos = [p for p in pedidos if _in_date_range(p)]
+			except Exception as e:
+				print(f"Erro no filtro de data: {e}")
 
 		# Render
 		# Ordenar por data de entrega mais próxima (asc)
@@ -319,6 +681,17 @@ class PedidosInterface(QWidget):
 			pass
 
 		self._limpar_layout()
+		
+		# Atualizar contador de resultados
+		if hasattr(self, 'label_resultados'):
+			total = len(pedidos)
+			if total == 0:
+				self.label_resultados.setText("Nenhum resultado encontrado")
+			elif total == 1:
+				self.label_resultados.setText("1 pedido encontrado")
+			else:
+				self.label_resultados.setText(f"{total} pedidos encontrados")
+		
 		if not pedidos:
 			self._mostrar_msg("📋 Nenhum pedido encontrado", cor="#aaaaaa")
 		else:
@@ -486,6 +859,39 @@ class PedidosInterface(QWidget):
 			self.carregar_dados(force_refresh=True)
 		except Exception as e:
 			print(f"Erro ao filtrar pedidos: {e}")
+	
+	def _on_search_changed(self, text):
+		"""Chamado quando o texto de busca muda"""
+		self.search_text = text.lower().strip()
+		self._aplicar_filtros()
+	
+	def _on_date_changed(self):
+		"""Chamado quando as datas mudam"""
+		if self.date_filter_active:
+			self._aplicar_filtros()
+	
+	def _on_date_filter_changed(self, state):
+		"""Chamado quando o checkbox de filtro por data muda"""
+		self.date_filter_active = state == 2  # Qt.CheckState.Checked
+		self._aplicar_filtros()
+	
+	def _limpar_filtros(self):
+		"""Limpa todos os filtros aplicados"""
+		self.search_input.clear()
+		self.filtro_status.setCurrentIndex(0)  # "Todos"
+		self.filtro_data_ativo.setChecked(False)
+		self.data_inicial.setDate(QDate.currentDate().addDays(-30))
+		self.data_final.setDate(QDate.currentDate())
+		self.search_text = ""
+		self.date_filter_active = False
+		self._aplicar_filtros()
+	
+	def _aplicar_filtros(self):
+		"""Aplica todos os filtros combinados"""
+		try:
+			self.carregar_dados(force_refresh=True)
+		except Exception as e:
+			print(f"Erro ao aplicar filtros: {e}")
 
 	def _build_cards(self):
 		"""Constrói os cards dos pedidos - alias para carregar_dados"""
