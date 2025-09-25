@@ -20,12 +20,12 @@ def _criar_modal_completo(self, pedido_data=None, cliente_fixo=False, nome_clien
     titulo = f"Editar OS #{numero_os}" if is_edit else "Nova Ordem de Serviço"
     self.setWindowTitle(titulo)
     
-    # Tamanho muito maior para acomodar campos maiores
+    # Tamanho mais compacto e adequado
     from PyQt6.QtWidgets import QApplication
     screen = QApplication.primaryScreen().geometry()
-    width = int(screen.width() * 0.9)   # 90% da largura da tela
-    height = int(screen.height() * 0.9)  # 90% da altura da tela
-    self.setMinimumSize(1200, 900)  # Tamanho mínimo muito aumentado
+    width = int(screen.width() * 0.7)   # 70% da largura da tela
+    height = int(screen.height() * 0.8)  # 80% da altura da tela
+    self.setMinimumSize(800, 600)  # Tamanho mínimo reduzido
     self.resize(width, height)
     
     # Aplicar estilo global consistente ao modal
@@ -72,7 +72,7 @@ def _criar_modal_completo(self, pedido_data=None, cliente_fixo=False, nome_clien
     scroll_area.verticalScrollBar().setPageStep(60)
     content_widget = QWidget()
     content_layout = QVBoxLayout(content_widget)
-    content_layout.setContentsMargins(20, 20, 20, 20)
+    content_layout.setContentsMargins(20, 20, 20, 30)  # Margem inferior maior
     content_layout.setSpacing(15)
     self._criar_header(content_layout, numero_os, is_edit)
     self.campos = self.model.campos
@@ -100,6 +100,10 @@ def _criar_modal_completo(self, pedido_data=None, cliente_fixo=False, nome_clien
     self._criar_secao_pagamento(content_layout, pedido_data)
     self._criar_secao_resumo(content_layout)
     self._criar_botoes(content_layout, numero_os, pedido_data)
+    
+    # Adicionar espaçamento final para scroll completo
+    content_layout.addStretch()
+    
     try:
         scroll_area.setStyleSheet("QScrollArea{background:#2d2d2d;border:none;} QScrollArea > QWidget > QWidget {background:#2d2d2d;}")
         scroll_area.viewport().setStyleSheet("background:#2d2d2d;")
@@ -107,6 +111,11 @@ def _criar_modal_completo(self, pedido_data=None, cliente_fixo=False, nome_clien
     except Exception:
         pass
     scroll_area.setWidget(content_widget)
+    
+    # Melhorar configuração do scroll
+    scroll_area.verticalScrollBar().setSingleStep(20)
+    scroll_area.verticalScrollBar().setPageStep(100)
+    
     main_layout.addWidget(scroll_area)
     self._aplicar_estilo()
     self.exec()

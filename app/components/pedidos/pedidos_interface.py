@@ -132,12 +132,39 @@ class PedidosInterface(QWidget):
 		# Área de scroll muito simples
 		self.scroll_area = QScrollArea()
 		self.scroll_area.setWidgetResizable(True)
-		self.scroll_area.setStyleSheet("background-color: #2d2d2d; border: 1px solid #555555;")
+		self.scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+		self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+		self.scroll_area.setStyleSheet("""
+			QScrollArea {
+				background-color: #2d2d2d; 
+				border: 1px solid #555555;
+			}
+			QScrollBar:vertical {
+				background-color: #404040;
+				width: 12px;
+				border-radius: 6px;
+			}
+			QScrollBar::handle:vertical {
+				background-color: #666666;
+				border-radius: 6px;
+				min-height: 20px;
+			}
+			QScrollBar::handle:vertical:hover {
+				background-color: #777777;
+			}
+		""")
 		
 		self.scroll_widget = QWidget()
 		self.scroll_layout = QVBoxLayout(self.scroll_widget)
-		self.scroll_layout.setContentsMargins(5, 5, 5, 5)
+		self.scroll_layout.setContentsMargins(5, 5, 5, 20)  # Margem inferior para espaço
 		self.scroll_layout.setSpacing(8)
+		
+		# Configurar scroll suave
+		self.scroll_area.verticalScrollBar().setSingleStep(20)
+		self.scroll_area.verticalScrollBar().setPageStep(100)
+		
+		# Configurar política de tamanho do widget de scroll
+		self.scroll_widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
 		
 		self.scroll_area.setWidget(self.scroll_widget)
 		layout.addWidget(self.scroll_area)
@@ -246,7 +273,7 @@ class PedidosInterface(QWidget):
 		# para que a última coluna não fique colada na parede
 		try:
 			# Diminuir ainda mais a margem esquerda (zero) e manter folga maior à direita
-			grid_l.setContentsMargins(0, 0, 44, 0)
+			grid_l.setContentsMargins(0, 0, 44, 20)  # Margem inferior para espaço final
 		except Exception:
 			pass
 
@@ -285,7 +312,12 @@ class PedidosInterface(QWidget):
 			except Exception as e:
 				print(f"Erro ao criar card para pedido {pedido.get('id')}: {e}")
 
+		# Configurar política de tamanho do grid para permitir scroll adequado
+		grid.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Minimum)
+		
 		self.scroll_layout.addWidget(grid)
+		
+		# Espaçamento no final usando stretch
 		self.scroll_layout.addStretch()
 
 	def _on_statuses_updated(self):

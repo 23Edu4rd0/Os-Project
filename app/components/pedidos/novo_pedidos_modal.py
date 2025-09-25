@@ -42,15 +42,15 @@ class NovoPedidosModal(QDialog):
         else:
             self.setWindowTitle("Nova Ordem de Serviço")
         
-        # Configurar tamanho - meia tela por padrão
+        # Configurar tamanho - mais compacto
         from PyQt6.QtWidgets import QApplication
         from PyQt6.QtCore import Qt
         
         screen = QApplication.primaryScreen().geometry()
-        width = int(screen.width() * 0.95)   # 95% da largura da tela
-        height = int(screen.height() * 0.95)  # 95% da altura da tela
+        width = int(screen.width() * 0.7)   # 70% da largura da tela
+        height = int(screen.height() * 0.8)  # 80% da altura da tela
         
-        self.setMinimumSize(1400, 1100)  # Tamanho mínimo muito aumentado
+        self.setMinimumSize(800, 600)  # Tamanho mínimo reduzido
         self.resize(width, height)
         self.setModal(True)
         
@@ -213,8 +213,8 @@ class NovoPedidosModal(QDialog):
         # Widget principal dentro do scroll
         scroll_widget = QWidget()
         layout = QVBoxLayout(scroll_widget)
-        layout.setSpacing(30)  # Muito mais espaço entre seções
-        layout.setContentsMargins(40, 40, 40, 40)  # Mais margem geral
+        layout.setSpacing(15)  # Espaçamento reduzido entre seções
+        layout.setContentsMargins(20, 20, 20, 30)  # Margem inferior maior para scroll
         
         # Header
         self._criar_header(layout)
@@ -231,8 +231,13 @@ class NovoPedidosModal(QDialog):
         # Botões
         self._criar_botoes(layout)
         
+        # Espaçamento final para permitir scroll completo
+        layout.addStretch()
+        
         # Configurar scroll area
         scroll_area.setWidget(scroll_widget)
+        scroll_area.verticalScrollBar().setSingleStep(20)
+        scroll_area.verticalScrollBar().setPageStep(100)
         main_layout.addWidget(scroll_area)
         
         # Configurar autocomplete após criar todos os campos
@@ -266,7 +271,7 @@ class NovoPedidosModal(QDialog):
         
         # Linha 1: Nome e CNPJ
         row1 = QHBoxLayout()
-        row1.setSpacing(30)  # Mais espaço entre campos
+        row1.setSpacing(15)  # Espaçamento reduzido entre campos
         
         # Nome
         nome_layout = QVBoxLayout()
@@ -292,7 +297,7 @@ class NovoPedidosModal(QDialog):
         
         # Linha 2: Telefone e Endereço
         row2 = QHBoxLayout()
-        row2.setSpacing(30)  # Mais espaço entre campos
+        row2.setSpacing(15)  # Espaçamento reduzido entre campos
         
         # Telefone
         tel_layout = QVBoxLayout()
@@ -325,12 +330,12 @@ class NovoPedidosModal(QDialog):
         """Cria a seção de produtos"""
         group = QGroupBox("Produtos")
         group_layout = QVBoxLayout(group)
-        group_layout.setSpacing(20)  # Mais espaço entre elementos
-        group_layout.setContentsMargins(30, 30, 30, 30)  # Mais padding interno
+        group_layout.setSpacing(12)  # Espaçamento reduzido entre elementos
+        group_layout.setContentsMargins(15, 15, 15, 15)  # Padding interno reduzido
         
         # Formulário de adição
         form_layout = QHBoxLayout()
-        form_layout.setSpacing(30)  # Mais espaço entre campos
+        form_layout.setSpacing(15)  # Espaçamento reduzido entre campos
         
         # Produto
         produto_layout = QVBoxLayout()

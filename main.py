@@ -60,7 +60,7 @@ class MainApp(QMainWindow):
         try:
             # Importar módulos sob demanda para melhorar startup time
             from app.components.clientes_manager_pyqt import ClientesManager
-            from app.components.pedidos.pedidos_interface import PedidosInterface
+            from app.components.pedidos import PedidosManager
             from app.components.contas_manager import ContasManager  
             from app.components.produtos_manager import ProdutosManager
             from app.ui.backup_tab import BackupTab
@@ -78,7 +78,7 @@ class MainApp(QMainWindow):
             self.tab_widget.addTab(clientes_widget, "👥 Clientes")
             
             # Aba de Pedidos
-            pedidos = PedidosInterface(pedidos_widget)  # Passar widget como parent
+            pedidos = PedidosManager(pedidos_widget)  # Passar widget como parent
             pedidos_layout = QVBoxLayout(pedidos_widget)
             pedidos_layout.addWidget(pedidos)
             self.tab_widget.addTab(pedidos_widget, "📋 Pedidos")
