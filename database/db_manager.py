@@ -244,7 +244,7 @@ class DatabaseManager:
         try:
             if limite:
                 query = '''
-                SELECT id, nome, cpf, cnpj, inscricao_estadual, telefone, email, rua, numero, bairro, cidade, estado, referencia
+                SELECT id, nome, cpf, cnpj, inscricao_estadual, telefone, email, cep, rua, numero, bairro, cidade, estado, referencia
                 FROM clientes 
                 ORDER BY nome 
                 LIMIT ?
@@ -252,7 +252,7 @@ class DatabaseManager:
                 self.cursor.execute(query, (limite,))
             else:
                 query = '''
-                SELECT id, nome, cpf, cnpj, inscricao_estadual, telefone, email, rua, numero, bairro, cidade, estado, referencia
+                SELECT id, nome, cpf, cnpj, inscricao_estadual, telefone, email, cep, rua, numero, bairro, cidade, estado, referencia
                 FROM clientes 
                 ORDER BY nome
                 '''

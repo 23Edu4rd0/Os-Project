@@ -54,6 +54,7 @@ class DatabaseSetup:
                 inscricao_estadual TEXT,
                 telefone TEXT,
                 email TEXT,
+                cep TEXT,
                 rua TEXT,
                 numero TEXT,
                 bairro TEXT,

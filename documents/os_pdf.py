@@ -104,6 +104,15 @@ class OrdemServicoPDF:
         frete = self.dados.get("frete")
         forma_pagamento = self.dados["forma_pagamento"]
         prazo = self.dados["prazo"]
+        
+        # Dados de endereço do cliente
+        cep_cliente = self.dados.get("cep_cliente", "")
+        endereco_cliente = self.dados.get("endereco_cliente", "")
+        rua_cliente = self.dados.get("rua_cliente", "")
+        numero_cliente = self.dados.get("numero_cliente", "")
+        bairro_cliente = self.dados.get("bairro_cliente", "")
+        cidade_cliente = self.dados.get("cidade_cliente", "")
+        estado_cliente = self.dados.get("estado_cliente", "")
 
         data_e_hora_atuais = datetime.now()
         data_e_hora_texto = data_e_hora_atuais.strftime('%d/%m/%Y %H:%M')
@@ -190,8 +199,9 @@ class OrdemServicoPDF:
             "Rua José Gabriel Medef, 41 - Padre Liberio - Divinópolis - MG"
         )
         c.drawCentredString(width / 2, y_logo_base - 20, "Tel: (37) 98402-9655")
+        c.drawCentredString(width / 2, y_logo_base - 30, "CNPJ: 43.355.319/0001-42")
 
-        y_position = y_logo_base - 50  # aumenta o espaço entre empresa e número da OS
+        y_position = y_logo_base - 60  # aumenta o espaço entre empresa e número da OS (ajustado para CNPJ)
 
         c.setFont(font_bold_to_use, 12)
         c.drawString(10, y_position, f"NÚMERO DA OS: {numero_os}")
@@ -217,7 +227,41 @@ class OrdemServicoPDF:
         y_position -= 15
         
         c.drawString(10, y_position, f'Telefone: {telefone_cliente}')
-        y_position -= 25
+        y_position -= 15
+        
+        # Endereço completo do cliente
+        if cep_cliente:
+            c.drawString(10, y_position, f'CEP: {cep_cliente}')
+            y_position -= 15
+        
+        # Montar endereço completo
+        endereco_completo = ""
+        if endereco_cliente:
+            endereco_completo = endereco_cliente
+        elif rua_cliente:
+            endereco_completo = rua_cliente
+            if numero_cliente:
+                endereco_completo += f", {numero_cliente}"
+        
+        if endereco_completo:
+            c.drawString(10, y_position, f'Endereço: {endereco_completo}')
+            y_position -= 15
+        
+        # Bairro, Cidade e Estado
+        if bairro_cliente or cidade_cliente or estado_cliente:
+            localizacao = []
+            if bairro_cliente:
+                localizacao.append(bairro_cliente)
+            if cidade_cliente:
+                localizacao.append(cidade_cliente)
+            if estado_cliente:
+                localizacao.append(estado_cliente)
+            
+            if localizacao:
+                c.drawString(10, y_position, f'Localização: {" - ".join(localizacao)}')
+                y_position -= 15
+        
+        y_position -= 10
 
         # --- Seção de Produtos ---
         c.setFont(font_bold_to_use, 12)
@@ -319,35 +363,44 @@ class OrdemServicoPDF:
         )
         y_position -= 25
 
-        c.setFont(font_bold_to_use, 12)
-        c.drawString(10, y_position, "TERMOS E CONDIÇÕES")
+        c.setFont(font_bold_to_use, 11)
+        c.drawString(10, y_position, "TERMO DE GARANTIA")
         c.line(10, y_position - 5, width - 10, y_position - 5)
-        y_position -= 20
+        y_position -= 15
 
-        # Termos e condições em texto simples para melhor formatação
+        # Termo de garantia compacto
         c.setFont(font_to_use, 9)
-        termos_linhas = [
-            "1. O valor e o prazo podem ser ajustados",
-            "   conforme necessidade de materiais,",
-            "   mudanças no pedido ou imprevistos.",
-            "",
-            "2. Mudanças ou condições especiais serão",
-            "   sempre comunicadas e acordadas",
-            "   previamente.",
-            "",
-            "3. Caso precise cancelar ou alterar qualquer",
-            "   informação do pedido (como pagamento,",
-            "   endereço, itens, etc.), entre em contato",
-            "   o quanto antes para avaliarmos juntos",
-            "   a melhor solução."
+        garantia_linhas = [
+            "1. Garantia: 12 meses após emissão da nota fiscal",
+            "2. Cobre: Quebra de solda, articulações e rebites",
+            "3. Não cobre: Pintura, impactos, amassados,",
+            "   excesso de peso, corrosão por água"
         ]
         
-        for linha in termos_linhas:
-            if linha.strip():  # Linha não vazia
-                c.drawString(10, y_position, linha)
-            y_position -= 12
+        for linha in garantia_linhas:
+            c.drawString(10, y_position, linha)
+            y_position -= 11
         
-        y_position -= 10
+        y_position -= 8
+
+        # Seção de Recomendações compacta
+        c.setFont(font_bold_to_use, 11)
+        c.drawString(10, y_position, "RECOMENDAÇÕES")
+        c.line(10, y_position - 5, width - 10, y_position - 5)
+        y_position -= 15
+
+        c.setFont(font_to_use, 9)
+        recomendacoes_linhas = [
+            "1. Manter em local seco, evitar chuva",
+            "2. Lubrificar dobradiças mensalmente",
+            "3. Verificar parafusos periodicamente"
+        ]
+        
+        for linha in recomendacoes_linhas:
+            c.drawString(10, y_position, linha)
+            y_position -= 11
+        
+        y_position -= 5
 
         c.showPage()
         c.save()

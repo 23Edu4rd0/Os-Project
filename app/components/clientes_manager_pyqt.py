@@ -774,13 +774,13 @@ class ClientesManager(QWidget):
         self.table = QTableWidget()
         
         # Configurar colunas
-        columns = ["ID", "Nome", "CPF", "CNPJ", "Insc. Estadual", "Telefone", "Email", "Rua", "Nº", "Bairro", "Cidade", "UF", "Referência"]
+        columns = ["ID", "Nome", "CPF", "CNPJ", "Insc. Estadual", "Telefone", "Email", "CEP", "Rua", "Nº", "Bairro", "Cidade", "UF", "Referência"]
         self.table.setColumnCount(len(columns))
         self.table.setHorizontalHeaderLabels(columns)
         
         # Configurar larguras das colunas (mais compacto)
         header = self.table.horizontalHeader()
-        column_widths = [50, 160, 90, 100, 80, 100, 140, 120, 40, 90, 90, 40, 110]
+        column_widths = [50, 160, 90, 100, 80, 100, 140, 80, 120, 40, 90, 90, 40, 110]
         
         for i, width in enumerate(column_widths):
             self.table.setColumnWidth(i, width)
@@ -887,8 +887,8 @@ class ClientesManager(QWidget):
             
             # Preencher dados
             for row, cliente in enumerate(clientes):
-                # cliente é uma tupla: (id, nome, cpf, cnpj, inscricao_estadual, telefone, email, rua, numero, bairro, cidade, estado, referencia)
-                if len(cliente) >= 13:
+                # cliente é uma tupla: (id, nome, cpf, cnpj, inscricao_estadual, telefone, email, cep, rua, numero, bairro, cidade, estado, referencia)
+                if len(cliente) >= 14:
                     raw_cpf = str(cliente[2] or '')
                     # Formatação de CNPJ
                     raw_cnpj = str(cliente[3] or '')
@@ -901,6 +901,17 @@ class ClientesManager(QWidget):
                     else:
                         cnpj_fmt = ''
                     
+                    # Formatação do CEP
+                    raw_cep = str(cliente[7] or '')
+                    if raw_cep and len(raw_cep.strip()) > 0:
+                        try:
+                            from app.utils.cep_api import CepAPI
+                            cep_fmt = CepAPI.format_cep_display(raw_cep)
+                        except Exception:
+                            cep_fmt = raw_cep
+                    else:
+                        cep_fmt = ''
+                    
                     dados = [
                         str(cliente[0] or ''),   # id
                         str(cliente[1] or ''),   # nome
@@ -909,12 +920,13 @@ class ClientesManager(QWidget):
                         str(cliente[4] or ''),   # inscricao_estadual
                         str(cliente[5] or ''),   # telefone
                         str(cliente[6] or ''),   # email
-                        str(cliente[7] or ''),   # rua
-                        str(cliente[8] or ''),   # numero
-                        str(cliente[9] or ''),   # bairro
-                        str(cliente[10] or ''),  # cidade
-                        str(cliente[11] or ''),  # estado
-                        str(cliente[12] or '')   # referencia
+                        cep_fmt,                 # cep (formatado)
+                        str(cliente[8] or ''),   # rua
+                        str(cliente[9] or ''),   # numero
+                        str(cliente[10] or ''),  # bairro
+                        str(cliente[11] or ''),  # cidade
+                        str(cliente[12] or ''),  # estado
+                        str(cliente[13] or '')   # referencia
                     ]
                     
                     for col, valor in enumerate(dados):
@@ -973,16 +985,18 @@ class ClientesManager(QWidget):
             elif col == 6:
                 dados['email'] = valor
             elif col == 7:
-                dados['rua'] = valor
+                dados['cep'] = valor
             elif col == 8:
-                dados['numero'] = valor
+                dados['rua'] = valor
             elif col == 9:
-                dados['bairro'] = valor
+                dados['numero'] = valor
             elif col == 10:
-                dados['cidade'] = valor
+                dados['bairro'] = valor
             elif col == 11:
-                dados['estado'] = valor
+                dados['cidade'] = valor
             elif col == 12:
+                dados['estado'] = valor
+            elif col == 13:
                 dados['referencia'] = valor
         
         modal = ClienteModal(self, dados)
@@ -1019,16 +1033,18 @@ class ClientesManager(QWidget):
             elif col == 6:
                 dados['email'] = valor
             elif col == 7:
-                dados['rua'] = valor
+                dados['cep'] = valor
             elif col == 8:
-                dados['numero'] = valor
+                dados['rua'] = valor
             elif col == 9:
-                dados['bairro'] = valor
+                dados['numero'] = valor
             elif col == 10:
-                dados['cidade'] = valor
+                dados['bairro'] = valor
             elif col == 11:
-                dados['estado'] = valor
+                dados['cidade'] = valor
             elif col == 12:
+                dados['estado'] = valor
+            elif col == 13:
                 dados['referencia'] = valor
 
         dialog = ClienteDetailDialog(self, dados)
@@ -1099,24 +1115,27 @@ class ClientesManager(QWidget):
             termo_lower = termo_pesquisa.lower()
             
             for cliente in clientes:
-                if len(cliente) >= 13:
+                if len(cliente) >= 14:
                     nome = str(cliente[1] or '').lower()
                     cpf = str(cliente[2] or '')
                     cnpj = str(cliente[3] or '')
                     inscricao_estadual = str(cliente[4] or '').lower()
                     telefone = str(cliente[5] or '').lower()
+                    cep = str(cliente[7] or '').lower()
 
-                    # Normalize search term for CPF/CNPJ comparison (strip non-digits)
+                    # Normalize search term for CPF/CNPJ/CEP comparison (strip non-digits)
                     termo_digits = ''.join(ch for ch in termo_pesquisa if ch.isdigit())
                     cpf_digits = ''.join(ch for ch in cpf if ch.isdigit())
                     cnpj_digits = ''.join(ch for ch in cnpj if ch.isdigit())
+                    cep_digits = ''.join(ch for ch in cep if ch.isdigit())
 
-                    # Pesquisar nos campos: nome, telefone, CPF, CNPJ, Inscr. Estadual (permitir digitar sem pontos)
+                    # Pesquisar nos campos: nome, telefone, CPF, CNPJ, CEP, Inscr. Estadual (permitir digitar sem pontos)
                     if (termo_lower in nome or 
                         termo_lower in telefone or 
-                        (termo_digits and (termo_digits == cpf_digits or termo_digits == cnpj_digits)) or
+                        (termo_digits and (termo_digits == cpf_digits or termo_digits == cnpj_digits or termo_digits == cep_digits)) or
                         termo_lower in cpf.lower() or
                         termo_lower in cnpj.lower() or
+                        termo_lower in cep.lower() or
                         termo_lower in inscricao_estadual):
                         clientes_filtrados.append(cliente)
             
@@ -1137,6 +1156,17 @@ class ClientesManager(QWidget):
                 else:
                     cnpj_fmt = ''
                 
+                # Formatação do CEP
+                raw_cep = str(cliente[7] or '')
+                if raw_cep and len(raw_cep.strip()) > 0:
+                    try:
+                        from app.utils.cep_api import CepAPI
+                        cep_fmt = CepAPI.format_cep_display(raw_cep)
+                    except Exception:
+                        cep_fmt = raw_cep
+                else:
+                    cep_fmt = ''
+                
                 dados = [
                     str(cliente[0] or ''),   # id
                     str(cliente[1] or ''),   # nome
@@ -1145,12 +1175,13 @@ class ClientesManager(QWidget):
                     str(cliente[4] or ''),   # inscricao_estadual
                     str(cliente[5] or ''),   # telefone
                     str(cliente[6] or ''),   # email
-                    str(cliente[7] or ''),   # rua
-                    str(cliente[8] or ''),   # numero
-                    str(cliente[9] or ''),   # bairro
-                    str(cliente[10] or ''),  # cidade
-                    str(cliente[11] or ''),  # estado
-                    str(cliente[12] or '')   # referencia
+                    cep_fmt,                 # cep (formatado)
+                    str(cliente[8] or ''),   # rua
+                    str(cliente[9] or ''),   # numero
+                    str(cliente[10] or ''),  # bairro
+                    str(cliente[11] or ''),  # cidade
+                    str(cliente[12] or ''),  # estado
+                    str(cliente[13] or '')   # referencia
                 ]
                 
                 for col, valor in enumerate(dados):
