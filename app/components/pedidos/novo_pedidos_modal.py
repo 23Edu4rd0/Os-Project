@@ -1110,8 +1110,9 @@ class NovoPedidosModal(QDialog):
                 # Para criação, usar estrutura completa
                 pedido_data = {
                     'numero_os': numero_os,
-                    'cliente_id': cliente_id,
-                    'cliente_nome': cliente_data['nome'],
+                    'nome_cliente': cliente_data['nome'],  # Corrigido: nome_cliente em vez de cliente_nome
+                    'cpf_cliente': cliente_data['cnpj'],   # Adicionado campo obrigatório
+                    'telefone_cliente': cliente_data['telefone'],  # Adicionado campo obrigatório
                     'valor_total': valor_final,
                     'valor_entrada': entrada,
                     'valor_a_receber': valor_a_receber,

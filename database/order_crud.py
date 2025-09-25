@@ -72,17 +72,23 @@ class OrderCRUD:
 
             # Normalize CPF to digits-only for consistent storage
             cpf_norm = _normalize_cpf(dados.get('cpf_cliente', ''))
+            
+            # Verificar campos obrigatórios
+            nome_cliente = dados.get('nome_cliente')
+            if not nome_cliente:
+                raise ValueError("Campo 'nome_cliente' é obrigatório")
+            
             valores = (
-                dados['numero_os'],
+                dados.get('numero_os', 1),
                 datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                dados['nome_cliente'],
+                nome_cliente,
                 cpf_norm,
-                dados['telefone_cliente'],
+                dados.get('telefone_cliente', ''),
                 dados.get('detalhes_produto', ''),
                 valor_produto,
                 float(dados.get('valor_entrada') or 0),
                 float(dados.get('frete') or 0),
-                dados.get('forma_pagamento'),
+                dados.get('forma_pagamento', ''),
                 int(dados.get('prazo') or 0),
                 nome_pdf,
                 dados_json
