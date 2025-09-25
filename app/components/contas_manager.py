@@ -25,59 +25,7 @@ except ImportError:
     pass  # Matplotlib não disponível
 
 from database import db_manager
-
-
-class MetricCard(QFrame):
-    """Card para exibição de métricas financeiras"""
-    
-    def __init__(self, title, value, icon, color, trend=None, parent=None):
-        super().__init__(parent)
-        self.setObjectName("metricCard")
-        
-        # Layout
-        layout = QVBoxLayout(self)
-        layout.setSpacing(5)
-        
-        # Header com ícone e título
-        header = QHBoxLayout()
-        icon_label = QLabel(icon)
-        icon_label.setFont(QFont("Segoe UI", 24))
-        header.addWidget(icon_label)
-        
-        title_label = QLabel(title)
-        title_label.setFont(QFont("Segoe UI", 11))
-        title_label.setStyleSheet("color: #b0b0b0;")
-        header.addWidget(title_label)
-        header.addStretch()
-        layout.addLayout(header)
-        
-        # Valor principal
-        self.value_label = QLabel(value)
-        self.value_label.setFont(QFont("Segoe UI", 20, QFont.Weight.Bold))
-        self.value_label.setStyleSheet(f"color: {color};")
-        self.value_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(self.value_label)
-        
-        # Tendência (opcional)
-        if trend:
-            trend_label = QLabel(trend)
-            trend_label.setFont(QFont("Segoe UI", 10))
-            trend_label.setStyleSheet("color: #b0b0b0;")
-            trend_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            layout.addWidget(trend_label)
-        else:
-            layout.addStretch()
-        
-        # Estilo
-        self.setStyleSheet(f"""
-            #metricCard {{
-                background: #2d2d2d;
-                border: 1px solid {color};
-                border-radius: 12px;
-                padding: 15px;
-                min-height: 120px;
-            }}
-        """)
+from app.components.widgets.metric_card import MetricCard
 
 
 class ContasManager(QWidget):

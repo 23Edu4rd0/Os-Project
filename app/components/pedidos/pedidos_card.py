@@ -146,93 +146,18 @@ class PedidosCard(QWidget):
         card_layout.addStretch()
 
         # 6. Botões (4 botões conforme solicitado)
-        self._criar_botoes_completos(card_layout, pedido)
+        self._criar_botoes(card_layout, pedido)
 
         # Aplicar estilo básico
         self._aplicar_estilo_basico(card_widget, status)
 
         return card_widget
     
-    def _criar_botoes_completos(self, layout, pedido):
-        """Cria os 4 botões: Editar, Status, WhatsApp e Deletar"""
-        botoes_layout = QHBoxLayout()
-        botoes_layout.setSpacing(5)
-        
-        pedido_id = pedido.get('id')
-        telefone = pedido.get('telefone_cliente', '')
-        
-        # Botão Editar
-        btn_editar = QPushButton("Editar")
-        btn_editar.setFixedSize(70, 25)
-        btn_editar.clicked.connect(lambda: self.editar_clicked.emit(pedido_id))
-        botoes_layout.addWidget(btn_editar)
-        
-        # Botão Status
-        btn_status = QPushButton("Status")
-        btn_status.setFixedSize(70, 25)
-        btn_status.clicked.connect(lambda: self._abrir_menu_status(pedido_id))
-        botoes_layout.addWidget(btn_status)
-        
-        # Botão WhatsApp
-        btn_whatsapp = QPushButton("WhatsApp")
-        btn_whatsapp.setFixedSize(70, 25)
-        if telefone:
-            btn_whatsapp.clicked.connect(lambda: self._abrir_whatsapp(pedido))
-        else:
-            btn_whatsapp.setEnabled(False)
-            btn_whatsapp.setStyleSheet("color: #666666;")
-        botoes_layout.addWidget(btn_whatsapp)
-        
-        # Botão Deletar
-        btn_deletar = QPushButton("Deletar")
-        btn_deletar.setFixedSize(70, 25)
-        btn_deletar.clicked.connect(lambda: self.excluir_clicked.emit(pedido_id))
-        btn_deletar.setStyleSheet("""
-            QPushButton {
-                background-color: #cc4444;
-                color: white;
-                border: 1px solid #aa3333;
-                border-radius: 3px;
-                font-size: 9px;
-            }
-            QPushButton:hover {
-                background-color: #dd5555;
-            }
-        """)
-        botoes_layout.addWidget(btn_deletar)
-        
-        layout.addLayout(botoes_layout)
+
     
     # (Remove this entire duplicate block; keep only the most complete version of _calcular_dias_restantes)
     
-    def _abrir_whatsapp(self, pedido):
-        """Abre o WhatsApp com mensagem sobre o pedido"""
-        try:
-            import webbrowser
-            import urllib.parse
-            
-            telefone = pedido.get('telefone_cliente', '')
-            cliente_nome = pedido.get('nome_cliente', 'Cliente')  # Corrigido: era 'cliente_nome'
-            pedido_id = pedido.get('id', '')
-            
-            # Remove caracteres não numéricos do telefone
-            telefone_limpo = ''.join(filter(str.isdigit, telefone))
-            
-            if len(telefone_limpo) >= 10:
-                # Adiciona código do país se necessário (Brasil)
-                if len(telefone_limpo) == 10 or len(telefone_limpo) == 11:
-                    telefone_limpo = '55' + telefone_limpo
-                
-                # Monta a mensagem
-                mensagem = f"Olá {cliente_nome}! Referente ao pedido #{pedido_id}..."
-                mensagem_encoded = urllib.parse.quote(mensagem)
-                
-                # Monta a URL do WhatsApp
-                url = f"https://wa.me/{telefone_limpo}?text={mensagem_encoded}"
-                webbrowser.open(url)
-                
-        except Exception as e:
-            print(f"Erro ao abrir WhatsApp: {e}")
+
     
     def _abrir_menu_status(self, pedido_id):
         """Abre menu para alterar status do pedido"""
@@ -268,19 +193,7 @@ class PedidosCard(QWidget):
         codigo = 18000000 + (base % 999999)
         return f"{codigo:08d}"
     
-    def _abrir_whatsapp(self, pedido):
-        """Abre WhatsApp para o cliente do pedido"""
-        try:
-            import webbrowser
-            telefone = pedido.get('telefone_cliente', '')
-            if telefone:
-                # Remove caracteres não numéricos
-                telefone_limpo = ''.join(filter(str.isdigit, telefone))
-                if telefone_limpo:
-                    url = f"https://wa.me/55{telefone_limpo}"
-                    webbrowser.open(url)
-        except Exception as e:
-            print(f"Erro ao abrir WhatsApp: {e}")
+
             
     # Métodos auxiliares necessários para funcionalidade básica
     
@@ -423,98 +336,111 @@ class PedidosCard(QWidget):
         return linhas_finais
     
     def _criar_botoes(self, layout, pedido):
-        """Cria os botões do card com design melhorado"""
+        """Cria os 4 botões: Editar, Status, WhatsApp e Deletar"""
         botoes_frame = QFrame()
         botoes_frame.setStyleSheet("background: transparent; border: none;")
         botoes_layout = QHBoxLayout(botoes_frame)
-        botoes_layout.setContentsMargins(0, 8, 0, 0)
-        botoes_layout.setSpacing(12)
+        botoes_layout.setContentsMargins(0, 5, 0, 0)
+        botoes_layout.setSpacing(6)
         
         pedido_id = pedido.get('id')
+        telefone = pedido.get('telefone_cliente', '')
         
-        # Adicionar stretch no início para centralizar botões
-        botoes_layout.addStretch()
+        # Estilo base para botões
+        base_style = """
+            QPushButton {
+                background-color: #555555;
+                color: white;
+                border: 1px solid #666666;
+                border-radius: 4px;
+                padding: 5px 8px;
+                font-size: 10px;
+                font-weight: bold;
+                min-width: 65px;
+                max-height: 28px;
+            }
+            QPushButton:hover {
+                background-color: #666666;
+                border: 1px solid #777777;
+            }
+            QPushButton:pressed {
+                background-color: #444444;
+            }
+        """
         
-        # Botão Editar simples
+        # Botão Editar
         btn_editar = QPushButton("Editar")
-        btn_editar.setMinimumWidth(70)
+        btn_editar.setStyleSheet(base_style)
         btn_editar.clicked.connect(lambda: self.editar_clicked.emit(pedido_id))
         botoes_layout.addWidget(btn_editar)
         
-        # Botão Excluir simples
-        btn_excluir = QPushButton("Excluir")
-        btn_excluir.setMinimumWidth(70)
-        btn_excluir.clicked.connect(lambda: self.excluir_clicked.emit(pedido_id))
-        btn_excluir.setStyleSheet("""
-            QPushButton {
-                background-color: #cc4444;
-                color: white;
-                border: 1px solid #aa3333;
-                border-radius: 3px;
-                padding: 6px 10px;
-                font-size: 10px;
-            }
-            QPushButton:hover {
-                background-color: #dd5555;
-            }
-        """)
-        botoes_layout.addWidget(btn_excluir)
-        
-        # Botão Status simples
+        # Botão Status
         btn_status = QPushButton("Status")
-        btn_status.setMinimumWidth(70)
+        btn_status.setStyleSheet(base_style.replace("#555555", "#2196F3").replace("#666666", "#1976D2"))
         btn_status.clicked.connect(lambda: self._abrir_menu_status(pedido_id))
         botoes_layout.addWidget(btn_status)
         
-        # Botão WhatsApp simples (se disponível)
-        telefone = pedido.get('telefone_cliente', '')
+        # Botão WhatsApp
+        btn_whatsapp = QPushButton("WhatsApp")
         if telefone:
-            btn_whatsapp = QPushButton("WhatsApp")
-            btn_whatsapp.setMinimumWidth(80)
-            btn_whatsapp.setStyleSheet("""
+            whatsapp_style = """
                 QPushButton {
                     background-color: #25d366;
                     color: white;
                     border: 1px solid #1da851;
-                    border-radius: 3px;
-                    padding: 6px 10px;
+                    border-radius: 4px;
+                    padding: 5px 8px;
                     font-size: 10px;
+                    font-weight: bold;
+                    min-width: 70px;
+                    max-height: 28px;
                 }
                 QPushButton:hover {
                     background-color: #1da851;
+                    border: 1px solid #128c39;
                 }
-            """)
-            btn_whatsapp.clicked.connect(lambda: self._abrir_whatsapp(pedido))
-            botoes_layout.addWidget(btn_whatsapp)
+                QPushButton:pressed {
+                    background-color: #0e7a2b;
+                }
+            """
+            btn_whatsapp.setStyleSheet(whatsapp_style)
+            btn_whatsapp.clicked.connect(lambda: self._mostrar_menu_whatsapp(btn_whatsapp, pedido))
+        else:
+            disabled_style = base_style.replace("#555555", "#404040").replace("white", "#888888")
+            btn_whatsapp.setStyleSheet(disabled_style)
+            btn_whatsapp.setEnabled(False)
+            btn_whatsapp.setToolTip("Telefone não informado")
+        botoes_layout.addWidget(btn_whatsapp)
         
-        # Adicionar stretch no final para centralizar botões
-        botoes_layout.addStretch()
-        
-        # Aplicar estilo aos botões (exceto os que já têm estilo customizado)
-        self._aplicar_estilo_botoes(botoes_frame)
+        # Botão Deletar
+        btn_deletar = QPushButton("Deletar")
+        deletar_style = """
+            QPushButton {
+                background-color: #F44336;
+                color: white;
+                border: 1px solid #D32F2F;
+                border-radius: 4px;
+                padding: 5px 8px;
+                font-size: 10px;
+                font-weight: bold;
+                min-width: 65px;
+                max-height: 28px;
+            }
+            QPushButton:hover {
+                background-color: #D32F2F;
+                border: 1px solid #C62828;
+            }
+            QPushButton:pressed {
+                background-color: #B71C1C;
+            }
+        """
+        btn_deletar.setStyleSheet(deletar_style)
+        btn_deletar.clicked.connect(lambda: self.excluir_clicked.emit(pedido_id))
+        botoes_layout.addWidget(btn_deletar)
         
         layout.addWidget(botoes_frame)
     
-    def _abrir_whatsapp(self, pedido):
-        """Abre WhatsApp com o cliente do pedido"""
-        import webbrowser
-        telefone = pedido.get('telefone_cliente', '').strip()
-        if telefone:
-            # Limpar telefone (manter apenas números)
-            telefone_limpo = ''.join(filter(str.isdigit, telefone))
-            if telefone_limpo:
-                # Adicionar código do país se não tiver
-                if len(telefone_limpo) == 11 and telefone_limpo.startswith('9'):
-                    telefone_limpo = '55' + telefone_limpo
-                elif len(telefone_limpo) == 10:
-                    telefone_limpo = '5511' + telefone_limpo
-                
-                numero_os = pedido.get('numero_os', '')
-                cliente = pedido.get('nome_cliente', 'Cliente')
-                
-                mensagem = f"Olá {cliente}! Sobre a OS #{numero_os}"
-                url = f"https://wa.me/{telefone_limpo}?text={mensagem}"
-                webbrowser.open(url)
+
 
     # --- Prazo / Entrega helpers -------------------------------------------------
     def _formatar_prazo_texto(self, pedido):
@@ -759,45 +685,490 @@ class PedidosCard(QWidget):
             print(f"Erro ao calcular dias restantes: {e}")
             return None
     
-    def _abrir_whatsapp(self, pedido):
-        """Abre o WhatsApp com mensagem pré-formatada"""
-        import webbrowser
-        import urllib.parse
-        
-        telefone = pedido.get('telefone_cliente', '').strip()
-        numero_os = pedido.get('numero_os', 'N/A')
-        cliente = pedido.get('nome_cliente', 'Cliente')
-        
-        if not telefone:
-            return
-        
-        # Remover caracteres não numéricos
-        telefone_limpo = ''.join(filter(str.isdigit, telefone))
-        
-        # Adicionar código do país se necessário
-        if len(telefone_limpo) == 11 and telefone_limpo.startswith('55'):
-            pass  # Já tem código do país
-        elif len(telefone_limpo) == 11:
-            telefone_limpo = '55' + telefone_limpo
-        elif len(telefone_limpo) == 10:
-            telefone_limpo = '5511' + telefone_limpo
-        
-        # Mensagem pré-formatada
-        mensagem = f"""Olá {cliente}!
-        
+    def _mostrar_menu_whatsapp(self, btn_whatsapp, pedido):
+        """Mostra menu com opções de WhatsApp: mensagem ou PDF"""
+        try:
+            from PyQt6.QtWidgets import QMenu, QMessageBox
+            from PyQt6.QtGui import QAction
+            
+            telefone = pedido.get('telefone_cliente', '').strip()
+            
+            if not telefone:
+                QMessageBox.warning(self, "WhatsApp", "Telefone não informado para este cliente.")
+                return
+            
+            # Criar menu de contexto
+            menu = QMenu(self)
+            menu.setStyleSheet("""
+                QMenu {
+                    background-color: #3a3a3a;
+                    border: 1px solid #555555;
+                    border-radius: 6px;
+                    color: #e6e6e6;
+                    font-size: 12px;
+                    padding: 4px;
+                }
+                QMenu::item {
+                    padding: 8px 16px;
+                    margin: 2px;
+                    border-radius: 4px;
+                }
+                QMenu::item:selected {
+                    background-color: #25d366;
+                    color: white;
+                }
+            """)
+            
+            # Ação: Enviar mensagem normal
+            acao_mensagem = QAction("📱 Enviar mensagem", self)
+            acao_mensagem.setToolTip("Enviar mensagem de texto com informações da OS")
+            acao_mensagem.triggered.connect(lambda: self._abrir_whatsapp_com_feedback(btn_whatsapp, pedido))
+            menu.addAction(acao_mensagem)
+            
+            # Separador
+            menu.addSeparator()
+            
+            # Ação: Enviar PDF via App
+            acao_pdf_app = QAction("📄 PDF via App", self)
+            acao_pdf_app.setToolTip("Gerar PDF e abrir WhatsApp App (mobile)")
+            acao_pdf_app.triggered.connect(lambda: self._enviar_pdf_whatsapp_app(btn_whatsapp, pedido))
+            menu.addAction(acao_pdf_app)
+            
+            # Ação: Enviar PDF via Web  
+            acao_pdf_web = QAction("🌐 PDF via Web", self)
+            acao_pdf_web.setToolTip("Gerar PDF e abrir WhatsApp Web (arrastar arquivo)")
+            acao_pdf_web.triggered.connect(lambda: self._enviar_pdf_whatsapp_web(btn_whatsapp, pedido))
+            menu.addAction(acao_pdf_web)
+            
+            # Mostrar menu próximo ao botão
+            menu.exec(btn_whatsapp.mapToGlobal(btn_whatsapp.rect().bottomLeft()))
+            
+        except Exception as e:
+            from PyQt6.QtWidgets import QMessageBox
+            QMessageBox.critical(self, "Erro", f"Erro ao abrir menu WhatsApp: {str(e)}")
+            print(f"Erro no menu WhatsApp: {e}")
+    
+    def _enviar_pdf_whatsapp_web(self, btn_whatsapp, pedido):
+        """Gera PDF da OS e envia via WhatsApp"""
+        try:
+            import webbrowser
+            import urllib.parse
+            import os
+            from PyQt6.QtCore import QTimer
+            from PyQt6.QtWidgets import QMessageBox
+            from documents.os_pdf import OrdemServicoPDF
+            
+            telefone = pedido.get('telefone_cliente', '').strip()
+            numero_os = pedido.get('numero_os', pedido.get('id', 'N/A'))
+            cliente = pedido.get('nome_cliente', 'Cliente')
+            
+            if not telefone:
+                QMessageBox.warning(self, "WhatsApp", "Telefone não informado para este cliente.")
+                return
+            
+            # Feedback visual: gerando PDF
+            texto_original = btn_whatsapp.text()
+            btn_whatsapp.setText("Gerando PDF...")
+            btn_whatsapp.setStyleSheet("""
+                QPushButton {
+                    background-color: #FF9800;
+                    color: white;
+                    border: 1px solid #F57C00;
+                    border-radius: 4px;
+                    padding: 5px 8px;
+                    font-size: 10px;
+                    font-weight: bold;
+                    min-width: 70px;
+                    max-height: 28px;
+                }
+            """)
+            btn_whatsapp.setEnabled(False)
+            
+            # Gerar PDF
+            pdf_generator = OrdemServicoPDF(pedido)
+            caminho_pdf = pdf_generator.gerar()
+            
+            if not os.path.exists(caminho_pdf):
+                raise Exception("Erro ao gerar PDF")
+            
+            # Preparar WhatsApp
+            telefone_limpo = ''.join(filter(str.isdigit, telefone))
+            
+            if len(telefone_limpo) < 10:
+                QMessageBox.warning(self, "WhatsApp", "Telefone inválido.")
+                return
+            
+            # Adicionar código do país se necessário
+            if len(telefone_limpo) == 11 and telefone_limpo.startswith('55'):
+                pass  # Já tem código do país
+            elif len(telefone_limpo) == 11:
+                telefone_limpo = '55' + telefone_limpo
+            elif len(telefone_limpo) == 10:
+                telefone_limpo = '5511' + telefone_limpo
+            
+            # Mensagem para acompanhar o PDF
+            mensagem = f"""Olá {cliente}!
+
+Segue em anexo o PDF da sua Ordem de Serviço #{numero_os}.
+
+📋 Documento contém todos os detalhes do seu pedido.
+📞 Qualquer dúvida, estou à disposição!
+
+*Arquivo: {os.path.basename(caminho_pdf)}*"""
+            
+            # Codificar mensagem
+            mensagem_encoded = urllib.parse.quote(mensagem)
+            
+            # URL do WhatsApp Web (sem mensagem pré-definida para facilitar anexo)
+            url_web = f"https://web.whatsapp.com/send?phone={telefone_limpo}"
+            
+            # Feedback: PDF pronto
+            btn_whatsapp.setText("Abrindo Web...")
+            btn_whatsapp.setStyleSheet("""
+                QPushButton {
+                    background-color: #2196F3;
+                    color: white;
+                    border: 1px solid #1976D2;
+                    border-radius: 4px;
+                    padding: 5px 8px;
+                    font-size: 10px;
+                    font-weight: bold;
+                    min-width: 70px;
+                    max-height: 28px;
+                }
+            """)
+            
+            # Abrir WhatsApp Web
+            webbrowser.open(url_web)
+            
+            # Abrir pasta do PDF para facilitar o drag & drop
+            import subprocess
+            import platform
+            pasta_pdf = os.path.dirname(caminho_pdf)
+            
+            try:
+                if platform.system() == "Linux":
+                    subprocess.run(["xdg-open", pasta_pdf])
+                elif platform.system() == "Windows":
+                    subprocess.run(["explorer", pasta_pdf])
+                elif platform.system() == "Darwin":  # macOS
+                    subprocess.run(["open", pasta_pdf])
+            except Exception as e:
+                print(f"Não foi possível abrir pasta: {e}")
+            
+            # Mostrar instruções detalhadas
+            instrucoes = f"""✅ WhatsApp Web aberto para {cliente}!
+
+�️ Pasta do PDF aberta: {os.path.basename(pasta_pdf)}
+📄 Arquivo: {os.path.basename(caminho_pdf)}
+
+📋 COMO ENVIAR O PDF:
+1️⃣ No WhatsApp Web, localize a conversa com {cliente}
+2️⃣ Clique no ícone � (anexar arquivo) na conversa
+3️⃣ Selecione "Documento" ou arraste o PDF da pasta
+4️⃣ Adicione uma mensagem se desejar
+5️⃣ Clique em Enviar ✅
+
+💡 DICA: Você pode arrastar o arquivo direto da pasta para a conversa!"""
+            
+            QMessageBox.information(self, "📱 WhatsApp Web + PDF", instrucoes)
+            
+            # Após 3 segundos, volta ao normal
+            QTimer.singleShot(3000, lambda: self._restaurar_botao_whatsapp(btn_whatsapp, texto_original))
+            
+        except Exception as e:
+            from PyQt6.QtWidgets import QMessageBox
+            QMessageBox.critical(self, "Erro", f"Erro ao enviar PDF: {str(e)}")
+            print(f"Erro ao enviar PDF via WhatsApp Web: {e}")
+            # Restaurar botão em caso de erro
+            self._restaurar_botao_whatsapp(btn_whatsapp, "WhatsApp")
+
+    def _enviar_pdf_whatsapp_app(self, btn_whatsapp, pedido):
+        """Gera PDF da OS e abre WhatsApp App com mensagem sobre o PDF"""
+        try:
+            import webbrowser
+            import urllib.parse
+            import os
+            from PyQt6.QtCore import QTimer
+            from PyQt6.QtWidgets import QMessageBox
+            from documents.os_pdf import OrdemServicoPDF
+            
+            telefone = pedido.get('telefone_cliente', '').strip()
+            numero_os = pedido.get('numero_os', pedido.get('id', 'N/A'))
+            cliente = pedido.get('nome_cliente', 'Cliente')
+            
+            if not telefone:
+                QMessageBox.warning(self, "WhatsApp", "Telefone não informado para este cliente.")
+                return
+            
+            # Feedback visual: gerando PDF
+            texto_original = btn_whatsapp.text()
+            btn_whatsapp.setText("Gerando PDF...")
+            btn_whatsapp.setStyleSheet("""
+                QPushButton {
+                    background-color: #FF9800;
+                    color: white;
+                    border: 1px solid #F57C00;
+                    border-radius: 4px;
+                    padding: 5px 8px;
+                    font-size: 10px;
+                    font-weight: bold;
+                    min-width: 70px;
+                    max-height: 28px;
+                }
+            """)
+            btn_whatsapp.setEnabled(False)
+            
+            # Gerar PDF
+            pdf_generator = OrdemServicoPDF(pedido)
+            caminho_pdf = pdf_generator.gerar()
+            
+            if not os.path.exists(caminho_pdf):
+                raise Exception("Erro ao gerar PDF")
+            
+            # Preparar WhatsApp
+            telefone_limpo = ''.join(filter(str.isdigit, telefone))
+            
+            if len(telefone_limpo) < 10:
+                QMessageBox.warning(self, "WhatsApp", "Telefone inválido.")
+                return
+            
+            # Adicionar código do país se necessário
+            if len(telefone_limpo) == 11 and telefone_limpo.startswith('55'):
+                pass  # Já tem código do país
+            elif len(telefone_limpo) == 11:
+                telefone_limpo = '55' + telefone_limpo
+            elif len(telefone_limpo) == 10:
+                telefone_limpo = '5511' + telefone_limpo
+            
+            # Mensagem informando sobre o PDF (app não pode anexar automaticamente)
+            mensagem = f"""Olá {cliente}!
+
+📋 Sua Ordem de Serviço #{numero_os} está pronta!
+
+📄 Geramos o PDF com todos os detalhes do seu pedido.
+🗂️ Arquivo: {os.path.basename(caminho_pdf)}
+
+Em breve enviaremos o documento completo.
+
+📞 Qualquer dúvida, estou à disposição!"""
+            
+            # Codificar mensagem
+            mensagem_encoded = urllib.parse.quote(mensagem)
+            
+            # URL do WhatsApp App
+            url_app = f"https://wa.me/{telefone_limpo}?text={mensagem_encoded}"
+            
+            # Feedback: PDF pronto
+            btn_whatsapp.setText("App Aberto!")
+            btn_whatsapp.setStyleSheet("""
+                QPushButton {
+                    background-color: #25d366;
+                    color: white;
+                    border: 1px solid #1da851;
+                    border-radius: 4px;
+                    padding: 5px 8px;
+                    font-size: 10px;
+                    font-weight: bold;
+                    min-width: 70px;
+                    max-height: 28px;
+                }
+            """)
+            
+            # Abrir WhatsApp App
+            webbrowser.open(url_app)
+            
+            # Mostrar informações
+            QMessageBox.information(self, "📱 WhatsApp App", 
+                f"WhatsApp App aberto para {cliente}!\n\n"
+                f"📄 PDF gerado: {os.path.basename(caminho_pdf)}\n"
+                f"📁 Local: {os.path.dirname(caminho_pdf)}\n\n"
+                f"💡 O PDF foi salvo localmente.\n"
+                f"Envie manualmente ou use a opção 'PDF via Web'.")
+            
+            # Após 3 segundos, volta ao normal
+            QTimer.singleShot(3000, lambda: self._restaurar_botao_whatsapp(btn_whatsapp, texto_original))
+            
+        except Exception as e:
+            from PyQt6.QtWidgets import QMessageBox
+            QMessageBox.critical(self, "Erro", f"Erro ao enviar PDF via App: {str(e)}")
+            print(f"Erro ao enviar PDF via WhatsApp App: {e}")
+            # Restaurar botão em caso de erro
+            self._restaurar_botao_whatsapp(btn_whatsapp, "WhatsApp")
+
+    def _abrir_whatsapp_com_feedback(self, btn_whatsapp, pedido):
+        """Abre o WhatsApp com mensagem pré-formatada e feedback visual no botão"""
+        try:
+            import webbrowser
+            import urllib.parse
+            from PyQt6.QtCore import QTimer
+            from PyQt6.QtWidgets import QMessageBox
+            
+            telefone = pedido.get('telefone_cliente', '').strip()
+            numero_os = pedido.get('numero_os', pedido.get('id', 'N/A'))
+            cliente = pedido.get('nome_cliente', 'Cliente')
+            
+            if not telefone:
+                QMessageBox.warning(self, "WhatsApp", "Telefone não informado para este cliente.")
+                return
+            
+            # Remover caracteres não numéricos
+            telefone_limpo = ''.join(filter(str.isdigit, telefone))
+            
+            if len(telefone_limpo) < 10:
+                QMessageBox.warning(self, "WhatsApp", "Telefone inválido.")
+                return
+            
+            # Adicionar código do país se necessário
+            if len(telefone_limpo) == 11 and telefone_limpo.startswith('55'):
+                pass  # Já tem código do país
+            elif len(telefone_limpo) == 11:
+                telefone_limpo = '55' + telefone_limpo
+            elif len(telefone_limpo) == 10:
+                telefone_limpo = '5511' + telefone_limpo
+            
+            # Feedback visual: mudança no botão
+            texto_original = btn_whatsapp.text()
+            btn_whatsapp.setText("Abrindo...")
+            btn_whatsapp.setStyleSheet("""
+                QPushButton {
+                    background-color: #1da851;
+                    color: white;
+                    border: 1px solid #128c39;
+                    border-radius: 4px;
+                    padding: 5px 8px;
+                    font-size: 10px;
+                    font-weight: bold;
+                    min-width: 70px;
+                    max-height: 28px;
+                }
+            """)
+            btn_whatsapp.setEnabled(False)
+            
+            # Mensagem pré-formatada
+            mensagem = f"""Olá {cliente}!
+
 Tudo bem? Aqui é sobre sua Ordem de Serviço #{numero_os}.
 
 Gostaria de passar uma atualização sobre o andamento do seu pedido.
 
 Qualquer dúvida, estou à disposição!"""
-        
-        # Codificar mensagem para URL
-        mensagem_encoded = urllib.parse.quote(mensagem)
-        
-        # Criar URL do WhatsApp
-        url = f"https://wa.me/{telefone_limpo}?text={mensagem_encoded}"
-        
-        try:
+            
+            # Codificar mensagem para URL
+            mensagem_encoded = urllib.parse.quote(mensagem)
+            
+            # Criar URL do WhatsApp
+            url = f"https://wa.me/{telefone_limpo}?text={mensagem_encoded}"
+            
+            # Abrir WhatsApp
             webbrowser.open(url)
+            
+            # Após 2 segundos, mostra sucesso e restaura botão
+            def restaurar_botao():
+                btn_whatsapp.setText("✓ Enviado")
+                btn_whatsapp.setStyleSheet("""
+                    QPushButton {
+                        background-color: #4CAF50;
+                        color: white;
+                        border: 1px solid #45a049;
+                        border-radius: 4px;
+                        padding: 5px 8px;
+                        font-size: 10px;
+                        font-weight: bold;
+                        min-width: 70px;
+                        max-height: 28px;
+                    }
+                """)
+                
+                # Após mais 3 segundos, volta ao estado original
+                QTimer.singleShot(3000, lambda: self._restaurar_botao_whatsapp(btn_whatsapp, texto_original))
+            
+            QTimer.singleShot(2000, restaurar_botao)
+            
         except Exception as e:
+            from PyQt6.QtWidgets import QMessageBox
+            QMessageBox.critical(self, "Erro", f"Erro ao abrir WhatsApp: {str(e)}")
+            print(f"Erro ao abrir WhatsApp: {e}")
+            # Restaurar botão em caso de erro
+            self._restaurar_botao_whatsapp(btn_whatsapp, "WhatsApp")
+
+    def _restaurar_botao_whatsapp(self, btn_whatsapp, texto_original):
+        """Restaura o estado original do botão WhatsApp"""
+        btn_whatsapp.setText(texto_original)
+        btn_whatsapp.setStyleSheet("""
+            QPushButton {
+                background-color: #25d366;
+                color: white;
+                border: 1px solid #1da851;
+                border-radius: 4px;
+                padding: 5px 8px;
+                font-size: 10px;
+                font-weight: bold;
+                min-width: 70px;
+                max-height: 28px;
+            }
+            QPushButton:hover {
+                background-color: #1da851;
+                border: 1px solid #128c39;
+            }
+            QPushButton:pressed {
+                background-color: #0e7a2b;
+            }
+        """)
+        btn_whatsapp.setEnabled(True)
+    
+    def _abrir_whatsapp(self, pedido):
+        """Abre o WhatsApp com mensagem pré-formatada e feedback visual"""
+        try:
+            import webbrowser
+            import urllib.parse
+            from PyQt6.QtWidgets import QMessageBox
+            
+            telefone = pedido.get('telefone_cliente', '').strip()
+            numero_os = pedido.get('numero_os', pedido.get('id', 'N/A'))
+            cliente = pedido.get('nome_cliente', 'Cliente')
+            
+            if not telefone:
+                QMessageBox.warning(self, "WhatsApp", "Telefone não informado para este cliente.")
+                return
+            
+            # Remover caracteres não numéricos
+            telefone_limpo = ''.join(filter(str.isdigit, telefone))
+            
+            if len(telefone_limpo) < 10:
+                QMessageBox.warning(self, "WhatsApp", "Telefone inválido.")
+                return
+            
+            # Adicionar código do país se necessário
+            if len(telefone_limpo) == 11 and telefone_limpo.startswith('55'):
+                pass  # Já tem código do país
+            elif len(telefone_limpo) == 11:
+                telefone_limpo = '55' + telefone_limpo
+            elif len(telefone_limpo) == 10:
+                telefone_limpo = '5511' + telefone_limpo
+            
+            # Mensagem pré-formatada
+            mensagem = f"""Olá {cliente}!
+
+Tudo bem? Aqui é sobre sua Ordem de Serviço #{numero_os}.
+
+Gostaria de passar uma atualização sobre o andamento do seu pedido.
+
+Qualquer dúvida, estou à disposição!"""
+            
+            # Codificar mensagem para URL
+            mensagem_encoded = urllib.parse.quote(mensagem)
+            
+            # Criar URL do WhatsApp
+            url = f"https://wa.me/{telefone_limpo}?text={mensagem_encoded}"
+            
+            # Abrir WhatsApp
+            webbrowser.open(url)
+            
+            # Feedback visual de sucesso
+            QMessageBox.information(self, "WhatsApp", f"WhatsApp aberto para {cliente}!\nTelefone: {telefone}")
+            
+        except Exception as e:
+            from PyQt6.QtWidgets import QMessageBox
+            QMessageBox.critical(self, "Erro", f"Erro ao abrir WhatsApp: {str(e)}")
             print(f"Erro ao abrir WhatsApp: {e}")

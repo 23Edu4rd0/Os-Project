@@ -12,68 +12,8 @@ from PyQt6.QtCore import Qt, pyqtSignal, QSize, QPointF
 from PyQt6.QtGui import QFont, QPalette, QColor, QIcon, QPainter, QPixmap, QPolygonF, QBrush, QShortcut, QKeySequence
 import re
 from database import db_manager
+from app.utils.currency_parser import CurrencyParser
 
-
-class CurrencyParser:
-    """Parser robusto para valores monetários brasileiros"""
-    
-    @staticmethod
-    def to_float(value_str):
-        """
-        Converte string monetária para float
-        Aceita: '10,50', '10.50', '1.234,56', 'R$ 25,90'
-        """
-        if not value_str or not str(value_str).strip():
-            raise ValueError("Valor não pode estar vazio")
-            
-        # Limpar entrada
-        clean = str(value_str).strip().upper()
-        clean = clean.replace('R$', '').replace(' ', '')
-        
-        if not clean:
-            raise ValueError("Valor não pode estar vazio")
-        
-        # Verificar se há sinal negativo
-        if clean.startswith('-'):
-            raise ValueError("Valor não pode ser negativo")
-        
-        # Remover caracteres não numéricos exceto vírgula e ponto
-        clean = re.sub(r'[^\d,.]', '', clean)
-        
-        if not clean:
-            raise ValueError("Formato inválido")
-        
-        # Determinar separador decimal
-        if ',' in clean and '.' in clean:
-            # Ambos presentes - último é decimal
-            last_comma = clean.rfind(',')
-            last_dot = clean.rfind('.')
-            
-            if last_comma > last_dot:
-                # Vírgula é decimal: 1.234,56
-                clean = clean.replace('.', '').replace(',', '.')
-            else:
-                # Ponto é decimal: 1,234.56
-                clean = clean.replace(',', '')
-        elif ',' in clean:
-            # Apenas vírgula - decimal brasileiro
-            clean = clean.replace(',', '.')
-        
-        try:
-            result = float(clean)
-            if result <= 0:
-                raise ValueError("Valor deve ser maior que zero")
-            return result
-        except ValueError:
-            raise ValueError(f"Formato inválido: '{value_str}'")
-    
-    @staticmethod
-    def to_brazilian(value):
-        """Converte float para formato brasileiro"""
-        try:
-            return f"R$ {float(value):.2f}".replace('.', ',')
-        except:
-            return "R$ 0,00"
 
 
 class SimpleProdutoDialog(QDialog):
@@ -85,7 +25,7 @@ class SimpleProdutoDialog(QDialog):
         self.is_editing = product_data is not None
         
         self.setWindowTitle("Editar Produto" if self.is_editing else "Novo Produto")
-        self.setFixedSize(400, 300)
+        self.setFixedSize(550, 480)  # Janela maior para mais espaçamento
         self.setModal(True)
         
         self._create_ui()
@@ -126,8 +66,8 @@ class SimpleProdutoDialog(QDialog):
     def _create_ui(self):
         """Criar interface"""
         layout = QVBoxLayout(self)
-        layout.setSpacing(15)
-        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(25)  # Mais espaço entre seções
+        layout.setContentsMargins(30, 30, 30, 30)  # Mais margem geral
         
         # Título
         title = QLabel("✏️ Editar Produto" if self.is_editing else "➕ Novo Produto")
@@ -142,19 +82,26 @@ class SimpleProdutoDialog(QDialog):
         
         # Formulário
         form = QFormLayout()
-        form.setSpacing(12)
+        form.setSpacing(22)  # Ainda mais espaço entre os campos
+        form.setContentsMargins(10, 10, 10, 10)  # Margem interna do formulário
         
         # Campos
         self.name_input = QLineEdit()
         self.name_input.setPlaceholderText("Nome do produto...")
+        self.name_input.setMinimumHeight(32)
+        self.name_input.setFixedHeight(35)
         
         self.price_input = QLineEdit()
         self.price_input.setPlaceholderText("Ex: 99,90 ou 1.234,56")
+        self.price_input.setMinimumHeight(32)
+        self.price_input.setFixedHeight(35)
         
         # Combobox de categoria simples
         self.category_input = QComboBox()
         self.category_input.setEditable(True)
         self.category_input.setPlaceholderText("Selecione ou digite uma categoria...")
+        self.category_input.setMinimumHeight(32)
+        self.category_input.setFixedHeight(35)
         
         # Make the entire combobox clickable to open dropdown
         def show_popup():
@@ -172,10 +119,13 @@ class SimpleProdutoDialog(QDialog):
         
         self.code_input = QLineEdit()
         self.code_input.setPlaceholderText("Código (opcional)")
+        self.code_input.setMinimumHeight(32)
+        self.code_input.setFixedHeight(35)
         
         self.desc_input = QTextEdit()
         self.desc_input.setPlaceholderText("Descrição (opcional)")
-        self.desc_input.setMaximumHeight(60)
+        self.desc_input.setMinimumHeight(50)
+        self.desc_input.setMaximumHeight(65)
         
         # Adicionar ao formulário
         form.addRow("📝 Nome *:", self.name_input)
@@ -331,13 +281,15 @@ class SimpleProdutoDialog(QDialog):
                 background-color: #3a3a3a;
                 border: 2px solid #555;
                 border-radius: 6px;
-                padding: 8px;
+                padding: 8px 12px;
                 color: #e6e6e6;
                 font-size: 13px;
+                min-height: 35px;
             }
             QLineEdit:focus, QComboBox:focus, QTextEdit:focus {
                 border-color: #2fa6a0;
                 background-color: #404040;
+                border-width: 3px;
             }
             QPushButton {
                 background-color: #2fa6a0;
@@ -655,11 +607,9 @@ class ProdutosManager(QWidget):
             }
             QPushButton:hover {
                 background-color: #28a399;
-                transform: translateY(-1px);
             }
             QPushButton:pressed {
                 background-color: #1f7a75;
-                transform: translateY(1px);
             }
             QTableWidget {
                 background-color: #3a3a3a;

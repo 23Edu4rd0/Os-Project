@@ -19,7 +19,14 @@ def _criar_modal_completo(self, pedido_data=None, cliente_fixo=False, nome_clien
     numero_os = pedido_data.get('numero_os') if pedido_data else None
     titulo = f"Editar OS #{numero_os}" if is_edit else "Nova Ordem de Serviço"
     self.setWindowTitle(titulo)
-    self.setFixedSize(900, 700)
+    
+    # Tamanho muito maior para acomodar campos maiores
+    from PyQt6.QtWidgets import QApplication
+    screen = QApplication.primaryScreen().geometry()
+    width = int(screen.width() * 0.9)   # 90% da largura da tela
+    height = int(screen.height() * 0.9)  # 90% da altura da tela
+    self.setMinimumSize(1200, 900)  # Tamanho mínimo muito aumentado
+    self.resize(width, height)
     
     # Aplicar estilo global consistente ao modal
     self.setStyleSheet("""

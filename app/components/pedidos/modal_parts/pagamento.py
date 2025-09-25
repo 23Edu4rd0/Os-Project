@@ -34,13 +34,13 @@ def criar_secao_pagamento(modal, layout, pedido_data):
             background: transparent;
         }
         QLineEdit, QComboBox {
-            min-height: 36px;
-            font-size: 14px;
+            min-height: 60px;
+            font-size: 16px;
             color: #ffffff;
             background-color: #404040;
             border: 2px solid #666666;
-            border-radius: 6px;
-            padding: 8px 12px;
+            border-radius: 8px;
+            padding: 15px 20px;
         }
         QLineEdit:focus, QComboBox:focus {
             border: 2px solid #999999;
@@ -62,26 +62,30 @@ def criar_secao_pagamento(modal, layout, pedido_data):
     modal.campos['entrada'] = QLineEdit()
     modal.campos['entrada'].setPlaceholderText("0,00")
     modal.campos['entrada'].setMaximumWidth(180)
-    modal.campos['entrada'].setMinimumHeight(35)
+    modal.campos['entrada'].setMinimumHeight(50)
+    modal.campos['entrada'].setFixedHeight(60)
     pagamento_layout.addRow("💰 Entrada (R$):", modal.campos['entrada'])
 
     # Frete (R$)
     modal.campos['frete'] = QLineEdit()
     modal.campos['frete'].setPlaceholderText("0,00")
     modal.campos['frete'].setMaximumWidth(180)
-    modal.campos['frete'].setMinimumHeight(35)
+    modal.campos['frete'].setMinimumHeight(50)
+    modal.campos['frete'].setFixedHeight(60)
     pagamento_layout.addRow("🚚 Frete (R$):", modal.campos['frete'])
 
     # Desconto (R$)
     modal.campos['desconto'] = QLineEdit()
     modal.campos['desconto'].setPlaceholderText("0,00")
     modal.campos['desconto'].setMaximumWidth(180)
-    modal.campos['desconto'].setMinimumHeight(35)
+    modal.campos['desconto'].setMinimumHeight(50)
+    modal.campos['desconto'].setFixedHeight(60)
     pagamento_layout.addRow("🏷️ Desconto (R$):", modal.campos['desconto'])
 
     # Status
     modal.campos['status'] = QComboBox()
-    modal.campos['status'].setMinimumHeight(35)
+    modal.campos['status'].setMinimumHeight(50)
+    modal.campos['status'].setFixedHeight(60)
     try:
         from app.utils.statuses import load_statuses
         modal.campos['status'].addItems(load_statuses())
@@ -91,7 +95,8 @@ def criar_secao_pagamento(modal, layout, pedido_data):
 
     # Forma de pagamento
     modal.campos['forma_pagamento'] = QComboBox()
-    modal.campos['forma_pagamento'].setMinimumHeight(35)
+    modal.campos['forma_pagamento'].setMinimumHeight(50)
+    modal.campos['forma_pagamento'].setFixedHeight(60)
     modal.campos['forma_pagamento'].addItems([
         "PIX", 
         "Cartão de Crédito", 
@@ -106,7 +111,8 @@ def criar_secao_pagamento(modal, layout, pedido_data):
     modal.campos['prazo_entrega'] = QLineEdit()
     modal.campos['prazo_entrega'].setPlaceholderText("Ex: 30 dias")
     modal.campos['prazo_entrega'].setMaximumWidth(180)
-    modal.campos['prazo_entrega'].setMinimumHeight(35)
+    modal.campos['prazo_entrega'].setMinimumHeight(50)
+    modal.campos['prazo_entrega'].setFixedHeight(60)
     pagamento_layout.addRow("📅 Prazo de Entrega:", modal.campos['prazo_entrega'])
 
     # Preencher dados se for edição

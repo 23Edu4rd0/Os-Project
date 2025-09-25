@@ -18,6 +18,8 @@ def _criar_secao_cliente(self, layout, pedido_data):
     cliente_layout = QFormLayout(cliente_group)
     self.campos['nome_cliente'] = QLineEdit()
     self.campos['nome_cliente'].setPlaceholderText("Digite o nome do cliente...")
+    self.campos['nome_cliente'].setMinimumHeight(50)
+    self.campos['nome_cliente'].setFixedHeight(60)
     if self.clientes_dict:
         self.clientes_completer = QCompleter(list(self.clientes_dict.keys()))
         self.clientes_completer.setCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
@@ -44,19 +46,22 @@ def _criar_secao_cliente(self, layout, pedido_data):
     cliente_layout.addRow("Nome do Cliente:", nome_row_w)
     self.campos['telefone_cliente'] = QLineEdit()
     self.campos['telefone_cliente'].setPlaceholderText("(11) 99999-9999")
+    self.campos['telefone_cliente'].setMinimumHeight(50)
+    self.campos['telefone_cliente'].setFixedHeight(60)
     try:
         self.campos['telefone_cliente'].setInputMask("(00) 00000-0000;_")
     except Exception:
         pass
     cliente_layout.addRow("Telefone:", self.campos['telefone_cliente'])
     self.campos['cpf_cliente'] = QLineEdit()
-    self.campos['cpf_cliente'].setPlaceholderText("000.000.000-00")
-    try:
-        self.campos['cpf_cliente'].setInputMask("000.000.000-00;_")
-    except Exception:
-        pass
-    cliente_layout.addRow("CPF:", self.campos['cpf_cliente'])
+    self.campos['cpf_cliente'].setPlaceholderText("CPF: 000.000.000-00 ou CNPJ: 00.000.000/0000-00")
+    self.campos['cpf_cliente'].setMinimumHeight(50)
+    self.campos['cpf_cliente'].setFixedHeight(60)
+    # Sem máscara fixa para permitir CPF ou CNPJ
+    cliente_layout.addRow("CPF/CNPJ:", self.campos['cpf_cliente'])
     self.campos['endereco_cliente'] = QLineEdit()
+    self.campos['endereco_cliente'].setMinimumHeight(50)
+    self.campos['endereco_cliente'].setFixedHeight(60)
     self.campos['endereco_cliente'].setPlaceholderText("Rua, número, bairro, cidade")
     cliente_layout.addRow("Endereço:", self.campos['endereco_cliente'])
     layout.addWidget(cliente_group)

@@ -27,6 +27,8 @@ def criar_produtos_ui(self, parent_layout, pedido_data):
     input_produto.setPlaceholderText('Insira o produto...')
     input_produto.setClearButtonEnabled(True)
     input_produto.setMinimumWidth(360)
+    input_produto.setMinimumHeight(50)
+    input_produto.setFixedHeight(60)
     form_col.addWidget(produto_label)
     form_col.addWidget(input_produto)
 
@@ -36,6 +38,8 @@ def criar_produtos_ui(self, parent_layout, pedido_data):
     input_valor = QLineEdit()
     input_valor.setPlaceholderText('0,00')
     input_valor.setFixedWidth(160)
+    input_valor.setMinimumHeight(50)
+    input_valor.setFixedHeight(60)
     form_col.addWidget(valor_label)
     form_col.addWidget(input_valor)
 
@@ -45,6 +49,8 @@ def criar_produtos_ui(self, parent_layout, pedido_data):
     campos_cor = QComboBox()
     campos_cor.addItems(['', 'Branco', 'Amarelo', 'Azul', 'Verde', 'Vermelho', 'Preto', 'Personalizado'])
     campos_cor.setFixedWidth(220)
+    campos_cor.setMinimumHeight(50)
+    campos_cor.setFixedHeight(60)
     form_col.addWidget(cor_label)
     form_col.addWidget(campos_cor)
 

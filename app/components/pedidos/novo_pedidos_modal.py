@@ -47,10 +47,10 @@ class NovoPedidosModal(QDialog):
         from PyQt6.QtCore import Qt
         
         screen = QApplication.primaryScreen().geometry()
-        width = int(screen.width() * 0.75)  # 75% da largura da tela (era 70%)
-        height = int(screen.height() * 0.85)  # 85% da altura da tela (era 80%)
+        width = int(screen.width() * 0.95)   # 95% da largura da tela
+        height = int(screen.height() * 0.95)  # 95% da altura da tela
         
-        self.setMinimumSize(1100, 900)  # Tamanho mínimo aumentado
+        self.setMinimumSize(1400, 1100)  # Tamanho mínimo muito aumentado
         self.resize(width, height)
         self.setModal(True)
         
@@ -106,31 +106,78 @@ class NovoPedidosModal(QDialog):
         try:
             rows = db_manager.listar_clientes()
             self.clientes_dict = {}
-            clientes_lista = []
             
             for row in rows:
                 nome = (row[1] or '').strip()
                 if nome:
+                    # Estrutura da tabela clientes:
+                    # 0=id, 1=nome, 2=cpf, 3=cnpj, 4=inscricao_estadual, 5=telefone, 
+                    # 6=email, 7=rua, 8=numero, 9=bairro, 10=cidade, 11=estado, 12=referencia
+                    cpf = row[2] or ''
+                    cnpj = row[3] or ''
+                    telefone = row[5] or ''
+                    
+                    # Construir endereço completo
+                    endereco_partes = []
+                    if row[7]:  # rua
+                        endereco_partes.append(row[7])
+                    if row[8]:  # numero
+                        endereco_partes.append(row[8])
+                    if row[9]:  # bairro
+                        endereco_partes.append(row[9])
+                    if row[10]:  # cidade
+                        endereco_partes.append(row[10])
+                    if row[11]:  # estado
+                        endereco_partes.append(row[11])
+                    
+                    endereco = ', '.join(endereco_partes)
+                    
                     cliente_data = {
                         "id": row[0],
                         "nome": nome,
-                        "cnpj": row[2] or '',
-                        "telefone": row[3] or '',
-                        "endereco": row[4] or ''
+                        "cpf": cpf,
+                        "cnpj": cnpj,
+                        "telefone": telefone,
+                        "endereco": endereco
                     }
                     self.clientes_dict[nome] = cliente_data
-                    clientes_lista.append(nome)
-            
-            # Configurar completer para cliente
-            if hasattr(self, 'input_cliente'):
-                completer = QCompleter(clientes_lista)
-                completer.setCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
-                self.input_cliente.setCompleter(completer)
                 
         except Exception as e:
             print(f"Erro ao carregar clientes: {e}")
             self.clientes_dict = {}
     
+    def _configurar_autocomplete_clientes(self):
+        """Configura o autocomplete para clientes após criação do campo"""
+        if self.clientes_dict and hasattr(self, 'input_cliente'):
+            nomes_clientes = list(self.clientes_dict.keys())
+            completer = QCompleter(nomes_clientes)
+            completer.setCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
+            completer.setFilterMode(Qt.MatchFlag.MatchContains)
+            self.input_cliente.setCompleter(completer)
+            
+            # Conectar seleção do completer
+            completer.activated.connect(self._on_cliente_selecionado_completer)
+    
+    def _on_cliente_selecionado_completer(self, nome_cliente):
+        """Preenche automaticamente os dados quando um cliente é selecionado do autocomplete"""
+        if nome_cliente in self.clientes_dict:
+            cliente_data = self.clientes_dict[nome_cliente]
+            
+            # Preencher os campos automaticamente
+            if hasattr(self, 'input_cnpj'):
+                # Priorizar CPF se existir, senão CNPJ
+                cpf = cliente_data.get('cpf', '').strip()
+                cnpj = cliente_data.get('cnpj', '').strip()
+                cpf_cnpj_valor = cpf if cpf else cnpj
+                self.input_cnpj.setText(cpf_cnpj_valor)
+            
+            if hasattr(self, 'input_telefone'):
+                self.input_telefone.setText(cliente_data.get('telefone', ''))
+            
+            if hasattr(self, 'input_endereco'):
+                self.input_endereco.setText(cliente_data.get('endereco', ''))
+    
+
     def _criar_interface(self):
         """Cria a interface do modal com scroll geral"""
         # Layout principal do modal
@@ -166,8 +213,8 @@ class NovoPedidosModal(QDialog):
         # Widget principal dentro do scroll
         scroll_widget = QWidget()
         layout = QVBoxLayout(scroll_widget)
-        layout.setSpacing(15)
-        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(30)  # Muito mais espaço entre seções
+        layout.setContentsMargins(40, 40, 40, 40)  # Mais margem geral
         
         # Header
         self._criar_header(layout)
@@ -187,6 +234,9 @@ class NovoPedidosModal(QDialog):
         # Configurar scroll area
         scroll_area.setWidget(scroll_widget)
         main_layout.addWidget(scroll_area)
+        
+        # Configurar autocomplete após criar todos os campos
+        self._configurar_autocomplete_clientes()
     
     def _criar_header(self, layout):
         """Cria o cabeçalho com número da OS"""
@@ -211,23 +261,30 @@ class NovoPedidosModal(QDialog):
         """Cria a seção de dados do cliente"""
         group = QGroupBox("Cliente")
         group_layout = QVBoxLayout(group)
+        group_layout.setSpacing(20)  # Mais espaço entre elementos
+        group_layout.setContentsMargins(30, 30, 30, 30)  # Mais padding interno
         
         # Linha 1: Nome e CNPJ
         row1 = QHBoxLayout()
+        row1.setSpacing(30)  # Mais espaço entre campos
         
         # Nome
         nome_layout = QVBoxLayout()
         nome_layout.addWidget(QLabel("Nome:"))
         self.input_cliente = QLineEdit()
         self.input_cliente.setPlaceholderText("Digite o nome do cliente...")
+        self.input_cliente.setMinimumHeight(50)
+        self.input_cliente.setFixedHeight(55)
         nome_layout.addWidget(self.input_cliente)
         row1.addLayout(nome_layout, 2)
         
-        # CNPJ
+        # CPF/CNPJ
         cnpj_layout = QVBoxLayout()
-        cnpj_layout.addWidget(QLabel("CNPJ:"))
+        cnpj_layout.addWidget(QLabel("CPF/CNPJ:"))
         self.input_cnpj = QLineEdit()
-        self.input_cnpj.setPlaceholderText("00.000.000/0000-00")
+        self.input_cnpj.setPlaceholderText("CPF: 000.000.000-00 ou CNPJ: 00.000.000/0000-00")
+        self.input_cnpj.setMinimumHeight(50)
+        self.input_cnpj.setFixedHeight(55)
         cnpj_layout.addWidget(self.input_cnpj)
         row1.addLayout(cnpj_layout, 1)
         
@@ -235,12 +292,15 @@ class NovoPedidosModal(QDialog):
         
         # Linha 2: Telefone e Endereço
         row2 = QHBoxLayout()
+        row2.setSpacing(30)  # Mais espaço entre campos
         
         # Telefone
         tel_layout = QVBoxLayout()
         tel_layout.addWidget(QLabel("Telefone:"))
         self.input_telefone = QLineEdit()
         self.input_telefone.setPlaceholderText("(11) 99999-9999")
+        self.input_telefone.setMinimumHeight(50)
+        self.input_telefone.setFixedHeight(55)
         tel_layout.addWidget(self.input_telefone)
         row2.addLayout(tel_layout, 1)
         
@@ -249,6 +309,8 @@ class NovoPedidosModal(QDialog):
         end_layout.addWidget(QLabel("Endereço:"))
         self.input_endereco = QLineEdit()
         self.input_endereco.setPlaceholderText("Endereço completo...")
+        self.input_endereco.setMinimumHeight(50)
+        self.input_endereco.setFixedHeight(55)
         end_layout.addWidget(self.input_endereco)
         row2.addLayout(end_layout, 2)
         
@@ -263,15 +325,20 @@ class NovoPedidosModal(QDialog):
         """Cria a seção de produtos"""
         group = QGroupBox("Produtos")
         group_layout = QVBoxLayout(group)
+        group_layout.setSpacing(20)  # Mais espaço entre elementos
+        group_layout.setContentsMargins(30, 30, 30, 30)  # Mais padding interno
         
         # Formulário de adição
         form_layout = QHBoxLayout()
+        form_layout.setSpacing(30)  # Mais espaço entre campos
         
         # Produto
         produto_layout = QVBoxLayout()
         produto_layout.addWidget(QLabel("Produto:"))
         self.input_produto = QLineEdit()
         self.input_produto.setPlaceholderText("Digite o nome do produto...")
+        self.input_produto.setMinimumHeight(50)
+        self.input_produto.setFixedHeight(55)
         produto_layout.addWidget(self.input_produto)
         form_layout.addLayout(produto_layout, 2)
         
@@ -280,6 +347,8 @@ class NovoPedidosModal(QDialog):
         valor_layout.addWidget(QLabel("Valor (R$):"))
         self.input_valor = QLineEdit()
         self.input_valor.setPlaceholderText("0,00")
+        self.input_valor.setMinimumHeight(50)
+        self.input_valor.setFixedHeight(55)
         valor_layout.addWidget(self.input_valor)
         form_layout.addLayout(valor_layout, 1)
         
@@ -288,6 +357,8 @@ class NovoPedidosModal(QDialog):
         cor_layout.addWidget(QLabel("Cor:"))
         self.combo_cor = QComboBox()
         self.combo_cor.addItems(['', 'Branco', 'Preto', 'Azul', 'Verde', 'Vermelho', 'Amarelo', 'Personalizado'])
+        self.combo_cor.setMinimumHeight(50)
+        self.combo_cor.setFixedHeight(55)
         cor_layout.addWidget(self.combo_cor)
         form_layout.addLayout(cor_layout, 1)
         
@@ -490,7 +561,8 @@ class NovoPedidosModal(QDialog):
         self.entrada_input = QLineEdit()
         self.entrada_input.setPlaceholderText("R$ 0,00")
         self.entrada_input.setObjectName("entradaInput")
-        self.entrada_input.setMinimumHeight(45)
+        self.entrada_input.setMinimumHeight(50)
+        self.entrada_input.setFixedHeight(55)
         entrada_layout.addWidget(entrada_label)
         entrada_layout.addWidget(self.entrada_input)
         valores_section_layout.addLayout(entrada_layout)
@@ -503,7 +575,8 @@ class NovoPedidosModal(QDialog):
         self.frete_input = QLineEdit()
         self.frete_input.setPlaceholderText("R$ 0,00")
         self.frete_input.setObjectName("freteInput")
-        self.frete_input.setMinimumHeight(45)
+        self.frete_input.setMinimumHeight(50)
+        self.frete_input.setFixedHeight(55)
         frete_layout.addWidget(frete_label)
         frete_layout.addWidget(self.frete_input)
         valores_section_layout.addLayout(frete_layout)
@@ -516,7 +589,8 @@ class NovoPedidosModal(QDialog):
         self.desconto_input = QLineEdit()
         self.desconto_input.setPlaceholderText("R$ 0,00")
         self.desconto_input.setObjectName("descontoInput")
-        self.desconto_input.setMinimumHeight(45)
+        self.desconto_input.setMinimumHeight(50)
+        self.desconto_input.setFixedHeight(55)
         desconto_layout.addWidget(desconto_label)
         desconto_layout.addWidget(self.desconto_input)
         valores_section_layout.addLayout(desconto_layout)
@@ -555,7 +629,8 @@ class NovoPedidosModal(QDialog):
         metodo_label.setStyleSheet("color: #ffffff; font-weight: bold; min-width: 140px; font-size: 14px;")
         self.metodo_pagamento = QComboBox()
         self.metodo_pagamento.setObjectName("metodoPagamento")
-        self.metodo_pagamento.setMinimumHeight(45)
+        self.metodo_pagamento.setMinimumHeight(50)
+        self.metodo_pagamento.setFixedHeight(55)
         self.metodo_pagamento.addItems([
             "PIX",
             "Cartão de Crédito", 
@@ -578,7 +653,8 @@ class NovoPedidosModal(QDialog):
         self.prazo_entrega = QLineEdit()
         self.prazo_entrega.setPlaceholderText("Ex: 30 dias")
         self.prazo_entrega.setObjectName("prazoEntrega")
-        self.prazo_entrega.setMinimumHeight(45)
+        self.prazo_entrega.setMinimumHeight(50)
+        self.prazo_entrega.setFixedHeight(55)
         prazo_layout.addWidget(prazo_label)
         prazo_layout.addWidget(self.prazo_entrega)
         metodos_section_layout.addLayout(prazo_layout)
@@ -590,7 +666,8 @@ class NovoPedidosModal(QDialog):
         status_label.setStyleSheet("color: #ffffff; font-weight: bold; min-width: 140px; font-size: 14px;")
         self.status_pedido = QComboBox()
         self.status_pedido.setObjectName("statusPedido")
-        self.status_pedido.setMinimumHeight(45)
+        self.status_pedido.setMinimumHeight(50)
+        self.status_pedido.setFixedHeight(55)
         try:
             from app.utils.statuses import load_statuses
             self.status_pedido.addItems(load_statuses())
@@ -1073,19 +1150,20 @@ class NovoPedidosModal(QDialog):
             
             QGroupBox {
                 font-weight: bold;
-                font-size: 14px;
+                font-size: 16px;
                 border: 2px solid #555555;
-                border-radius: 8px;
-                margin-top: 10px;
-                padding-top: 15px;
+                border-radius: 12px;
+                margin: 20px 0px;
+                padding: 30px 20px 20px 20px;
                 background-color: #3a3a3a;
             }
             
             QGroupBox::title {
                 subcontrol-origin: margin;
-                left: 10px;
-                padding: 0 8px 0 8px;
+                left: 15px;
+                padding: 0 15px 0 15px;
                 color: #ffffff;
+                font-size: 18px;
             }
             
             QLabel {
@@ -1110,10 +1188,12 @@ class NovoPedidosModal(QDialog):
             QLineEdit, QComboBox {
                 border: 2px solid #555555;
                 border-radius: 6px;
-                padding: 8px 12px;
-                font-size: 13px;
+                padding: 15px 20px;
+                font-size: 16px;
                 background-color: #3a3a3a;
                 color: #ffffff;
+                min-height: 45px;
+                height: 50px;
             }
             
             QLineEdit:focus, QComboBox:focus {
@@ -1228,13 +1308,14 @@ class NovoPedidosModal(QDialog):
             
             #entradaInput, #freteInput, #descontoInput, #prazoEntrega,
             #metodoPagamento, #statusPedido {
-                min-height: 36px;
-                font-size: 14px;
+                min-height: 50px;
+                height: 55px;
+                font-size: 16px;
                 color: #ffffff;
                 background-color: #3a3a3a;
                 border: 2px solid #555555;
                 border-radius: 6px;
-                padding: 8px 12px;
+                padding: 15px 20px;
             }
             
             #entradaInput:focus, #freteInput:focus, #descontoInput:focus, 

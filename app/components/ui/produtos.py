@@ -13,68 +13,7 @@ from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QFont, QPalette, QColor
 import re
 from database import db_manager
-
-
-class CurrencyParser:
-    """Parser robusto para valores monetários brasileiros"""
-    
-    @staticmethod
-    def to_float(value_str):
-        """
-        Converte string monetária para float
-        Aceita: '10,50', '10.50', '1.234,56', 'R$ 25,90'
-        """
-        if not value_str or not str(value_str).strip():
-            raise ValueError("Valor não pode estar vazio")
-            
-        # Limpar entrada
-        clean = str(value_str).strip().upper()
-        clean = clean.replace('R$', '').replace(' ', '')
-        
-        if not clean:
-            raise ValueError("Valor não pode estar vazio")
-        
-        # Verificar se há sinal negativo
-        if clean.startswith('-'):
-            raise ValueError("Valor não pode ser negativo")
-        
-        # Remover caracteres não numéricos exceto vírgula e ponto
-        clean = re.sub(r'[^\d,.]', '', clean)
-        
-        if not clean:
-            raise ValueError("Formato inválido")
-        
-        # Determinar separador decimal
-        if ',' in clean and '.' in clean:
-            # Ambos presentes - último é decimal
-            last_comma = clean.rfind(',')
-            last_dot = clean.rfind('.')
-            
-            if last_comma > last_dot:
-                # Vírgula é decimal: 1.234,56
-                clean = clean.replace('.', '').replace(',', '.')
-            else:
-                # Ponto é decimal: 1,234.56
-                clean = clean.replace(',', '')
-        elif ',' in clean:
-            # Apenas vírgula - decimal brasileiro
-            clean = clean.replace(',', '.')
-        
-        try:
-            result = float(clean)
-            if result <= 0:
-                raise ValueError("Valor deve ser maior que zero")
-            return result
-        except ValueError:
-            raise ValueError(f"Formato inválido: '{value_str}'")
-    
-    @staticmethod
-    def to_brazilian(value):
-        """Converte float para formato brasileiro"""
-        try:
-            return f"R$ {float(value):.2f}".replace('.', ',')
-        except:
-            return "R$ 0,00"
+from app.utils.currency_parser import CurrencyParser
 
 
 class ProdutoDialog(QDialog):

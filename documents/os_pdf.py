@@ -41,10 +41,14 @@ class OrdemServicoPDF:
             numero_os = 0  # valor padrão se não puder converter
             
         nome_cliente = dados.get("nome_cliente", "cliente").replace(" ", "_")[:20]
-        data_atual = datetime.now().strftime('%Y%m%d_%H%M%S')
         
-        # Nome do arquivo: OS_00001_NomeCliente_20250813_123045.pdf
-        nome_arquivo = f"OS_{numero_os:05d}_{nome_cliente}_{data_atual}.pdf"
+        # Data melhor formatada: YYYY-MM-DD_HH-MM-SS
+        agora = datetime.now()
+        data_formatada = agora.strftime('%Y-%m-%d')
+        hora_formatada = agora.strftime('%H-%M-%S')
+        
+        # Nome do arquivo: OS_00001_NomeCliente_2025-09-24_14-30-52.pdf
+        nome_arquivo = f"OS_{numero_os:05d}_{nome_cliente}_{data_formatada}_{hora_formatada}.pdf"
         
         # Caminho completo
         return os.path.join(pasta_pdfs, nome_arquivo)
@@ -82,34 +86,25 @@ class OrdemServicoPDF:
         font_to_use = default_font_name  # Regular
         font_bold_to_use = default_font_bold  # Bold
 
-        # Registrar Regular
-        print(f"INFO: Tentando carregar fonte regular: {font_path_regular}")
+        # Registrar Regular (silencioso)
         if os.path.exists(font_path_regular):
             try:
                 pdfmetrics.registerFont(
                     TTFont(custom_font_name, font_path_regular)
                 )
                 font_to_use = custom_font_name
-                print(f"INFO: Fonte regular registrada: '{custom_font_name}'")
-            except Exception as e:
-                print(f"ERRO ao registrar fonte regular: {e}")
-        else:
-            print(f"AVISO: Fonte regular não encontrada em "
-                  f"{font_path_regular}")
-
-        # Registrar Bold
-        print(f"INFO: Tentando carregar fonte bold: {font_path_bold}")
+            except Exception:
+                pass  # Usar fonte padrão em caso de erro
+        
+        # Registrar Bold (silencioso)
         if os.path.exists(font_path_bold):
             try:
                 pdfmetrics.registerFont(
                     TTFont(custom_font_bold, font_path_bold)
                 )
                 font_bold_to_use = custom_font_bold
-                print(f"INFO: Fonte bold registrada: '{custom_font_bold}'")
-            except Exception as e:
-                print(f"ERRO ao registrar fonte bold: {e}")
-        else:
-            print(f"AVISO: Fonte bold não encontrada em {font_path_bold}")
+            except Exception:
+                pass  # Usar fonte padrão em caso de erro
         # --- Font Handling End ---
 
         # Escolha do tamanho da folha
@@ -229,3 +224,6 @@ class OrdemServicoPDF:
 
         c.showPage()
         c.save()
+        
+        # Retornar o caminho do arquivo gerado
+        return self.arquivo_pdf
