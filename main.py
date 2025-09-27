@@ -29,6 +29,20 @@ class MainApp(QMainWindow):
         super().__init__()
         self.init_ui()
         
+        # Define o estilo global para tooltips
+        app = QApplication.instance()
+        app.setStyleSheet("""
+            QToolTip {
+                background-color: rgb(0, 0, 0);
+                color: #ffffff;
+                border: 2px solid #555555;
+                padding: 10px;
+                font-size: 14px;
+                font-weight: bold;
+                border-radius: 5px;
+            }
+        """)
+        
     def init_ui(self):
         """Inicializa a interface do usuário"""
         self.setWindowTitle("Sistema de Ordem de Serviço - PyQt6")
