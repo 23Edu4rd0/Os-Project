@@ -330,8 +330,29 @@ class ProdutosManager(QWidget):
     
     def __init__(self, parent=None):
         super().__init__(parent)
+        self._conectar_sinais()
         self._setup_ui()
         self._setup_styles()
+        self._load_products()
+    
+    def _conectar_sinais(self):
+        """Conecta os sinais globais para atualização em tempo real"""
+        try:
+            from app.signals import get_signals
+            signals = get_signals()
+            signals.produto_criado.connect(self._on_produto_atualizado)
+            signals.produto_editado.connect(self._on_produto_atualizado)
+            signals.produto_excluido.connect(self._on_produto_atualizado)
+            signals.produtos_atualizados.connect(self._on_produtos_atualizados)
+        except Exception as e:
+            print(f"Erro ao conectar sinais de produtos: {e}")
+    
+    def _on_produto_atualizado(self, produto_id: int = None):
+        """Atualiza a lista quando um produto é modificado"""
+        self._load_products()
+    
+    def _on_produtos_atualizados(self):
+        """Atualiza a lista quando há mudança geral nos produtos"""
         self._load_products()
     
     def _setup_ui(self):
@@ -489,7 +510,10 @@ class ProdutosManager(QWidget):
                 if product_id:
                     QMessageBox.information(self, "✅ Sucesso", 
                                           f"Produto '{data['name']}' criado com sucesso!")
-                    self._load_products()
+                    # Emitir sinal de produto criado
+                    from app.signals import get_signals
+                    signals = get_signals()
+                    signals.produto_criado.emit(product_id)
                 else:
                     QMessageBox.warning(self, "❌ Erro", "Falha ao criar produto.")
                     
@@ -537,7 +561,10 @@ class ProdutosManager(QWidget):
                 if success:
                     QMessageBox.information(self, "✅ Sucesso",
                                           f"Produto '{data['name']}' atualizado com sucesso!")
-                    self._load_products()
+                    # Emitir sinal de produto editado
+                    from app.signals import get_signals
+                    signals = get_signals()
+                    signals.produto_editado.emit(product_id)
                 else:
                     QMessageBox.warning(self, "❌ Erro", "Falha ao atualizar produto.")
                     
@@ -568,7 +595,10 @@ class ProdutosManager(QWidget):
                 success = db_manager.deletar_produto(product_id)
                 if success:
                     QMessageBox.information(self, "✅ Sucesso", "Produto excluído com sucesso!")
-                    self._load_products()
+                    # Emitir sinal de produto excluído
+                    from app.signals import get_signals
+                    signals = get_signals()
+                    signals.produto_excluido.emit(product_id)
                 else:
                     QMessageBox.warning(self, "❌ Erro", "Falha ao excluir produto.")
                     

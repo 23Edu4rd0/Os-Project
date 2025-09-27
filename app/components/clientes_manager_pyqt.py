@@ -5,13 +5,14 @@ Módulo de clientes em PyQt6 - Versão Completa
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, 
                              QLineEdit, QTableWidget, QTableWidgetItem, QHeaderView,
                              QMessageBox, QDialog, QFormLayout, QGroupBox, QScrollArea,
-                             QFrame, QSplitter, QApplication, QMenu)
+                             QFrame, QSplitter, QApplication, QMenu, QSizePolicy)
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QFont, QColor
 
 from database import db_manager
 from app.ui.theme import apply_app_theme
 from app.utils.formatters import formatar_cpf
+from app.utils.cep_api import CepAPI
 
 
 class ClienteDetailDialog(QDialog):
@@ -21,40 +22,135 @@ class ClienteDetailDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle(f"Detalhes do Cliente: {cliente.get('nome', '')}")
         self.cliente = cliente
-        self.resize(900, 600)
+        
+        # Tamanho responsivo baseado na tela
+        screen = QApplication.primaryScreen().geometry()
+        # 80% da largura da tela, máximo 1200px, mínimo 800px
+        width = min(max(int(screen.width() * 0.8), 800), 1200)
+        # 70% da altura da tela, máximo 800px, mínimo 500px  
+        height = min(max(int(screen.height() * 0.7), 500), 800)
+        self.resize(width, height)
 
         main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(24, 24, 24, 24)
-        main_layout.setSpacing(18)
+        # Margens menores para aproveitamento do espaço
+        main_layout.setContentsMargins(16, 16, 16, 16)
+        main_layout.setSpacing(12)
 
-        # Top: client info (cartão)
+        # Top: client info (cartão compacto e responsivo)
         info_frame = QFrame()
+        # Altura responsiva baseada no tamanho da tela
+        min_height = min(max(int(height * 0.15), 140), 180)
+        info_frame.setMinimumHeight(min_height)
+        info_frame.setMaximumHeight(200)
         info_frame.setStyleSheet("""
-            QFrame { background: #23272e; border-radius: 12px; padding: 18px; }
-            QLabel { color: #e6e6e6; font-size: 15px; }
+            QFrame { 
+                background: #23272e; 
+                border-radius: 12px; 
+                padding: 12px;
+                border: 1px solid #393939;
+            }
+            QLabel { 
+                color: #e6e6e6; 
+                font-size: 12px; 
+                margin: 1px 0;
+                line-height: 1.3;
+            }
         """)
+        
+        # Layout principal responsivo com três colunas
         info_layout = QHBoxLayout(info_frame)
-        info_layout.setSpacing(32)
-        # Monta os dados do cliente no topo
+        info_layout.setContentsMargins(16, 12, 16, 12)
+        info_layout.setSpacing(24)
+        
+        # Coluna 1: Dados pessoais (35%)
         left = QVBoxLayout()
-        left.addWidget(QLabel(f"<b>Nome:</b> {self.cliente.get('nome', '')}"))
-        left.addWidget(QLabel(f"<b>CPF:</b> {formatar_cpf(self.cliente.get('cpf', ''))}"))
-        left.addWidget(QLabel(f"<b>CNPJ:</b> {self.cliente.get('cnpj', '')}"))
-        left.addWidget(QLabel(f"<b>Inscrição Estadual:</b> {self.cliente.get('inscricao_estadual', '')}"))
-        left.addWidget(QLabel(f"<b>Telefone:</b> {self.cliente.get('telefone', '')}"))
-        left.addWidget(QLabel(f"<b>Email:</b> {self.cliente.get('email', '')}"))
+        left.setSpacing(3)
+        
+        nome_label = QLabel(f"<b>Nome:</b> {self.cliente.get('nome', '')}")
+        nome_label.setWordWrap(True)
+        left.addWidget(nome_label)
+        
+        if self.cliente.get('cpf'):
+            left.addWidget(QLabel(f"<b>CPF:</b> {formatar_cpf(self.cliente.get('cpf', ''))}"))
+        
+        if self.cliente.get('cnpj'):
+            left.addWidget(QLabel(f"<b>CNPJ:</b> {self.cliente.get('cnpj', '')}"))
+        
+        if self.cliente.get('inscricao_estadual'):
+            left.addWidget(QLabel(f"<b>I.E.:</b> {self.cliente.get('inscricao_estadual', '')}"))
+        
+        left.addStretch()
 
+        # Coluna 2: Contato (30%)
+        center = QVBoxLayout()
+        center.setSpacing(3)
+        
+        if self.cliente.get('telefone'):
+            center.addWidget(QLabel(f"<b>Telefone:</b> {self.cliente.get('telefone', '')}"))
+        
+        if self.cliente.get('email'):
+            email_label = QLabel(f"<b>Email:</b> {self.cliente.get('email', '')}")
+            email_label.setWordWrap(True)
+            center.addWidget(email_label)
+        
+        # Sempre mostrar CEP
+        cep_value = self.cliente.get('cep', '')
+        if cep_value:
+            cep_formatado = CepAPI.format_cep_display(cep_value)
+        else:
+            cep_formatado = "Não informado"
+        center.addWidget(QLabel(f"<b>CEP:</b> {cep_formatado}"))
+        
+        center.addStretch()
+
+        # Coluna 3: Endereço (35%)
         right = QVBoxLayout()
-        endereco_linha1 = f"{self.cliente.get('rua', '')}, Nº {self.cliente.get('numero', '')}"
-        endereco_linha2 = f"{self.cliente.get('bairro', '')}, {self.cliente.get('cidade', '')} / {self.cliente.get('estado', '')}"
-        endereco_label = QLabel(f"<b>Endereço:</b> {endereco_linha1}<br>{endereco_linha2}")
+        right.setSpacing(3)
+        
+        # Construir endereço de forma mais compacta
+        endereco_parts = []
+        if self.cliente.get('rua'):
+            rua_numero = self.cliente.get('rua', '')
+            if self.cliente.get('numero'):
+                rua_numero += f", {self.cliente.get('numero', '')}"
+            endereco_parts.append(rua_numero)
+        
+        if self.cliente.get('bairro'):
+            endereco_parts.append(self.cliente.get('bairro', ''))
+        
+        if self.cliente.get('cidade') or self.cliente.get('estado'):
+            cidade_estado = ""
+            if self.cliente.get('cidade'):
+                cidade_estado = self.cliente.get('cidade', '')
+            if self.cliente.get('estado'):
+                if cidade_estado:
+                    cidade_estado += f" - {self.cliente.get('estado', '')}"
+                else:
+                    cidade_estado = self.cliente.get('estado', '')
+            endereco_parts.append(cidade_estado)
+        
+        if endereco_parts:
+            endereco_text = "<br>".join(endereco_parts)
+            endereco_label = QLabel(f"<b>Endereço:</b><br>{endereco_text}")
+        else:
+            endereco_label = QLabel("<b>Endereço:</b><br>Não informado")
+        
         endereco_label.setWordWrap(True)
-        endereco_label.setStyleSheet("font-size: 15px; margin-bottom: 12px; margin-top: 8px;")
+        endereco_label.setStyleSheet("font-size: 12px; line-height: 1.4;")
         right.addWidget(endereco_label)
-        right.addWidget(QLabel(f"<b>Referência:</b> {self.cliente.get('referencia', '')}"))
+        
+        if self.cliente.get('referencia'):
+            ref_label = QLabel(f"<b>Ref.:</b> {self.cliente.get('referencia', '')}")
+            ref_label.setWordWrap(True)
+            ref_label.setStyleSheet("font-size: 11px; color: #c0c0c0; margin-top: 4px;")
+            right.addWidget(ref_label)
+        
+        right.addStretch()
 
-        info_layout.addLayout(left)
-        info_layout.addLayout(right)
+        # Proporções das colunas: 35%, 30%, 35%
+        info_layout.addLayout(left, 35)
+        info_layout.addLayout(center, 30)
+        info_layout.addLayout(right, 35)
         main_layout.addWidget(info_frame)
 
         # Middle: orders table
@@ -65,6 +161,11 @@ class ClienteDetailDialog(QDialog):
         self.orders_table = QTableWidget()
         self.orders_table.setColumnCount(3)
         self.orders_table.setHorizontalHeaderLabels(["OS", "Status", "Ações"])
+        # Centralizar cabeçalhos
+        for i in range(3):
+            item = self.orders_table.horizontalHeaderItem(i)
+            if item:
+                item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
         self.orders_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.orders_table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
         self.orders_table.setStyleSheet("""
@@ -74,12 +175,16 @@ class ClienteDetailDialog(QDialog):
         """)
         self.orders_table.verticalHeader().setVisible(False)
         
-        # Configurar larguras das colunas
+        # Configurar larguras das colunas de forma responsiva
         header = self.orders_table.horizontalHeader()
-        self.orders_table.setColumnWidth(0, 150)  # Coluna OS (aumentada)
-        self.orders_table.setColumnWidth(1, 200)  # Coluna Status (aumentada)
-        self.orders_table.setColumnWidth(2, 270)  # Coluna Ações (aumentada)
-        header.setStretchLastSection(True)  # Permite que a última coluna se expanda
+        header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)  # OS - ajusta ao conteúdo
+        header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)  # Status - expande
+        header.setSectionResizeMode(2, QHeaderView.ResizeMode.Fixed)  # Ações - largura fixa
+        
+        # Definir larguras mínimas
+        self.orders_table.setColumnWidth(0, 100)  # OS mínimo
+        self.orders_table.setColumnWidth(2, 220)  # Largura fixa para coluna de ações
+        self.orders_table.setColumnWidth(2, 300)  # Ações mínimo
         
         self.orders_table.setAlternatingRowColors(True)
         self.orders_table.setShowGrid(True)
@@ -87,24 +192,96 @@ class ClienteDetailDialog(QDialog):
         self.orders_table.cellDoubleClicked.connect(self._on_status_double_click)
         main_layout.addWidget(self.orders_table)
 
-        # Rodapé: botões de ação
+        # Rodapé: botões de ação responsivos
+        # Layout de botões responsivo
         btn_layout = QHBoxLayout()
-        btn_layout.setSpacing(18)
+        btn_layout.setContentsMargins(0, 16, 0, 0)
+        btn_layout.setSpacing(12)
+        
+        # Botão Adicionar
         self.btn_add = QPushButton("Adicionar Pedido")
-        self.btn_add.setMinimumWidth(180)
-        self.btn_add.setStyleSheet("font-size: 15px; padding: 10px 24px; background: #2d8cff; color: #fff; border-radius: 8px;")
+        self.btn_add.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.btn_add.setMinimumHeight(45)
+        self.btn_add.setMinimumWidth(140)
+        self.btn_add.setStyleSheet("""
+            QPushButton {
+                font-size: 14px; 
+                font-weight: 600;
+                padding: 12px 20px; 
+                background-color: #2196F3; 
+                color: white; 
+                border: none;
+                border-radius: 8px;
+                text-align: center;
+            }
+            QPushButton:hover {
+                background-color: #1976D2;
+            }
+            QPushButton:pressed {
+                background-color: #1565C0;
+            }
+        """)
+        
+        # Botão Editar
         self.btn_edit = QPushButton("Editar Pedido")
-        self.btn_edit.setMinimumWidth(180)
-        self.btn_edit.setStyleSheet("font-size: 15px; padding: 10px 24px; background: #23272e; color: #b0e0ff; border-radius: 8px;")
+        self.btn_edit.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.btn_edit.setMinimumHeight(45)
+        self.btn_edit.setMinimumWidth(140)
+        self.btn_edit.setStyleSheet("""
+            QPushButton {
+                font-size: 14px; 
+                font-weight: 600;
+                padding: 12px 20px; 
+                background-color: #6c757d; 
+                color: white; 
+                border: none;
+                border-radius: 8px;
+                text-align: center;
+            }
+            QPushButton:hover {
+                background-color: #5a6268;
+            }
+            QPushButton:pressed {
+                background-color: #545b62;
+            }
+            QPushButton:disabled {
+                background-color: #404040;
+                color: #888;
+            }
+        """)
         self.btn_edit.setEnabled(False)
+        
+        # Botão Fechar
         self.btn_close = QPushButton("Fechar")
+        self.btn_close.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        self.btn_close.setMinimumHeight(45)
         self.btn_close.setMinimumWidth(120)
-        self.btn_close.setStyleSheet("font-size: 15px; padding: 10px 24px; background: #393939; color: #fff; border-radius: 8px;")
-        btn_layout.addStretch(1)
+        self.btn_close.setMaximumWidth(140)
+        self.btn_close.setStyleSheet("""
+            QPushButton {
+                font-size: 14px; 
+                font-weight: 600;
+                padding: 12px 20px; 
+                background-color: #f44336; 
+                color: white; 
+                border: none;
+                border-radius: 8px;
+                text-align: center;
+            }
+            QPushButton:hover {
+                background-color: #d32f2f;
+            }
+            QPushButton:pressed {
+                background-color: #c62828;
+            }
+        """)
+        
+        # Layout responsivo dos botões
         btn_layout.addWidget(self.btn_add)
         btn_layout.addWidget(self.btn_edit)
+        btn_layout.addStretch()  # Empurra o botão Fechar para a direita
         btn_layout.addWidget(self.btn_close)
-        btn_layout.addStretch(1)
+        
         main_layout.addLayout(btn_layout)
 
         self.btn_add.setToolTip("Adicionar um novo pedido para este cliente")
@@ -141,7 +318,16 @@ class ClienteDetailDialog(QDialog):
             QMessageBox.warning(self, "Erro", "Não foi possível identificar o pedido selecionado.")
             return
         try:
-            pedido_id = int(pedido_id_item.text())
+            # Obter o ID real armazenado no UserRole, não o texto da célula
+            pedido_id = pedido_id_item.data(Qt.ItemDataRole.UserRole)
+            if pedido_id is None:
+                # Fallback: tentar extrair do texto se necessário
+                texto = pedido_id_item.text()
+                if texto.startswith("OS "):
+                    pedido_id = int(texto.replace("OS ", ""))
+                else:
+                    pedido_id = int(texto)
+            
             from app.components.pedidos.novo_pedidos_modal import NovoPedidosModal
             pm = NovoPedidosModal(self)
             # Conectar sinal para atualizar a interface após salvar
@@ -169,6 +355,7 @@ class ClienteDetailDialog(QDialog):
         print(f"carregar_pedidos: buscando nome='{nome}' cpf_digits='{cpf_digits}' -> {len(rows) if rows else 0} rows fetched")
 
         self.orders_table.setRowCount(0)
+        self.orders_table.verticalHeader().setDefaultSectionSize(48)  # Altura padrão das linhas
         print(f"Processando {len(rows) if rows else 0} pedidos...")
         
         for idx, r in enumerate(rows):
@@ -213,20 +400,25 @@ class ClienteDetailDialog(QDialog):
                 # Coluna 3: Container com botões "Visualizar" e "Deletar"
                 actions_widget = QWidget()
                 actions_layout = QHBoxLayout(actions_widget)
-                actions_layout.setContentsMargins(5, 2, 5, 2)
-                actions_layout.setSpacing(5)
+                actions_layout.setContentsMargins(0, 0, 0, 0)  # Sem margens
+                actions_layout.setSpacing(12)  # Manter espaçamento entre botões
+                actions_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)  # Centralizar horizontalmente
+                actions_widget.setFixedHeight(36)  # Altura ainda menor
+                actions_widget.setStyleSheet("background: transparent;")  # Remover qualquer background
                 
                 # Botão Visualizar
                 btn_visualizar = QPushButton("Visualizar")
+                btn_visualizar.setFixedHeight(32)  # Altura fixa para não ficar amassado
                 btn_visualizar.setStyleSheet("""
                     QPushButton {
                         background-color: #2d8cff;
                         color: white;
                         border: none;
                         border-radius: 4px;
-                        padding: 6px 10px;
-                        font-weight: bold;
-                        font-size: 12px;
+                        padding: 6px 14px;
+                        font-weight: 600;
+                        font-size: 13px;
+                        min-width: 90px;
                     }
                     QPushButton:hover {
                         background-color: #1e7ae6;
@@ -236,15 +428,17 @@ class ClienteDetailDialog(QDialog):
                 
                 # Botão Deletar
                 btn_deletar = QPushButton("Deletar")
+                btn_deletar.setFixedHeight(32)  # Altura fixa para não ficar amassado
                 btn_deletar.setStyleSheet("""
                     QPushButton {
                         background-color: #ff4757;
                         color: white;
                         border: none;
                         border-radius: 4px;
-                        padding: 6px 10px;
-                        font-weight: bold;
-                        font-size: 12px;
+                        padding: 6px 14px;
+                        font-weight: 600;
+                        font-size: 13px;
+                        min-width: 90px;
                     }
                     QPushButton:hover {
                         background-color: #e74c3c;
@@ -465,8 +659,28 @@ class ClientesManager(QWidget):
         super().__init__()  # Não passar parent aqui
         self.parent = parent
         self._search_timer = None
+        self._conectar_sinais()
         self._setup_interface()
-    # Clientes will use the Produtos visual style applied in _aplicar_estilo
+        self.carregar_dados()
+    
+    def _conectar_sinais(self):
+        """Conecta os sinais globais para atualização em tempo real"""
+        try:
+            from app.signals import get_signals
+            signals = get_signals()
+            signals.cliente_criado.connect(self._on_cliente_atualizado)
+            signals.cliente_editado.connect(self._on_cliente_atualizado)
+            signals.cliente_excluido.connect(self._on_cliente_atualizado)
+            signals.clientes_atualizados.connect(self._on_clientes_atualizados)
+        except Exception as e:
+            print(f"Erro ao conectar sinais de clientes: {e}")
+    
+    def _on_cliente_atualizado(self, cliente_id: int = None):
+        """Atualiza a lista quando um cliente é modificado"""
+        self.carregar_dados()
+    
+    def _on_clientes_atualizados(self):
+        """Atualiza a lista quando há mudança geral nos clientes"""
         self.carregar_dados()
     
     def _setup_interface(self):
@@ -726,7 +940,10 @@ class ClientesManager(QWidget):
         """Abre modal para novo cliente"""
         modal = ClienteModal(self)
         if modal.exec() == QDialog.DialogCode.Accepted:
-            self.carregar_dados()
+            # Emitir sinal de cliente criado
+            from app.signals import get_signals
+            signals = get_signals()
+            signals.clientes_atualizados.emit()
     
     def editar_cliente(self):
         """Edita cliente selecionado"""
@@ -770,7 +987,10 @@ class ClientesManager(QWidget):
         
         modal = ClienteModal(self, dados)
         if modal.exec() == QDialog.DialogCode.Accepted:
-            self.carregar_dados()
+            # Emitir sinal de cliente editado
+            from app.signals import get_signals
+            signals = get_signals()
+            signals.cliente_editado.emit(int(dados.get('id', 0)))
 
     def abrir_detalhes_cliente(self):
         """Abre o diálogo com detalhes do cliente e seus pedidos"""
@@ -844,7 +1064,10 @@ class ClientesManager(QWidget):
         if reply == QMessageBox.StandardButton.Yes:
             try:
                 db_manager.deletar_cliente(int(cliente_id))
-                self.carregar_dados()
+                # Emitir sinal de cliente excluído
+                from app.signals import get_signals
+                signals = get_signals()
+                signals.cliente_excluido.emit(int(cliente_id))
                 QMessageBox.information(self, "Sucesso", "Cliente excluído com sucesso!")
             except Exception as e:
                 QMessageBox.critical(self, "Erro", f"Erro ao excluir cliente: {e}")
@@ -1091,6 +1314,21 @@ class ClienteModal(QDialog):
         group.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
         form_layout = QFormLayout(group)
         
+        # Campo CEP com busca automática
+        cep_layout = QHBoxLayout()
+        self.campos['cep'] = QLineEdit()
+        self.campos['cep'].setPlaceholderText("00000-000")
+        self.campos['cep'].setMaxLength(9)
+        self.campos['cep'].textChanged.connect(self._on_cep_changed)
+        
+        self.btn_buscar_cep = QPushButton("🔍 Buscar")
+        self.btn_buscar_cep.setMaximumWidth(80)
+        self.btn_buscar_cep.clicked.connect(self._buscar_cep)
+        
+        cep_layout.addWidget(self.campos['cep'])
+        cep_layout.addWidget(self.btn_buscar_cep)
+        form_layout.addRow("CEP:", cep_layout)
+        
         # Campos de endereço
         self.campos['rua'] = QLineEdit()
         self.campos['rua'].setPlaceholderText("Nome da rua")
@@ -1159,6 +1397,7 @@ class ClienteModal(QDialog):
         self.campos['inscricao_estadual'].setText(self.dados.get('inscricao_estadual', ''))
         self.campos['telefone'].setText(self.dados.get('telefone', ''))
         self.campos['email'].setText(self.dados.get('email', ''))
+        self.campos['cep'].setText(CepAPI.format_cep_display(self.dados.get('cep', '')))
         self.campos['rua'].setText(self.dados.get('rua', ''))
         self.campos['numero'].setText(self.dados.get('numero', ''))
         self.campos['bairro'].setText(self.dados.get('bairro', ''))
@@ -1179,6 +1418,7 @@ class ClienteModal(QDialog):
             'inscricao_estadual': self.campos['inscricao_estadual'].text().strip() or None,
             'telefone': self.campos['telefone'].text().strip() or None,
             'email': self.campos['email'].text().strip() or None,
+            'cep': CepAPI.format_cep(self.campos['cep'].text().strip()) or None,
             'rua': self.campos['rua'].text().strip() or None,
             'numero': self.campos['numero'].text().strip() or None,
             'bairro': self.campos['bairro'].text().strip() or None,
@@ -1215,6 +1455,7 @@ class ClienteModal(QDialog):
                             dados['inscricao_estadual'],
                             dados['telefone'],
                             dados['email'],
+                            dados['cep'],
                             dados['rua'],
                             dados['numero'],
                             dados['bairro'],
@@ -1232,6 +1473,7 @@ class ClienteModal(QDialog):
                             dados['inscricao_estadual'],
                             dados['telefone'],
                             dados['email'],
+                            dados['cep'],
                             dados['rua'],
                             dados['numero'],
                             dados['bairro'],
@@ -1245,6 +1487,66 @@ class ClienteModal(QDialog):
                     
                 except Exception as e:
                     QMessageBox.critical(self, "Erro", f"Erro ao salvar cliente: {e}")
+    
+    def _on_cep_changed(self, text):
+        """Formatar CEP enquanto digita"""
+        # Remove caracteres não numéricos
+        cep_limpo = ''.join(filter(str.isdigit, text))
+        
+        # Formatar CEP (XXXXX-XXX)
+        if len(cep_limpo) > 5:
+            cep_formatado = f"{cep_limpo[:5]}-{cep_limpo[5:8]}"
+        else:
+            cep_formatado = cep_limpo
+        
+        # Atualizar campo se diferente
+        if cep_formatado != text:
+            cursor_pos = self.campos['cep'].cursorPosition()
+            self.campos['cep'].setText(cep_formatado)
+            # Ajustar posição do cursor
+            if len(cep_formatado) > len(text):
+                cursor_pos += 1
+            self.campos['cep'].setCursorPosition(cursor_pos)
+    
+    def _buscar_cep(self):
+        """Busca endereço pelo CEP"""
+        cep = self.campos['cep'].text().strip()
+        
+        if not cep:
+            QMessageBox.warning(self, "CEP Vazio", "Por favor, digite um CEP.")
+            return
+        
+        if not CepAPI.is_valid_cep(cep):
+            QMessageBox.warning(self, "CEP Inválido", "Por favor, digite um CEP válido (8 dígitos).")
+            return
+        
+        try:
+            # Desabilitar botão durante busca
+            self.btn_buscar_cep.setEnabled(False)
+            self.btn_buscar_cep.setText("🔄 Buscando...")
+            QApplication.processEvents()  # Atualizar interface
+            
+            # Buscar endereço
+            endereco = CepAPI.buscar_endereco(cep)
+            
+            if endereco:
+                # Preencher campos com os dados encontrados
+                self.campos['rua'].setText(endereco.get('rua', ''))
+                self.campos['bairro'].setText(endereco.get('bairro', ''))
+                self.campos['cidade'].setText(endereco.get('cidade', ''))
+                self.campos['estado'].setText(endereco.get('estado', ''))
+                
+                QMessageBox.information(self, "CEP Encontrado", "Endereço preenchido automaticamente!")
+            else:
+                QMessageBox.warning(self, "CEP Não Encontrado", "CEP não encontrado ou inválido.")
+                
+        except Exception as e:
+            QMessageBox.critical(self, "Erro", f"Erro ao buscar CEP: {e}")
+        
+        finally:
+            # Reabilitar botão
+            self.btn_buscar_cep.setEnabled(True)
+            self.btn_buscar_cep.setText("🔍 Buscar")
     
     def _aplicar_estilo(self):
         """Aplica estilo moderno ao modal"""

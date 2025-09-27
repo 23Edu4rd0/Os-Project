@@ -13,6 +13,7 @@ class PedidosCard(QWidget):
     """Gerencia a criação e exibição de cards de pedidos"""
     
     # Sinais para comunicação
+    visualizar_clicked = pyqtSignal(int)  # pedido_id
     editar_clicked = pyqtSignal(int)  # pedido_id
     excluir_clicked = pyqtSignal(int)  # pedido_id
     status_changed = pyqtSignal(int, str)  # pedido_id, novo_status
@@ -24,16 +25,23 @@ class PedidosCard(QWidget):
         
     def criar_card(self, pedido):
         """Cria um card completo com todas as informações do pedido"""
-        # Frame principal
+        # Frame principal com design moderno
         card_widget = QFrame()
-        # Aumentar o tamanho dos cards para melhorar leitura
-        card_widget.setFixedWidth(380)
-        card_widget.setFixedHeight(300)
+        card_widget.setMinimumSize(320, 280)  # Altura reduzida para layout mais compacto
+        card_widget.setMaximumSize(380, 280)  # Altura máxima também reduzida
+        card_widget.setStyleSheet("""
+            QFrame {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #323232, stop:1 #212121);
+                border: 1px solid #505050;
+                border-radius: 10px;
+            }
+        """)
 
-        # Layout principal
+        # Layout principal bem estruturado
         card_layout = QVBoxLayout(card_widget)
-        card_layout.setContentsMargins(10, 10, 10, 10)
-        card_layout.setSpacing(5)
+        card_layout.setContentsMargins(14, 14, 14, 12)  # Margens reduzidas
+        card_layout.setSpacing(8)  # Espaçamento ajustado
 
         # Extrair informações do pedido
         pedido_id = pedido.get('id', 'N/A')
@@ -44,112 +52,271 @@ class PedidosCard(QWidget):
         endereco = pedido.get('endereco_cliente', 'Endereço não informado')
         valor_total = pedido.get('valor_total', 0)
 
-        # 1. Cliente e número
-        cliente_info = f"{cliente_nome}"
+        # === HEADER DO CARD ===
+        header_layout = QHBoxLayout()
+        
+        # Nome do cliente com estilo melhorado
+        cliente_label = QLabel(cliente_nome)
+        cliente_label.setStyleSheet("""
+            color: #ffffff;
+            font-size: 16px;
+            font-weight: bold;
+            margin: 0px;
+            padding: 2px 4px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 4px;
+        """)
+        cliente_label.setWordWrap(False)
+        header_layout.addWidget(cliente_label)
+        
+        header_layout.addStretch()
+        
+        # ID do pedido com estilo melhorado 
+        id_label = QLabel(f"#{pedido_id}")
+        id_label.setStyleSheet("""
+            color: #bbbbbb;
+            font-size: 14px;
+            font-weight: 600;
+            padding: 2px 6px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 4px;
+        """)
+        header_layout.addWidget(id_label)
+        
+        card_layout.addLayout(header_layout)
+
+        # === INFORMAÇÕES SECUNDÁRIAS ===
+        info_layout = QVBoxLayout()
+        info_layout.setSpacing(8)  # Aumentado de 6 para 8
+        
+        # Telefone (se disponível)
         if cliente_telefone:
-            cliente_info += f" - {cliente_telefone}"
-
-        cliente_label = QLabel(cliente_info)
-        cliente_label.setStyleSheet("font-weight: bold; font-size: 13px; color: white;")
-        cliente_label.setWordWrap(True)
-        card_layout.addWidget(cliente_label)
-
-        # 2. Pedido e prazo
+            telefone_label = QLabel(f"📞 {cliente_telefone}")
+            telefone_label.setStyleSheet("""
+                color: #b0b0b0;
+                font-size: 12px;
+                margin: 0px;
+            """)
+            info_layout.addWidget(telefone_label)
+        
+        # Status e prazo em uma linha
+        status_prazo_layout = QHBoxLayout()
+        
+        # Status com cor
+        status_colors = {
+            'pendente': '#ffa726',
+            'em andamento': '#42a5f5', 
+            'em produção': '#42a5f5',
+            'concluído': '#66bb6a',
+            'cancelado': '#ef5350'
+        }
+        status_cor = status_colors.get(status.lower(), '#888888')
+        
+        status_label = QLabel(f"● {status.title()}")
+        status_label.setStyleSheet(f"""
+            color: {status_cor};
+            font-size: 12px;
+            font-weight: 600;
+        """)
+        status_prazo_layout.addWidget(status_label)
+        
+        status_prazo_layout.addStretch()
+        
+        # Dias restantes
         dias_restantes = self._calcular_dias_restantes(pedido)
-        prazo_info = f"Pedido #{pedido_id}"
         if dias_restantes is not None:
             if dias_restantes > 0:
-                prazo_info += f" - Faltam {dias_restantes} dias"
+                prazo_text = f"{dias_restantes} dias"
+                prazo_cor = "#66bb6a" if dias_restantes > 7 else "#ffa726" if dias_restantes > 2 else "#ef5350"
             elif dias_restantes == 0:
-                prazo_info += " - Entrega hoje!"
+                prazo_text = "Hoje"
+                prazo_cor = "#ff9800"
             else:
-                prazo_info += f" - Atrasado {abs(dias_restantes)} dias"
+                prazo_text = f"Atrasado {abs(dias_restantes)}d"
+                prazo_cor = "#ef5350"
+                
+            prazo_label = QLabel(prazo_text)
+            prazo_label.setStyleSheet(f"""
+                color: {prazo_cor};
+                font-size: 11px;
+                font-weight: 500;
+            """)
+            status_prazo_layout.addWidget(prazo_label)
+        
+        info_layout.addLayout(status_prazo_layout)
+        card_layout.addLayout(info_layout)
 
-        pedido_label = QLabel(prazo_info)
-        pedido_label.setStyleSheet("font-size: 11px; color: #cccccc;")
-        card_layout.addWidget(pedido_label)
-
-        # 3. Produtos (nome, código e quantidade - até 3 linhas)
+        # === SEÇÃO DE PRODUTOS ===
+        produtos_container = QFrame()
+        produtos_container.setFixedHeight(80)  # Altura reduzida para mostrar apenas uma linha
+        produtos_container.setStyleSheet("""
+            QFrame {
+                background: rgba(20, 20, 20, 0.85);
+                border: 1px solid rgba(255, 255, 255, 0.15);
+                border-radius: 6px;
+                padding: 6px;
+            }
+        """)
+        produtos_layout = QHBoxLayout(produtos_container)  # Mudado para horizontal
+        produtos_layout.setContentsMargins(10, 8, 10, 8)  # Margens reduzidas
+        produtos_layout.setSpacing(6)  # Espaçamento menor
+        
+        # Título mais compacto
+        produtos_titulo = QLabel("📦")
+        produtos_titulo.setStyleSheet("""
+            color: #f0f0f0;
+            font-size: 14px;
+            padding: 0 4px;
+        """)
+        produtos_layout.addWidget(produtos_titulo)
+        
+        # Lista de produtos simplificada
         if produtos and len(produtos) > 0:
-            produto_info = []
-            produtos_para_mostrar = produtos[:3]
-
-            for i, produto in enumerate(produtos_para_mostrar):
-                descricao = produto.get('descricao', '').strip()
-                valor = produto.get('valor', 0)
-
-                # Gerar quantidade baseada no valor (simulação)
-                if valor >= 500:
-                    quantidade = 1
-                elif valor >= 200:
-                    quantidade = 2
-                else:
-                    quantidade = 3
-
-                if descricao:
-                    # Gerar código mais curto e realista (usa _gerar_codigo_produto existente)
-                    codigo_produto = self._gerar_codigo_produto(descricao, i)
-                    # Formato: nome - código - quantidade
-                    linha_produto = f"{descricao} - {codigo_produto} - {quantidade}x"
-                else:
-                    # Formato antigo como fallback (sem divisórias)
-                    nome = produto.get('nome', 'Produto')
-                    codigo = produto.get('codigo', f"{8000 + i:04d}")
-                    linha_produto = f"{nome} - {codigo} - {quantidade}x"
-
-                produto_info.append(linha_produto)
-
-            if len(produtos) > 3:
-                produto_info.append(f"... e mais {len(produtos) - 3}")
-
-            produtos_text = "\n".join(produto_info)
-        else:
-            # Fallback para detalhes_produto se produtos[] estiver vazio
-            detalhes_produto = pedido.get('detalhes_produto', '')
-            if detalhes_produto:
-                # Tentar extrair informações do texto
-                linhas = detalhes_produto.split('\n')[:3]  # Máximo 3 linhas
-                produto_info = []
-                for i, linha in enumerate(linhas):
-                    linha = linha.strip()
-                    if linha:
-                        codigo = f"{8250 + (i * 100):04d}"
-                        linha_formatada = f"{linha} - {codigo} - 1x"
-                        produto_info.append(linha_formatada)
-
-                produtos_text = "\n".join(produto_info) if produto_info else "Nenhum produto"
+            if len(produtos) >= 2:
+                # Se tem 2 ou mais produtos, mostrar apenas o total
+                resumo_label = QLabel(f"{len(produtos)} itens")
+                resumo_label.setStyleSheet("""
+                    color: #ffa726;
+                    font-size: 13px;
+                    font-weight: 500;
+                    padding: 4px 8px;
+                    background: rgba(255, 167, 38, 0.1);
+                    border-radius: 4px;
+                """)
+                resumo_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                produtos_layout.addWidget(resumo_label)
+                
+                # Mostrar o primeiro produto como exemplo
+                produto = produtos[0]
+                descricao = produto.get('descricao', produto.get('nome', 'Produto'))
+                if len(descricao) > 25:
+                    descricao = descricao[:22] + "..."
+                
+                # Criar tooltip com todos os produtos
+                tooltip_text = "Produtos:\n"
+                for p in produtos:
+                    nome = p.get('descricao', p.get('nome', 'Produto'))
+                    cor = p.get('cor', 'Não especificada')
+                    tooltip_text += f"- {nome} (Cor: {cor})\n"
+                
+                produto_item = QLabel(f"• {descricao}")
+                produto_item.setToolTip(tooltip_text)
+                produto_item.setStyleSheet("""
+                    QLabel {
+                        color: #e8e8e8;
+                        font-size: 13px;
+                        padding: 4px 8px;
+                        margin-left: 4px;
+                        background: rgba(255, 255, 255, 0.03);
+                        border-radius: 4px;
+                    }
+                    QLabel:hover {
+                        background: rgb(0, 0, 0);
+                        border: 1px solid rgba(255, 255, 255, 0.2);
+                    }
+                    margin-left: 4px;
+                    background: rgba(255, 255, 255, 0.03);
+                    border-radius: 4px;
+                """)
+                produtos_layout.addWidget(produto_item)
+                
+                # Indicar se há mais itens
+                if len(produtos) > 1:
+                    info_label = QLabel(f"+{len(produtos) - 1}")
+                    info_label.setStyleSheet("""
+                        color: #aaaaaa;
+                        font-size: 12px;
+                        font-weight: bold;
+                        padding: 2px 6px;
+                        background: rgba(255, 255, 255, 0.05);
+                        border-radius: 3px;
+                    """)
+                    info_label.setAlignment(Qt.AlignmentFlag.AlignRight)
+                    produtos_layout.addWidget(info_label)
             else:
-                produtos_text = "Nenhum produto"
+                # Se tem apenas 1 produto, mostrar de forma simples
+                produto = produtos[0]
+                descricao = produto.get('descricao', produto.get('nome', 'Produto'))
+                if len(descricao) > 25:
+                    descricao = descricao[:22] + "..."
+                
+                # Criar tooltip com detalhes completos
+                nome_completo = produto.get('descricao', produto.get('nome', 'Produto'))
+                cor = produto.get('cor', 'Não especificada')
+                tooltip = f"Produto: {nome_completo}\nCor: {cor}"
+                
+                produto_item = QLabel(f"• {descricao}")
+                produto_item.setToolTip(tooltip)
+                produto_item.setStyleSheet("""
+                    QLabel {
+                        color: #e8e8e8;
+                        font-size: 13px;
+                        padding: 4px 8px;
+                        margin-left: 4px;
+                        background: rgba(255, 255, 255, 0.03);
+                        border-radius: 4px;
+                    }
+                    QLabel:hover {
+                        background: rgb(0, 0, 0);
+                        border: 1px solid rgba(255, 255, 255, 0.2);
+                    }
+                """)
+                produtos_layout.addWidget(produto_item)
+        else:
+            sem_produtos = QLabel("Sem produtos")
+            sem_produtos.setStyleSheet("""
+                color: #999999;
+                font-size: 13px;
+                font-style: italic;
+                padding: 4px 8px;
+                background: rgba(255, 255, 255, 0.02);
+                border-radius: 4px;
+            """)
+            sem_produtos.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            produtos_layout.addWidget(sem_produtos)
+        
+        card_layout.addWidget(produtos_container)
+        
+        # Pequeno espaçamento para melhor distribuição vertical
+        card_layout.addSpacing(5)
 
-        produtos_label = QLabel(f"Produtos:\n{produtos_text}")
-        produtos_label.setStyleSheet("font-size: 11px; color: #d0d0d0;")
-        produtos_label.setWordWrap(True)
-        card_layout.addWidget(produtos_label)
-
-        # 4. Endereço
-        endereco_label = QLabel(f"Endereço: {endereco}")
-        endereco_label.setStyleSheet("font-size: 10px; color: #cccccc;")
-        endereco_label.setWordWrap(True)
-        card_layout.addWidget(endereco_label)
-
-        # 5. Valor
+        # === VALOR E ENDEREÇO ===
+        detalhes_layout = QHBoxLayout()
+        
+        # Valor (lado esquerdo)
         try:
             valor_formatado = f"R$ {float(valor_total):,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
         except:
             valor_formatado = f"R$ {valor_total}"
-
-        valor_label = QLabel(f"Valor: {valor_formatado}")
-        valor_label.setStyleSheet("font-weight: bold; font-size: 12px; color: #90EE90;")
-        card_layout.addWidget(valor_label)
-
-        # Spacer para empurrar botões para baixo
+            
+        valor_label = QLabel(valor_formatado)
+        valor_label.setStyleSheet("""
+            color: #4caf50;
+            font-size: 14px;
+            font-weight: bold;
+        """)
+        detalhes_layout.addWidget(valor_label)
+        
+        detalhes_layout.addStretch()
+        
+        # Ícone de localização (lado direito)
+        if endereco and endereco != "Endereço não informado":
+            endereco_curto = endereco[:15] + "..." if len(endereco) > 15 else endereco
+            endereco_label = QLabel(f"📍 {endereco_curto}")
+            endereco_label.setStyleSheet("""
+                color: #999999;
+                font-size: 9px;
+            """)
+            endereco_label.setToolTip(endereco)  # Tooltip com endereço completo
+            detalhes_layout.addWidget(endereco_label)
+        
+        card_layout.addLayout(detalhes_layout)
+        
+        # Espaço flexível
         card_layout.addStretch()
 
-        # 6. Botões (4 botões conforme solicitado)
-        self._criar_botoes(card_layout, pedido)
-
-        # Aplicar estilo básico
-        self._aplicar_estilo_basico(card_widget, status)
+        # === BOTÕES DE AÇÃO ===
+        self._criar_botoes_modernos(card_layout, pedido)
 
         return card_widget
     
@@ -335,110 +502,117 @@ class PedidosCard(QWidget):
         
         return linhas_finais
     
-    def _criar_botoes(self, layout, pedido):
-        """Cria os 4 botões: Editar, Status, WhatsApp e Deletar"""
-        botoes_frame = QFrame()
-        botoes_frame.setStyleSheet("background: transparent; border: none;")
-        botoes_layout = QHBoxLayout(botoes_frame)
-        botoes_layout.setContentsMargins(0, 5, 0, 0)
-        botoes_layout.setSpacing(6)
+    def _criar_botoes_modernos(self, layout, pedido):
+        """Cria botões de ação modernos e compactos"""
+        botoes_container = QFrame()
+        botoes_container.setStyleSheet("background: transparent; border: none;")
+        botoes_layout = QHBoxLayout(botoes_container)
+        botoes_layout.setContentsMargins(0, 8, 0, 0)
+        botoes_layout.setSpacing(6)  # Espaçamento reduzido entre botões
         
         pedido_id = pedido.get('id')
         telefone = pedido.get('telefone_cliente', '')
         
-        # Estilo base para botões
-        base_style = """
+        # Botões com design melhorado e mais compactos
+        btn_base = """
             QPushButton {
-                background-color: #555555;
-                color: white;
-                border: 1px solid #666666;
-                border-radius: 4px;
-                padding: 5px 8px;
-                font-size: 10px;
-                font-weight: bold;
-                min-width: 65px;
-                max-height: 28px;
+                border: none;
+                border-radius: 5px;
+                padding: 6px 5px;
+                font-size: 11px;
+                font-weight: 600;
+                min-width: 70px;
+                height: 30px;
             }
             QPushButton:hover {
-                background-color: #666666;
-                border: 1px solid #777777;
+                background-color: #444444;
             }
             QPushButton:pressed {
-                background-color: #444444;
+                padding-top: 7px;
+                padding-bottom: 5px;
             }
         """
         
-        # Botão Editar
-        btn_editar = QPushButton("Editar")
-        btn_editar.setStyleSheet(base_style)
-        btn_editar.clicked.connect(lambda: self.editar_clicked.emit(pedido_id))
-        botoes_layout.addWidget(btn_editar)
+        # Visualizar (azul - destaque primário)
+        btn_visualizar = QPushButton("Visualizar")
+        btn_visualizar.setStyleSheet(btn_base + """
+            QPushButton { 
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #3281e8, stop:1 #1565c0);
+                color: white; 
+                border-bottom: 2px solid #104d92;
+            }
+            QPushButton:hover { 
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #3a8af0, stop:1 #1976d2);
+            }
+        """)
+        btn_visualizar.clicked.connect(lambda: self.visualizar_clicked.emit(pedido_id))
+        botoes_layout.addWidget(btn_visualizar)
         
-        # Botão Status
+        # Status (cinza - normal)
         btn_status = QPushButton("Status")
-        btn_status.setStyleSheet(base_style.replace("#555555", "#2196F3").replace("#666666", "#1976D2"))
+        btn_status.setStyleSheet(btn_base + """
+            QPushButton { 
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #5a5a5a, stop:1 #454545); 
+                color: white;
+                border-bottom: 2px solid #353535;
+            }
+            QPushButton:hover { 
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #656565, stop:1 #505050); 
+            }
+        """)
         btn_status.clicked.connect(lambda: self._abrir_menu_status(pedido_id))
         botoes_layout.addWidget(btn_status)
         
-        # Botão WhatsApp
+        # WhatsApp (verde)
         btn_whatsapp = QPushButton("WhatsApp")
         if telefone:
-            whatsapp_style = """
-                QPushButton {
-                    background-color: #25d366;
-                    color: white;
-                    border: 1px solid #1da851;
-                    border-radius: 4px;
-                    padding: 5px 8px;
-                    font-size: 10px;
-                    font-weight: bold;
-                    min-width: 70px;
-                    max-height: 28px;
+            btn_whatsapp.setStyleSheet(btn_base + """
+                QPushButton { 
+                    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                        stop:0 #2eda71, stop:1 #25c15d);
+                    color: white; 
+                    border-bottom: 2px solid #1ea351;
                 }
-                QPushButton:hover {
-                    background-color: #1da851;
-                    border: 1px solid #128c39;
+                QPushButton:hover { 
+                    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                        stop:0 #33e077, stop:1 #27cc60);
                 }
-                QPushButton:pressed {
-                    background-color: #0e7a2b;
-                }
-            """
-            btn_whatsapp.setStyleSheet(whatsapp_style)
-            btn_whatsapp.clicked.connect(lambda: self._mostrar_menu_whatsapp(btn_whatsapp, pedido))
+            """)
+            btn_whatsapp.clicked.connect(lambda: self._abrir_whatsapp_com_feedback(btn_whatsapp, pedido))
         else:
-            disabled_style = base_style.replace("#555555", "#404040").replace("white", "#888888")
-            btn_whatsapp.setStyleSheet(disabled_style)
+            btn_whatsapp.setStyleSheet(btn_base + """
+                QPushButton { 
+                    background: #666666; 
+                    color: #aaaaaa;
+                    border-bottom: 2px solid #555555;
+                }
+            """)
             btn_whatsapp.setEnabled(False)
             btn_whatsapp.setToolTip("Telefone não informado")
         botoes_layout.addWidget(btn_whatsapp)
         
-        # Botão Deletar
+        # Deletar (vermelho)
         btn_deletar = QPushButton("Deletar")
-        deletar_style = """
-            QPushButton {
-                background-color: #F44336;
-                color: white;
-                border: 1px solid #D32F2F;
-                border-radius: 4px;
-                padding: 5px 8px;
-                font-size: 10px;
-                font-weight: bold;
-                min-width: 65px;
-                max-height: 28px;
+        btn_deletar.setStyleSheet(btn_base + """
+            QPushButton { 
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #e53935, stop:1 #c62828);
+                color: white; 
+                border-bottom: 2px solid #b71c1c;
             }
-            QPushButton:hover {
-                background-color: #D32F2F;
-                border: 1px solid #C62828;
+            QPushButton:hover { 
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #f44336, stop:1 #d32f2f);
             }
-            QPushButton:pressed {
-                background-color: #B71C1C;
-            }
-        """
-        btn_deletar.setStyleSheet(deletar_style)
+        """)
         btn_deletar.clicked.connect(lambda: self.excluir_clicked.emit(pedido_id))
         botoes_layout.addWidget(btn_deletar)
         
-        layout.addWidget(botoes_frame)
+        layout.addWidget(botoes_container)
     
 
 

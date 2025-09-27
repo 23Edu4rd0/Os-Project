@@ -9,4 +9,5 @@ PyQt6_sip
 python-dotenv
 qt6-applications
 qt6-tools
+requests
 reportlab

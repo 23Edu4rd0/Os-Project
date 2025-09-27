@@ -286,18 +286,18 @@ class DatabaseManager:
             return False
 
     def atualizar_cliente_completo(self, cliente_id, nome, cpf=None, cnpj=None, inscricao_estadual=None,
-                                  telefone=None, email=None, rua=None, numero=None,
+                                  telefone=None, email=None, cep=None, rua=None, numero=None,
                                   bairro=None, cidade=None, estado=None, referencia=None):
-        """Atualiza um cliente existente com todos os campos, incluindo CNPJ e IE."""
+        """Atualiza um cliente existente com todos os campos, incluindo CNPJ, IE e CEP."""
         try:
             self.cursor.execute(
                 """
                 UPDATE clientes
                 SET nome = ?, cpf = ?, cnpj = ?, inscricao_estadual = ?, telefone = ?, email = ?,
-                    rua = ?, numero = ?, bairro = ?, cidade = ?, estado = ?, referencia = ?
+                    cep = ?, rua = ?, numero = ?, bairro = ?, cidade = ?, estado = ?, referencia = ?
                 WHERE id = ?
                 """,
-                (nome, cpf, cnpj, inscricao_estadual, telefone, email, 
+                (nome, cpf, cnpj, inscricao_estadual, telefone, email, cep,
                  rua, numero, bairro, cidade, estado, referencia, int(cliente_id))
             )
             self.conn.commit()
@@ -307,9 +307,9 @@ class DatabaseManager:
             return False
 
     def criar_cliente_completo(self, nome, cpf=None, cnpj=None, inscricao_estadual=None,
-                              telefone=None, email=None, rua=None, numero=None,
+                              telefone=None, email=None, cep=None, rua=None, numero=None,
                               bairro=None, cidade=None, estado=None, referencia=None):
-        """Cria um novo cliente com todos os campos, incluindo CNPJ e IE."""
+        """Cria um novo cliente com todos os campos, incluindo CNPJ, IE e CEP."""
         try:
             from datetime import datetime
             data_atual = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
@@ -317,10 +317,10 @@ class DatabaseManager:
             self.cursor.execute(
                 """
                 INSERT INTO clientes (nome, cpf, cnpj, inscricao_estadual, telefone, email,
-                                    rua, numero, bairro, cidade, estado, referencia, data_criacao)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                    cep, rua, numero, bairro, cidade, estado, referencia, data_criacao)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
-                (nome, cpf, cnpj, inscricao_estadual, telefone, email,
+                (nome, cpf, cnpj, inscricao_estadual, telefone, email, cep,
                  rua, numero, bairro, cidade, estado, referencia, data_atual)
             )
             self.conn.commit()
