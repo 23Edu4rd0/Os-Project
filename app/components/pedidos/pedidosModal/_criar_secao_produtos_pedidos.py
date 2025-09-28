@@ -99,7 +99,6 @@ def _criar_secao_produtos_pedidos(self, layout, pedido_data):
     try:
         # Garantir que exista uma tabela; se não existir, apenas logar
         if getattr(self, 'lista_produtos_table', None) is None:
-            print('[DEBUG] Aviso: nenhuma tabela de produtos encontrada no modal ao criar seção')
         else:
             self._refresh_produtos_ui()
     except Exception:

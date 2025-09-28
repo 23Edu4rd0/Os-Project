@@ -13,7 +13,6 @@ def _carregar_produtos(self):
         self._produtos_rows = rows
         self.produtos_dict = {}
         
-        print(f"[DEBUG] Carregando {len(rows)} produtos do banco...")
         
         for i, row in enumerate(rows):
             try:
@@ -29,7 +28,6 @@ def _carregar_produtos(self):
                     continue
                 
                 # Log para debug
-                print(f"[DEBUG] Produto {i}: nome='{nome}', codigo='{codigo}', preco={preco}")
                 
                 # Criar entrada principal pelo nome (chave primária)
                 produto_data = {
@@ -53,7 +51,6 @@ def _carregar_produtos(self):
                     self.produtos_dict[codigo.lower()] = produto_data
                 
             except Exception as e:
-                print(f"[DEBUG] Erro ao processar produto linha {i}: {e}")
                 continue
         
         # Criar set de categorias
@@ -66,14 +63,11 @@ def _carregar_produtos(self):
             except:
                 pass
         
-        print(f"[DEBUG] Carregados {len(self.produtos_dict)} entradas no dicionário")
-        print(f"[DEBUG] Categorias encontradas: {self._produtos_categorias}")
         
         # Log algumas entradas para debug
         count = 0
         for key, data in self.produtos_dict.items():
             if count < 3:
-                print(f"[DEBUG] Entrada: '{key}' -> {data}")
                 count += 1
         
     except Exception as e:

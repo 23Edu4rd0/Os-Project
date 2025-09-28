@@ -1,13 +1,6 @@
-charset-normalizer
-click
-pillow
-pyperclip
-PyQt6
-PyQt6-Qt6
-pyqt6-tools
-PyQt6_sip
-python-dotenv
-qt6-applications
-qt6-tools
-requests
-reportlab
+# Dependências principais do Sistema de Ordem de Serviço
+PyQt6>=6.7.0
+reportlab>=3.6.8
+requests>=2.25.1
+python-dateutil>=2.8.1
+matplotlib>=3.5.0

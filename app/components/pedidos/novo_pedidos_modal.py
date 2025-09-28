@@ -850,7 +850,6 @@ class NovoPedidosModal(QDialog):
             self.input_valor.setText(f"{preco:.2f}")
             return
             
-        print(f"DEBUG: Produto não encontrado no dicionário")
     
     def _on_produto_selecionado(self, texto):
         """Evento quando um produto é selecionado no completer"""
@@ -870,7 +869,6 @@ class NovoPedidosModal(QDialog):
             self.input_valor.setText(f"{preco:.2f}")
             return
             
-        print(f"DEBUG: Produto selecionado não encontrado no dicionário")
     
     def _adicionar_produto(self):
         """Adiciona um produto à lista"""
@@ -1083,7 +1081,6 @@ class NovoPedidosModal(QDialog):
                 
                 detalhes_texto = '\n'.join(detalhes_produtos)
                 
-                print(f"DEBUG: Detalhes gerados: {detalhes_texto}")
                 
                 # Para atualização, usar apenas campos que existem na tabela ordem_servico
                 pedido_data = {
@@ -1124,7 +1121,6 @@ class NovoPedidosModal(QDialog):
                 }
             
             # Salvar ou atualizar pedido
-            print(f"DEBUG: is_editing={self.is_editing}, pedido_id_editando={self.pedido_id_editando}")
             
             if self.is_editing and self.pedido_id_editando:
                 # Atualizar pedido existente
@@ -1402,16 +1398,13 @@ class NovoPedidosModal(QDialog):
             self.is_editing = True
             if 'id' in pedido_data:
                 self.pedido_id_editando = pedido_data['id']
-                print(f"DEBUG: Definindo pedido_id_editando = {self.pedido_id_editando}")
             if 'numero_os' in pedido_data:
                 self.numero_os_original = pedido_data['numero_os']
-                print(f"DEBUG: Definindo numero_os_original = {self.numero_os_original}")
                 
                 # Atualizar o título se já foi criado
                 if self.titulo_label:
                     self.titulo_label.setText(f"Ordem de Serviço Nº {self.numero_os_original:05d}")
             
-            print(f"DEBUG: is_editing={self.is_editing}, pedido_id_editando={self.pedido_id_editando}")
             
             # Preencher dados do cliente - mapeando os campos do banco
             # Mapear nome_cliente para cliente

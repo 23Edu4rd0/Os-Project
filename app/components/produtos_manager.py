@@ -436,21 +436,15 @@ class ProdutosManager(QWidget):
         scroll_area.setFrameStyle(QScrollArea.Shape.NoFrame)
         
         # DEBUG: Adicionar logs de scroll
-        print("DEBUG SCROLL: Scroll area criada")
-        print(f"DEBUG SCROLL: Tabela tem {self.table.rowCount()} linhas")
-        print(f"DEBUG SCROLL: Tamanho da tabela: {self.table.sizeHint()}")
         
         # Conectar eventos de scroll para debug
         scroll_bar = scroll_area.verticalScrollBar()
-        scroll_bar.valueChanged.connect(lambda value: print(f"DEBUG SCROLL: Posição do scroll: {value}"))
-        scroll_bar.rangeChanged.connect(lambda min_val, max_val: print(f"DEBUG SCROLL: Range alterado: {min_val}-{max_val}"))
         
         # Verificar se scroll é necessário
         def check_scroll_needed():
             table_height = self.table.sizeHint().height()
             scroll_height = scroll_area.height()
             needs_scroll = table_height > scroll_height
-            print(f"DEBUG SCROLL: Tabela {table_height}px, Área {scroll_height}px, Precisa scroll: {needs_scroll}")
             return needs_scroll
         
         # Timer para verificar tamanhos após carregamento
@@ -483,7 +477,6 @@ class ProdutosManager(QWidget):
             }
         """)
         
-        print("DEBUG SCROLL: Scroll area configurada e adicionada ao layout")
         layout.addWidget(scroll_area)
         
         # Info footer
@@ -581,15 +574,10 @@ class ProdutosManager(QWidget):
             self.info_label.setText(f"Produtos carregados: {len(products)}")
             
             # DEBUG: Verificar scroll após carregamento
-            print(f"DEBUG SCROLL: Produtos carregados: {len(products)}")
-            print(f"DEBUG SCROLL: Linhas na tabela: {self.table.rowCount()}")
-            print(f"DEBUG SCROLL: Tamanho da tabela após carregamento: {self.table.sizeHint()}")
             
             # Verificar se scroll bar está visível
             if hasattr(self, 'scroll_area'):
                 scroll_bar = self.scroll_area.verticalScrollBar()
-                print(f"DEBUG SCROLL: Scroll bar visível: {scroll_bar.isVisible()}")
-                print(f"DEBUG SCROLL: Scroll range: {scroll_bar.minimum()}-{scroll_bar.maximum()}")
         
         except Exception as e:
             print(f"[ERROR] Erro ao carregar produtos: {e}")

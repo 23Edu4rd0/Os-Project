@@ -4,22 +4,18 @@ from .__init__ import PedidosModal
 
 def _refresh_produtos_ui(self):
     from PyQt6.QtWidgets import QTableWidget, QTableWidgetItem, QWidget, QHBoxLayout, QPushButton
-    print('[DEBUG] Iniciando _refresh_produtos_ui...')
     try:
         # localizar a tabela em múltiplos atributos possíveis
         table = getattr(self, 'lista_produtos_table', None) or getattr(self, 'lista_table', None) or getattr(self, 'lista_produtos_container', None)
-        print(f'[DEBUG] Tabela encontrada: {table is not None}')
         
         # criar fallback mínimo se necessário (não anexa ao layout automaticamente)
         if table is None:
-            print('[DEBUG] Nenhuma tabela encontrada. Criando tabela fallback mínima (não anexada).')
             table = QTableWidget()
             table.setColumnCount(4)
             table.setHorizontalHeaderLabels(['Produto', 'Valor', 'Cor', 'Ações'])
             self.lista_produtos_table = table
 
         produtos_list = getattr(self, 'produtos_list', []) or []
-        print(f'[DEBUG] Lista de produtos tem {len(produtos_list)} itens')
 
         # Limpar e preencher tabela
         table.setRowCount(0)
@@ -125,19 +121,14 @@ def _refresh_produtos_ui(self):
             except Exception:
                 pass
 
-        print(f'[DEBUG] Tabela atualizada com {table.rowCount()} linhas')
 
         # Atualizar total
         try:
             total = sum(float(p.get('valor', 0) or 0) for p in produtos_list)
             if hasattr(self, 'campos') and 'valor_total' in self.campos:
                 self.campos['valor_total'].setText(f"R$ {total:.2f}")
-                print(f'[DEBUG] Total atualizado: R$ {total:.2f}')
         except Exception as e:
-            print(f'[DEBUG] Erro ao atualizar total: {e}')
 
-        print('[DEBUG] _refresh_produtos_ui concluído!')
     except Exception as e:
-        print(f'[DEBUG] Erro em _refresh_produtos_ui: {e}')
         import traceback
         traceback.print_exc()

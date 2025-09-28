@@ -51,7 +51,6 @@ class DatabaseManager:
                     total_produtos = sum([float(p.get('valor', 0) or 0) for p in produtos])
                 except Exception:
                     total_produtos = None
-            print(f"[DB DEBUG] salvar_ordem: numero_os={dados.get('numero_os')}, nome_cliente={dados.get('nome_cliente')}, total_produtos={total_produtos}")
         except Exception:
             pass
         return self.order_crud.criar_ordem(dados, nome_pdf)

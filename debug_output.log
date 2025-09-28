@@ -1,8 +1,0 @@
-/home/eduardo/Área de Trabalho/Os-Project/main.py:29: DeprecationWarning: sipPyTypeDict() is deprecated, the extension module should use sipPyTypeDictRef() instead
-  super().__init__()
-Carregados 3 clientes na tabela
-carregar_pedidos: buscando nome='Eduardo Viana Chaves' cpf_digits='01958166685' -> 3 rows fetched
-  row[0] id=3 numero_os=3 detalhes='• caixa teste  —  Cor: Azul - R$ 99.99' valor=99.99 prazo=20 status=
-  row[1] id=2 numero_os=2 detalhes='• caixa teste - R$ 99.99' valor=99.99 prazo=40 status=
-  row[2] id=1 numero_os=1 detalhes='• CX  —  Cor: Amarelo - R$ 200.00' valor=200.0 prazo=20 status=
-Erro ao carregar dados do pedido: 'nome'
