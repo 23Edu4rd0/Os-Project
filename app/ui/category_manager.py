@@ -77,6 +77,13 @@ class CategoryManagerDialog(QDialog):
         ok = save_categories(cats)
         if ok:
             QMessageBox.information(self, 'Salvo', 'Categorias salvas com sucesso')
+            # Emitir sinal para atualizar outras interfaces
+            try:
+                from app.signals import get_signals
+                signals = get_signals()
+                signals.categorias_atualizadas.emit()
+            except Exception as e:
+                print(f"Erro ao emitir sinal de categorias: {e}")
             self.accept()
         else:
             QMessageBox.critical(self, 'Erro', 'Falha ao salvar categorias')

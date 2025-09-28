@@ -1,31 +1,90 @@
-"""
-Gerenciamento de cards de pedidos em PyQt6
-"""
-
 from datetime import datetime, timedelta
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
-                             QPushButton, QFrame, QMenu)
-from PyQt6.QtCore import Qt, pyqtSignal, QPoint
-from PyQt6.QtGui import QFont, QPalette, QFontMetrics, QCursor
+                             QPushButton, QFrame, QMenu, QApplication)
+from PyQt6.QtCore import Qt, pyqtSignal, QPoint, QTimer, QEvent
+from PyQt6.QtGui import QFont, QPalette, QFontMetrics, QCursor, QPainter, QColor
+
+
+class CustomTooltip(QLabel):
+    def __init__(self, text, parent=None):
+        super().__init__(text, parent)
+        self.setWindowFlags(Qt.WindowType.ToolTip | Qt.WindowType.FramelessWindowHint)
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, False)
+        
+        self.setStyleSheet("""
+            QLabel {
+                background-color: rgb(0, 0, 0);
+                color: #ffffff;
+                border: 2px solid #555555;
+                padding: 10px;
+                font-size: 14px;
+                font-weight: bold;
+                border-radius: 5px;
+            }
+        """)
+        
+        self.setWordWrap(True)
+        self.setMargin(5)
+        
+    def show_at(self, pos):
+        self.move(pos)
+        self.show()
+        self.raise_()
 
 
 class PedidosCard(QWidget):
-    """Gerencia a criação e exibição de cards de pedidos"""
+    visualizar_clicked = pyqtSignal(int)
+    editar_clicked = pyqtSignal(int)
+    excluir_clicked = pyqtSignal(int)
+    status_changed = pyqtSignal(int, str)
+    pedido_atualizado = pyqtSignal()
     
-    # Sinais para comunicação
-    visualizar_clicked = pyqtSignal(int)  # pedido_id
-    editar_clicked = pyqtSignal(int)  # pedido_id
-    excluir_clicked = pyqtSignal(int)  # pedido_id
-    status_changed = pyqtSignal(int, str)  # pedido_id, novo_status
-    pedido_atualizado = pyqtSignal()  # Para refresh da lista
+    PRODUTO_STYLE = """
+        QLabel {
+            color: #e8e8e8;
+            font-size: 13px;
+            padding: 4px 8px;
+            margin-left: 4px;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 4px;
+        }
+        QLabel:hover {
+            background: rgb(0, 0, 0);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+    """
     
     def __init__(self, interface):
         super().__init__()
         self.interface = interface
+        self.custom_tooltip = None
+        self.tooltip_timer = QTimer()
+        self.tooltip_timer.setSingleShot(True)
+        self.tooltip_timer.timeout.connect(self.hide_tooltip)
+    
+    def show_custom_tooltip(self, text, widget):
+        self.hide_tooltip()
+        self.custom_tooltip = CustomTooltip(text)
+        cursor_pos = QCursor.pos()
+        tooltip_pos = QPoint(cursor_pos.x() + 10, cursor_pos.y() + 10)
+        self.custom_tooltip.show_at(tooltip_pos)
+        self.tooltip_timer.start(5000)
+    
+    def hide_tooltip(self):
+        if self.custom_tooltip:
+            self.custom_tooltip.hide()
+            self.custom_tooltip = None
+    
+    def _setup_tooltip(self, widget, text):
+        widget.enterEvent = lambda event: self.show_custom_tooltip(text, widget)
+        widget.leaveEvent = lambda event: self.hide_tooltip()
+    
+    def _create_styled_label(self, text, style):
+        label = QLabel(text)
+        label.setStyleSheet(style)
+        return label
         
     def criar_card(self, pedido):
-        """Cria um card completo com todas as informações do pedido"""
-        # Frame principal com design moderno
         card_widget = QFrame()
         card_widget.setMinimumSize(320, 280)  # Altura reduzida para layout mais compacto
         card_widget.setMaximumSize(380, 280)  # Altura máxima também reduzida
@@ -37,13 +96,9 @@ class PedidosCard(QWidget):
                 border-radius: 10px;
             }
         """)
-
-        # Layout principal bem estruturado
         card_layout = QVBoxLayout(card_widget)
-        card_layout.setContentsMargins(14, 14, 14, 12)  # Margens reduzidas
-        card_layout.setSpacing(8)  # Espaçamento ajustado
-
-        # Extrair informações do pedido
+        card_layout.setContentsMargins(14, 14, 14, 12)
+        card_layout.setSpacing(8)
         pedido_id = pedido.get('id', 'N/A')
         cliente_nome = pedido.get('nome_cliente', 'Cliente não informado')
         cliente_telefone = pedido.get('telefone_cliente', '')
@@ -52,7 +107,7 @@ class PedidosCard(QWidget):
         endereco = pedido.get('endereco_cliente', 'Endereço não informado')
         valor_total = pedido.get('valor_total', 0)
 
-        # === HEADER DO CARD ===
+
         header_layout = QHBoxLayout()
         
         # Nome do cliente com estilo melhorado
@@ -85,7 +140,7 @@ class PedidosCard(QWidget):
         
         card_layout.addLayout(header_layout)
 
-        # === INFORMAÇÕES SECUNDÁRIAS ===
+
         info_layout = QVBoxLayout()
         info_layout.setSpacing(8)  # Aumentado de 6 para 8
         
@@ -146,7 +201,7 @@ class PedidosCard(QWidget):
         info_layout.addLayout(status_prazo_layout)
         card_layout.addLayout(info_layout)
 
-        # === SEÇÃO DE PRODUTOS ===
+
         produtos_container = QFrame()
         produtos_container.setFixedHeight(80)  # Altura reduzida para mostrar apenas uma linha
         produtos_container.setStyleSheet("""
@@ -175,6 +230,16 @@ class PedidosCard(QWidget):
             if len(produtos) >= 2:
                 # Se tem 2 ou mais produtos, mostrar apenas o total
                 resumo_label = QLabel(f"{len(produtos)} itens")
+                
+                # Criar tooltip com todos os produtos
+                tooltip_text = "Produtos:\n"
+                for p in produtos:
+                    nome = p.get('descricao', p.get('nome', 'Produto'))
+                    cor = p.get('cor', 'Não especificada')
+                    tooltip_text += f"- {nome} (Cor: {cor})\n"
+                
+
+                self._setup_tooltip(resumo_label, tooltip_text)
                 resumo_label.setStyleSheet("""
                     color: #ffa726;
                     font-size: 13px;
@@ -186,38 +251,16 @@ class PedidosCard(QWidget):
                 resumo_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
                 produtos_layout.addWidget(resumo_label)
                 
-                # Mostrar o primeiro produto como exemplo
+
                 produto = produtos[0]
                 descricao = produto.get('descricao', produto.get('nome', 'Produto'))
                 if len(descricao) > 25:
                     descricao = descricao[:22] + "..."
                 
-                # Criar tooltip com todos os produtos
-                tooltip_text = "Produtos:\n"
-                for p in produtos:
-                    nome = p.get('descricao', p.get('nome', 'Produto'))
-                    cor = p.get('cor', 'Não especificada')
-                    tooltip_text += f"- {nome} (Cor: {cor})\n"
-                
                 produto_item = QLabel(f"• {descricao}")
-                produto_item.setToolTip(tooltip_text)
-                produto_item.setStyleSheet("""
-                    QLabel {
-                        color: #e8e8e8;
-                        font-size: 13px;
-                        padding: 4px 8px;
-                        margin-left: 4px;
-                        background: rgba(255, 255, 255, 0.03);
-                        border-radius: 4px;
-                    }
-                    QLabel:hover {
-                        background: rgb(0, 0, 0);
-                        border: 1px solid rgba(255, 255, 255, 0.2);
-                    }
-                    margin-left: 4px;
-                    background: rgba(255, 255, 255, 0.03);
-                    border-radius: 4px;
-                """)
+
+                self._setup_tooltip(produto_item, tooltip_text)
+                produto_item.setStyleSheet(self.PRODUTO_STYLE)
                 produtos_layout.addWidget(produto_item)
                 
                 # Indicar se há mais itens
@@ -246,21 +289,8 @@ class PedidosCard(QWidget):
                 tooltip = f"Produto: {nome_completo}\nCor: {cor}"
                 
                 produto_item = QLabel(f"• {descricao}")
-                produto_item.setToolTip(tooltip)
-                produto_item.setStyleSheet("""
-                    QLabel {
-                        color: #e8e8e8;
-                        font-size: 13px;
-                        padding: 4px 8px;
-                        margin-left: 4px;
-                        background: rgba(255, 255, 255, 0.03);
-                        border-radius: 4px;
-                    }
-                    QLabel:hover {
-                        background: rgb(0, 0, 0);
-                        border: 1px solid rgba(255, 255, 255, 0.2);
-                    }
-                """)
+                self._setup_tooltip(produto_item, tooltip)
+                produto_item.setStyleSheet(self.PRODUTO_STYLE)
                 produtos_layout.addWidget(produto_item)
         else:
             sem_produtos = QLabel("Sem produtos")
@@ -280,7 +310,7 @@ class PedidosCard(QWidget):
         # Pequeno espaçamento para melhor distribuição vertical
         card_layout.addSpacing(5)
 
-        # === VALOR E ENDEREÇO ===
+
         detalhes_layout = QHBoxLayout()
         
         # Valor (lado esquerdo)
@@ -315,7 +345,7 @@ class PedidosCard(QWidget):
         # Espaço flexível
         card_layout.addStretch()
 
-        # === BOTÕES DE AÇÃO ===
+
         self._criar_botoes_modernos(card_layout, pedido)
 
         return card_widget
@@ -362,10 +392,7 @@ class PedidosCard(QWidget):
     
 
             
-    # Métodos auxiliares necessários para funcionalidade básica
-    
     def _criar_secao_valores(self, layout, dados):
-        """Cria a seção de valores"""
         valor_total = float(dados.get('valor_total', 0))
         
         valor_container = QWidget()

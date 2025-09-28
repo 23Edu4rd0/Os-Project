@@ -23,6 +23,9 @@ class AppSignals(QObject):
     produto_editado = pyqtSignal(int)  # produto_id
     produto_excluido = pyqtSignal(int)  # produto_id
     produtos_atualizados = pyqtSignal()
+    
+    # Sinais para categorias
+    categorias_atualizadas = pyqtSignal()
 
 
 # single shared instance

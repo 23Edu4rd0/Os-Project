@@ -31,9 +31,30 @@ class SimpleProdutoDialog(QDialog):
         self._create_ui()
         self._setup_styles()
         self._setup_enter_navigation()
+        self._connect_signals()
         
         if self.is_editing:
             self._load_product_data()
+    
+    def _connect_signals(self):
+        """Conecta aos sinais para atualização automática"""
+        try:
+            from app.signals import get_signals
+            signals = get_signals()
+            signals.categorias_atualizadas.connect(self._on_categories_updated)
+        except Exception as e:
+            print(f"Erro ao conectar sinais no diálogo: {e}")
+    
+    def _on_categories_updated(self):
+        """Callback quando categorias são atualizadas"""
+        current_text = self.category_input.currentText()
+        self._load_categories()
+        # Tentar manter a categoria selecionada
+        index = self.category_input.findText(current_text)
+        if index >= 0:
+            self.category_input.setCurrentIndex(index)
+        else:
+            self.category_input.setCurrentText(current_text)
     
     def _setup_enter_navigation(self):
         """Configurar navegação com Enter entre os campos"""
@@ -182,20 +203,23 @@ class SimpleProdutoDialog(QDialog):
         super().keyPressEvent(event)
     
     def _load_categories(self):
-        """Carregar categorias"""
-        categories = ["", "Agro", "Ferramentas", "Peças", "Serviços", "Outros"]
+        """Carregar categorias do arquivo de configuração"""
+        self.category_input.clear()
+        
+        # Adicionar item vazio
+        self.category_input.addItem("")
         
         try:
-            # Tentar carregar do arquivo de configuração
             from app.utils.categories import load_categories
             file_cats = load_categories()
-            if file_cats:
-                categories.extend([c for c in file_cats if c not in categories])
-        except:
-            pass
-        
-        for cat in categories:
-            self.category_input.addItem(str(cat))
+            for cat in file_cats:
+                self.category_input.addItem(str(cat))
+        except Exception as e:
+            print(f"Erro ao carregar categorias: {e}")
+            # Fallback para categorias padrão
+            default_cats = ["Agro", "Normal", "Outros"]
+            for cat in default_cats:
+                self.category_input.addItem(str(cat))
     
     def _load_product_data(self):
         """Carregar dados do produto para edição"""
@@ -344,8 +368,16 @@ class ProdutosManager(QWidget):
             signals.produto_editado.connect(self._on_produto_atualizado)
             signals.produto_excluido.connect(self._on_produto_atualizado)
             signals.produtos_atualizados.connect(self._on_produtos_atualizados)
+            signals.categorias_atualizadas.connect(self._on_categorias_atualizadas)
         except Exception as e:
             print(f"Erro ao conectar sinais de produtos: {e}")
+    
+    def _on_categorias_atualizadas(self):
+        """Atualiza categorias quando há mudanças no gerenciador"""
+        # Este método será chamado automaticamente quando as categorias forem atualizadas
+        # Mas como não temos acesso direto aos diálogos abertos, vamos implementar 
+        # uma verificação na próxima abertura do diálogo
+        pass
     
     def _on_produto_atualizado(self, produto_id: int = None):
         """Atualiza a lista quando um produto é modificado"""
@@ -365,7 +397,7 @@ class ProdutosManager(QWidget):
         header_layout = QHBoxLayout()
         
         title = QLabel("🛍️ Gestão de Produtos")
-        title.setStyleSheet("font-size: 20px; font-weight: bold; color: #2fa6a0;")
+        title.setStyleSheet("font-size: 20px; font-weight: bold; color: #2fa6a0; background: transparent;")
         header_layout.addWidget(title)
         
         header_layout.addStretch()
@@ -392,13 +424,71 @@ class ProdutosManager(QWidget):
         
         layout.addLayout(header_layout)
         
-        # Tabela
+        # Tabela com scroll
         self._setup_table()
-        layout.addWidget(self.table)
+        
+        # Criar scroll area para a tabela
+        from PyQt6.QtWidgets import QScrollArea
+        self.scroll_area = QScrollArea()
+        scroll_area = self.scroll_area
+        scroll_area.setWidget(self.table)
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setFrameStyle(QScrollArea.Shape.NoFrame)
+        
+        # DEBUG: Adicionar logs de scroll
+        print("DEBUG SCROLL: Scroll area criada")
+        print(f"DEBUG SCROLL: Tabela tem {self.table.rowCount()} linhas")
+        print(f"DEBUG SCROLL: Tamanho da tabela: {self.table.sizeHint()}")
+        
+        # Conectar eventos de scroll para debug
+        scroll_bar = scroll_area.verticalScrollBar()
+        scroll_bar.valueChanged.connect(lambda value: print(f"DEBUG SCROLL: Posição do scroll: {value}"))
+        scroll_bar.rangeChanged.connect(lambda min_val, max_val: print(f"DEBUG SCROLL: Range alterado: {min_val}-{max_val}"))
+        
+        # Verificar se scroll é necessário
+        def check_scroll_needed():
+            table_height = self.table.sizeHint().height()
+            scroll_height = scroll_area.height()
+            needs_scroll = table_height > scroll_height
+            print(f"DEBUG SCROLL: Tabela {table_height}px, Área {scroll_height}px, Precisa scroll: {needs_scroll}")
+            return needs_scroll
+        
+        # Timer para verificar tamanhos após carregamento
+        from PyQt6.QtCore import QTimer
+        debug_timer = QTimer()
+        debug_timer.timeout.connect(check_scroll_needed)
+        debug_timer.setSingleShot(True)
+        debug_timer.start(1000)  # Verificar após 1 segundo
+        
+        scroll_area.setStyleSheet("""
+            QScrollArea {
+                background: transparent;
+                border: none;
+            }
+            QScrollBar:vertical {
+                background: #2b2b2b;
+                width: 12px;
+                border-radius: 6px;
+            }
+            QScrollBar::handle:vertical {
+                background: #555;
+                min-height: 20px;
+                border-radius: 6px;
+            }
+            QScrollBar::handle:vertical:hover {
+                background: #777;
+            }
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+                height: 0px;
+            }
+        """)
+        
+        print("DEBUG SCROLL: Scroll area configurada e adicionada ao layout")
+        layout.addWidget(scroll_area)
         
         # Info footer
         self.info_label = QLabel("Produtos carregados: 0")
-        self.info_label.setStyleSheet("color: #888; font-size: 12px;")
+        self.info_label.setStyleSheet("color: #888; font-size: 12px; background: transparent;")
         layout.addWidget(self.info_label)
     
     def _setup_table(self):
@@ -414,6 +504,9 @@ class ProdutosManager(QWidget):
         self.table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self.table.setAlternatingRowColors(True)
         self.table.setSortingEnabled(True)
+        
+        # Ocultar cabeçalho vertical (números das linhas)
+        self.table.verticalHeader().setVisible(False)
         
         # Larguras das colunas
         header = self.table.horizontalHeader()
@@ -487,6 +580,17 @@ class ProdutosManager(QWidget):
             # Atualizar info
             self.info_label.setText(f"Produtos carregados: {len(products)}")
             
+            # DEBUG: Verificar scroll após carregamento
+            print(f"DEBUG SCROLL: Produtos carregados: {len(products)}")
+            print(f"DEBUG SCROLL: Linhas na tabela: {self.table.rowCount()}")
+            print(f"DEBUG SCROLL: Tamanho da tabela após carregamento: {self.table.sizeHint()}")
+            
+            # Verificar se scroll bar está visível
+            if hasattr(self, 'scroll_area'):
+                scroll_bar = self.scroll_area.verticalScrollBar()
+                print(f"DEBUG SCROLL: Scroll bar visível: {scroll_bar.isVisible()}")
+                print(f"DEBUG SCROLL: Scroll range: {scroll_bar.minimum()}-{scroll_bar.maximum()}")
+        
         except Exception as e:
             print(f"[ERROR] Erro ao carregar produtos: {e}")
             QMessageBox.critical(self, "Erro", f"Erro ao carregar produtos:\n{e}")
@@ -642,36 +746,37 @@ class ProdutosManager(QWidget):
                 background-color: #1f7a75;
             }
             QTableWidget {
-                background-color: #3a3a3a;
-                border: 1px solid #555;
-                border-radius: 8px;
-                gridline-color: #555;
+                background-color: transparent;
+                border: none;
+                border-radius: 0px;
+                gridline-color: #333333;
                 color: #e6e6e6;
                 font-size: 13px;
+                selection-background-color: #2d2d2d;
+                alternate-background-color: transparent;
             }
             QTableWidget::item {
                 padding: 8px;
                 border: none;
             }
             QTableWidget::item:selected {
-                background-color: #2fa6a0;
-                color: white;
+                background-color: #2d2d2d;
+                color: #e6e6e6;
             }
             QTableWidget::item:alternate {
-                background-color: #343434;
+                background-color: #232323;
             }
             QHeaderView::section {
-                background-color: #444;
+                background-color: transparent;
                 color: #e6e6e6;
                 padding: 10px;
                 border: none;
-                border-right: 1px solid #555;
-                border-bottom: 2px solid #2fa6a0;
-                font-weight: 600;
-                font-size: 13px;
+                border-bottom: 1px solid #393939;
+                font-weight: bold;
+                font-size: 14px;
             }
             QHeaderView::section:hover {
-                background-color: #2fa6a0;
-                color: white;
+                background-color: transparent;
+                color: #2fa6a0;
             }
         """)
