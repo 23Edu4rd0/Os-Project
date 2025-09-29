@@ -17,6 +17,16 @@ def _add_produto(self):
     # Pegar valores dos campos
     desc = (self.input_desc.text() or '').strip()
     val_text = (self.input_valor.text() or '').strip()
+    quantidade = 1  # valor padrão
+    
+    # Capturar quantidade se o campo existir
+    try:
+        if hasattr(self, 'input_quantidade') and self.input_quantidade:
+            quantidade = self.input_quantidade.value()
+        else:
+            quantidade = 1
+    except Exception:
+        quantidade = 1
 
 
     # Validação: verificar se campos obrigatórios estão preenchidos
@@ -34,6 +44,7 @@ def _add_produto(self):
             parte = resto.split('R$')[-1].strip()
             val_text = parte
         except Exception as e:
+            pass
 
     # Converter valor do campo (prioridade máxima)
     valor = parse_valor(val_text)
@@ -70,8 +81,8 @@ def _add_produto(self):
             if preco_catalogo and preco_catalogo > 0:
                 valor = float(preco_catalogo)
                 desc = nome_catalogo  # Normalizar nome
-            else:
         else:
+            pass  # Produto não encontrado no catálogo
             
     except Exception as e:
         import traceback
@@ -85,6 +96,7 @@ def _add_produto(self):
             cor = combo_cor.currentText().strip()
             cor_sel = '' if cor in ('Selecione uma cor', '') else cor
     except Exception as e:
+        pass
 
     # Capturar reforço se existir
     reforco_sel = False
@@ -97,6 +109,7 @@ def _add_produto(self):
                 texto = reforco_widget.currentText().strip().lower() if hasattr(reforco_widget, 'currentText') else ''
                 reforco_sel = texto == 'sim'
     except Exception as e:
+        pass
 
     # Aplicar acréscimo se tem reforço
     if reforco_sel:
@@ -106,10 +119,11 @@ def _add_produto(self):
     if not hasattr(self, 'produtos_list') or self.produtos_list is None:
         self.produtos_list = []
 
-    # Montar produto para adicionar (incluir codigo se disponível)
+    # Montar produto para adicionar (incluir codigo e quantidade se disponível)
     produto = {
         'descricao': desc,
         'valor': valor,
+        'quantidade': quantidade,
         'cor': cor_sel,
         'reforco': reforco_sel,
     }
@@ -130,9 +144,11 @@ def _add_produto(self):
         if combo_cor:
             combo_cor.setCurrentIndex(0)
     except Exception as e:
+        pass
 
     # Atualizar interface
     try:
         self._refresh_produtos_ui()
     except Exception as e:
+        pass
 

@@ -236,7 +236,11 @@ class PedidosCard(QWidget):
                 for p in produtos:
                     nome = p.get('descricao', p.get('nome', 'Produto'))
                     cor = p.get('cor', 'Não especificada')
-                    tooltip_text += f"- {nome} (Cor: {cor})\n"
+                    quantidade = p.get('quantidade', 1)
+                    if quantidade > 1:
+                        tooltip_text += f"- {quantidade}x {nome} (Cor: {cor})\n"
+                    else:
+                        tooltip_text += f"- {nome} (Cor: {cor})\n"
                 
 
                 self._setup_tooltip(resumo_label, tooltip_text)
@@ -254,10 +258,18 @@ class PedidosCard(QWidget):
 
                 produto = produtos[0]
                 descricao = produto.get('descricao', produto.get('nome', 'Produto'))
-                if len(descricao) > 25:
-                    descricao = descricao[:22] + "..."
+                quantidade = produto.get('quantidade', 1)
                 
-                produto_item = QLabel(f"• {descricao}")
+                # Adicionar quantidade na exibição se > 1
+                if quantidade > 1:
+                    descricao_display = f"{quantidade}x {descricao}"
+                else:
+                    descricao_display = descricao
+                    
+                if len(descricao_display) > 25:
+                    descricao_display = descricao_display[:22] + "..."
+                
+                produto_item = QLabel(f"• {descricao_display}")
 
                 self._setup_tooltip(produto_item, tooltip_text)
                 produto_item.setStyleSheet(self.PRODUTO_STYLE)
@@ -280,15 +292,26 @@ class PedidosCard(QWidget):
                 # Se tem apenas 1 produto, mostrar de forma simples
                 produto = produtos[0]
                 descricao = produto.get('descricao', produto.get('nome', 'Produto'))
-                if len(descricao) > 25:
-                    descricao = descricao[:22] + "..."
+                quantidade = produto.get('quantidade', 1)
+                
+                # Adicionar quantidade na exibição se > 1
+                if quantidade > 1:
+                    descricao_display = f"{quantidade}x {descricao}"
+                else:
+                    descricao_display = descricao
+                    
+                if len(descricao_display) > 25:
+                    descricao_display = descricao_display[:22] + "..."
                 
                 # Criar tooltip com detalhes completos
                 nome_completo = produto.get('descricao', produto.get('nome', 'Produto'))
                 cor = produto.get('cor', 'Não especificada')
-                tooltip = f"Produto: {nome_completo}\nCor: {cor}"
+                if quantidade > 1:
+                    tooltip = f"Produto: {quantidade}x {nome_completo}\nCor: {cor}"
+                else:
+                    tooltip = f"Produto: {nome_completo}\nCor: {cor}"
                 
-                produto_item = QLabel(f"• {descricao}")
+                produto_item = QLabel(f"• {descricao_display}")
                 self._setup_tooltip(produto_item, tooltip)
                 produto_item.setStyleSheet(self.PRODUTO_STYLE)
                 produtos_layout.addWidget(produto_item)
@@ -609,7 +632,7 @@ class PedidosCard(QWidget):
                         stop:0 #33e077, stop:1 #27cc60);
                 }
             """)
-            btn_whatsapp.clicked.connect(lambda: self._abrir_whatsapp_com_feedback(btn_whatsapp, pedido))
+            btn_whatsapp.clicked.connect(lambda: self._mostrar_menu_whatsapp(btn_whatsapp, pedido))
         else:
             btn_whatsapp.setStyleSheet(btn_base + """
                 QPushButton { 

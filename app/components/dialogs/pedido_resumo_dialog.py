@@ -264,17 +264,14 @@ class PedidoResumoDialog(QDialog):
                     try:
                         # Debug: verificar estrutura do produto
                         if isinstance(produto, dict):
-                        
-                        nome = produto.get('nome', 'Produto sem nome')
-                        codigo = produto.get('codigo', 'S/Código')
-                        quantidade = produto.get('quantidade', 1)
-                        valor_unitario = produto.get('valor_unitario', 0.0)
-                        valor_total = quantidade * valor_unitario
-                        
-                        
-                        produto_text = f"• {nome} (Código: {codigo}) - Qtd: {quantidade} - R$ {valor_total:.2f}"
-                        label_produto = QLabel(produto_text)
-                        layout_produtos.addWidget(label_produto)
+                            nome = produto.get('nome', 'Produto sem nome')
+                            codigo = produto.get('codigo', 'S/Código')
+                            quantidade = produto.get('quantidade', 1)
+                            valor_unitario = produto.get('valor_unitario', 0.0)
+                            valor_total = quantidade * valor_unitario
+                            produto_text = f"• {nome} (Código: {codigo}) - Qtd: {quantidade} - R$ {valor_total:.2f}"
+                            label_produto = QLabel(produto_text)
+                            layout_produtos.addWidget(label_produto)
                     except Exception as e:
                         import traceback
                         traceback.print_exc()

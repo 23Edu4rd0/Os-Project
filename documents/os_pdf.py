@@ -59,6 +59,7 @@ class OrdemServicoPDF:
         cpf_cliente = self.dados["cpf_cliente"]
         telefone_cliente = self.dados["telefone_cliente"]
         detalhes_produto = self.dados["detalhes_produto"]
+        produtos = self.dados.get("produtos", [])  # Lista estruturada de produtos
         valor_produto = self.dados.get("valor_produto")
         valor_entrada = self.dados.get("valor_entrada")
         frete = self.dados.get("frete")
@@ -96,6 +97,7 @@ class OrdemServicoPDF:
             except Exception:
                 pass  # Usar fonte padrão em caso de erro
         
+
         # Registrar Bold (silencioso)
         if os.path.exists(font_path_bold):
             try:
@@ -105,7 +107,6 @@ class OrdemServicoPDF:
                 font_bold_to_use = custom_font_bold
             except Exception:
                 pass  # Usar fonte padrão em caso de erro
-        # --- Font Handling End ---
 
         # Escolha do tamanho da folha
         if self.tamanho_folha == "grande":
@@ -114,22 +115,50 @@ class OrdemServicoPDF:
             width, height = 80 * mm, 250 * mm  # Bobina
         c = canvas.Canvas(self.arquivo_pdf, pagesize=(width, height))
 
+        # --- Inserir logo no topo, se existir ---
+        logo_path = os.path.normpath(os.path.join(script_dir, '..', 'assets', 'logo.png'))
+        if os.path.exists(logo_path):
+            try:
+                # Largura máxima do logo: 40mm ou largura da página - 20mm
+                max_logo_width = min(40 * mm, width - 20 * mm)
+                # Altura máxima do logo: 20mm
+                max_logo_height = 20 * mm
+                from reportlab.lib.utils import ImageReader
+                logo_img = ImageReader(logo_path)
+                img_width, img_height = logo_img.getSize()
+                aspect = img_height / img_width
+                draw_width = max_logo_width
+                draw_height = draw_width * aspect
+                if draw_height > max_logo_height:
+                    draw_height = max_logo_height
+                    draw_width = draw_height / aspect
+                x = (width - draw_width) / 2
+                y = height - draw_height - 8  # 8pt margin from top
+                c.drawImage(logo_path, x, y, width=draw_width, height=draw_height, mask='auto')
+                y_logo_base = y - 5  # Espaço após o logo
+            except Exception:
+                y_logo_base = height - 20  # fallback
+        else:
+            y_logo_base = height - 20
+
         # Cabeçalho
         c.setFont(font_bold_to_use, 12)
-        c.drawCentredString(width / 2, height - 20, "Merkava Ferramentas")
+        c.drawCentredString(width / 2, y_logo_base, "Merkava Ferramentas")
         c.setFont(font_to_use, 8)
         c.drawCentredString(
             width / 2,
-            height - 30,
+            y_logo_base - 10,
             "Rua José Gabriel Medef, 41 - Padre Liberio - Divinópolis - MG"
         )
-        c.drawCentredString(width / 2, height - 40, "Tel: (37) 98402-9655")
+        c.drawCentredString(width / 2, y_logo_base - 20, "Tel: (37) 98402-9655")
+
+        y_position = y_logo_base - 50  # aumenta o espaço entre empresa e número da OS
 
         c.setFont(font_bold_to_use, 12)
-        c.drawString(10, height - 70, f"NÚMERO DA OS: {numero_os}")
-        c.line(10, height - 75, width - 10, height - 75)
+        c.drawString(10, y_position, f"NÚMERO DA OS: {numero_os}")
+        c.line(10, y_position - 5, width - 10, y_position - 5)
+        y_position -= 15
 
-        y_position = height - 85
         c.setFont(font_to_use, 9)
         c.drawString(10, y_position, f"Data de Emissão: {data_e_hora_texto}")
         y_position -= 20
@@ -141,28 +170,41 @@ class OrdemServicoPDF:
 
         c.setFont(font_to_use, 9)
         c.drawString(10, y_position, f'Nome: {nome_cliente}')
-        y_position -= 15
-        c.drawString(10, y_position, f'CPF: {cpf_cliente}')
-        y_position -= 15
-        c.drawString(10, y_position, f'Telefone: {telefone_cliente}')
-        y_position -= 25
 
+
+        # --- Seção de Produtos ---
         c.setFont(font_bold_to_use, 12)
-        c.drawString(10, y_position, "DETALHES DO PRODUTO")
+        c.drawString(10, y_position, "PRODUTOS")
         c.line(10, y_position - 5, width - 10, y_position - 5)
         y_position -= 20
-
-        styles = getSampleStyleSheet()
-        style = styles["Normal"]
-        style.fontName = font_to_use  # Regular para detalhes
-        style.fontSize = 9
-        style.leading = 12
-
-        detalhes_paragraph = Paragraph(detalhes_produto, style)
-        text_width = width - 20
-        _, h = detalhes_paragraph.wrap(text_width, y_position)
-        detalhes_paragraph.drawOn(c, 10, y_position - h)
-        y_position -= h + 25
+        
+        # Usar lista estruturada se disponível, senão usar detalhes_produto como fallback
+        if produtos and isinstance(produtos, list):
+            c.setFont(font_to_use, 9)
+            for produto in produtos:
+                nome = produto.get('descricao', produto.get('nome', 'Produto'))
+                quantidade = produto.get('quantidade', 1)
+                valor_unit = produto.get('valor', 0)
+                valor_total_item = quantidade * valor_unit
+                
+                # Exibir: "2x Produto ABC - R$ 50,00 (unit: R$ 25,00)"
+                if quantidade > 1:
+                    linha_produto = f"{quantidade}x {nome} - R$ {valor_total_item:.2f} (unit: R$ {valor_unit:.2f})"
+                else:
+                    linha_produto = f"{nome} - R$ {valor_unit:.2f}"
+                
+                linha_produto = linha_produto.replace('.', ',')
+                c.drawString(15, y_position, f"• {linha_produto}")
+                y_position -= 12
+            y_position -= 13  # Espaço extra após lista de produtos
+        else:
+            # Fallback para detalhes_produto como string
+            style = getSampleStyleSheet()["Normal"]
+            text_width = width - 20
+            detalhes_paragraph = Paragraph(detalhes_produto, style)
+            _, h = detalhes_paragraph.wrap(text_width, y_position)
+            detalhes_paragraph.drawOn(c, 10, y_position - h)
+            y_position -= h + 25
 
         c.setFont(font_bold_to_use, 12)
         c.drawString(10, y_position, "ORÇAMENTO")
@@ -211,10 +253,9 @@ class OrdemServicoPDF:
         y_position -= 15
 
         termos_condicoes = """
-        1. Valor pode variar conforme material e complexidade do serviço.<br/>
-        2. Prazos podem mudar por aprovação ou falta de material.<br/>
-        3. Alterações após início implicam novo prazo e valor.<br/>
-        4. Entrega só é válida com este documento.
+        1. O valor e o prazo podem ser ajustados conforme necessidade de materiais, mudanças no pedido ou imprevistos.<br/>
+        2. Mudanças ou condições especiais serão sempre comunicadas e acordadas previamente.<br/>
+        3. Caso precise cancelar ou alterar qualquer informação do pedido (como pagamento, endereço, itens, etc.), entre em contato o quanto antes para avaliarmos juntos a melhor solução.
         """
         termos_paragraph = Paragraph(termos_condicoes, style)
         w, h = termos_paragraph.wrap(text_width, y_position)

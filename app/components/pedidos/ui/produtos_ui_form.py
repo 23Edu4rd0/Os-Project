@@ -1,6 +1,6 @@
 from PyQt6.QtWidgets import (QWidget, QHBoxLayout, QVBoxLayout, QPushButton, QLabel, 
                              QLineEdit, QComboBox, QCompleter, QFrame, QFormLayout, QGroupBox)
-from PyQt6.QtGui import QFont
+from PyQt6.QtGui import QFont, QIntValidator
 from PyQt6.QtCore import Qt
 
 """
@@ -10,6 +10,15 @@ Retorna: dict com widgets criados
 """
 
 def criar_produtos_ui(self, parent_layout, pedido_data):
+    # Campo 2: Quantidade
+    quantidade_label = QLabel("Quantidade:")
+    quantidade_label.setStyleSheet(label_style)
+    input_quantidade = QLineEdit()
+    input_quantidade.setPlaceholderText("1")
+    input_quantidade.setText("1")
+    input_quantidade.setStyleSheet(input_style)
+    input_quantidade.setValidator(QIntValidator(1, 9999))
+    form_layout.addRow(quantidade_label, input_quantidade)
     # Container principal
     produtos_container = QGroupBox("Produtos do Pedido")
     produtos_container.setFont(QFont("Arial", 12, QFont.Weight.Bold))

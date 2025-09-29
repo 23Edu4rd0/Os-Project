@@ -35,12 +35,29 @@ def _refresh_produtos_ui(self):
 
         name_col = _find_col(['nome', 'produto'])
         code_col = _find_col(['cód', 'cod', 'codigo'])
+        qtd_col = _find_col(['qtd', 'quantidade'])
         valor_col = _find_col(['valor'])
         cor_col = _find_col(['cor'])
         acoes_col = _find_col(['ação', 'acao', 'ações', 'acoes', 'aç'])
 
         # Fallbacks conforme o número de colunas
-        if table.columnCount() >= 5:
+        if table.columnCount() >= 6:
+            name_col = 0 if name_col is None else name_col
+            code_col = 1 if code_col is None else code_col
+            qtd_col = 2 if qtd_col is None else qtd_col
+            valor_col = 3 if valor_col is None else valor_col
+            cor_col = 4 if cor_col is None else cor_col
+            acoes_col = 5 if acoes_col is None else acoes_col
+            # Ajustar larguras para layout com código e quantidade
+            try:
+                table.setColumnWidth(code_col, 80)
+                table.setColumnWidth(qtd_col, 50)
+                table.setColumnWidth(valor_col, 120)
+                table.setColumnWidth(cor_col, 120)
+                table.setColumnWidth(acoes_col, 220)
+            except Exception:
+                pass
+        elif table.columnCount() >= 5:
             name_col = 0 if name_col is None else name_col
             code_col = 1 if code_col is None else code_col
             valor_col = 2 if valor_col is None else valor_col
@@ -82,6 +99,11 @@ def _refresh_produtos_ui(self):
             codigo_val = prod.get('codigo') or prod.get('cod') or prod.get('sku') or ''
             if code_col is not None and codigo_val:
                 table.setItem(idx, code_col, QTableWidgetItem(str(codigo_val)))
+            
+            # Quantidade (se houver coluna de quantidade)
+            quantidade = prod.get('quantidade', 1)
+            if qtd_col is not None:
+                table.setItem(idx, qtd_col, QTableWidgetItem(str(quantidade)))
 
             # Valor/Preço
             try:
@@ -128,6 +150,7 @@ def _refresh_produtos_ui(self):
             if hasattr(self, 'campos') and 'valor_total' in self.campos:
                 self.campos['valor_total'].setText(f"R$ {total:.2f}")
         except Exception as e:
+            pass
 
     except Exception as e:
         import traceback
