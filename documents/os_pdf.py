@@ -273,12 +273,33 @@ class OrdemServicoPDF:
         if endereco_linha1:
             c.drawString(10, y_position, f'Endereço: {endereco_linha1}')
             y_position -= 15
-        if endereco_linha2:
-            c.drawString(10, y_position, f'           {endereco_linha2}')
+        
+        # Montar endereço completo
+        endereco_completo = ""
+        if endereco_cliente:
+            endereco_completo = endereco_cliente
+        elif rua_cliente:
+            endereco_completo = rua_cliente
+            if numero_cliente:
+                endereco_completo += f", {numero_cliente}"
+        
+        if endereco_completo:
+            c.drawString(10, y_position, f'Endereço: {endereco_completo}')
             y_position -= 15
-        if not endereco_linha1 and not endereco_linha2:
-            c.drawString(10, y_position, 'Endereço: Não informado')
-            y_position -= 15
+        
+        # Bairro, Cidade e Estado
+        if bairro_cliente or cidade_cliente or estado_cliente:
+            localizacao = []
+            if bairro_cliente:
+                localizacao.append(bairro_cliente)
+            if cidade_cliente:
+                localizacao.append(cidade_cliente)
+            if estado_cliente:
+                localizacao.append(estado_cliente)
+            
+            if localizacao:
+                c.drawString(10, y_position, f'Localização: {" - ".join(localizacao)}')
+                y_position -= 15
         
         y_position -= 10
 
