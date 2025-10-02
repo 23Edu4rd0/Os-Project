@@ -333,7 +333,7 @@ def setup_application() -> QApplication:
     font = QFont("Segoe UI", 10)
     app.setFont(font)
     
-    icon_path = ROOT_DIR / "assets" / "icon.ico"
+    icon_path = ROOT_DIR / "assets" / "logo.ico"  # ou logo.ico se for .ico
     if icon_path.exists():
         app.setWindowIcon(QIcon(str(icon_path)))
     

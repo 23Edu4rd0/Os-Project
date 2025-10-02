@@ -112,16 +112,37 @@ def criar_secao_produtos(modal, layout, pedido_data):
     modal.input_categoria = QComboBox()
     modal.input_categoria.setMinimumWidth(150)
     modal.input_categoria.addItem("Todas")
+    
+    def _load_categories_modal():
+        """Carrega categorias no combo"""
+        current_text = modal.input_categoria.currentText()
+        modal.input_categoria.clear()
+        modal.input_categoria.addItem("Todas")
+        try:
+            from app.utils.categories import load_categories
+            cats = load_categories()
+            for c in cats:
+                if modal.input_categoria.findText(c) < 0:
+                    modal.input_categoria.addItem(c)
+        except Exception:
+            for c in ('Agro','Normal','Outros'):
+                if modal.input_categoria.findText(c) < 0:
+                    modal.input_categoria.addItem(c)
+        # Restaura seleção anterior se ainda existir
+        index = modal.input_categoria.findText(current_text)
+        if index >= 0:
+            modal.input_categoria.setCurrentIndex(index)
+    
+    # Carrega categorias iniciais
+    _load_categories_modal()
+    
+    # Conecta ao sinal de atualização de categorias
     try:
-        from app.utils.categories import load_categories
-        cats = load_categories()
-        for c in cats:
-            if modal.input_categoria.findText(c) < 0:
-                modal.input_categoria.addItem(c)
-    except Exception:
-        for c in ('Agro','Normal','Outros'):
-            if modal.input_categoria.findText(c) < 0:
-                modal.input_categoria.addItem(c)
+        from app.signals import get_signals
+        signals = get_signals()
+        signals.categorias_atualizadas.connect(_load_categories_modal)
+    except Exception as e:
+        print(f"Erro ao conectar sinal de categorias no modal: {e}")
     cat_layout.addWidget(modal.input_categoria)
     linha1.addWidget(cat_container)
     

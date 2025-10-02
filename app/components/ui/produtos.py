@@ -30,9 +30,29 @@ class ProdutoDialog(QDialog):
         
         self._create_ui()
         self._setup_styles()
+        self._connect_signals()
         
         if self.is_editing:
             self._load_product_data()
+    
+    def _connect_signals(self):
+        """Conecta aos sinais para atualização automática"""
+        try:
+            from app.signals import get_signals
+            signals = get_signals()
+            signals.categorias_atualizadas.connect(self._on_categories_updated)
+        except Exception as e:
+            print(f"Erro ao conectar sinais no diálogo de produtos: {e}")
+    
+    def _on_categories_updated(self):
+        """Callback quando categorias são atualizadas"""
+        current_text = self.category_input.currentText()
+        self.category_input.clear()
+        self._load_categories()
+        # Restaura seleção anterior se ainda existir
+        index = self.category_input.findText(current_text)
+        if index >= 0:
+            self.category_input.setCurrentIndex(index)
     
     def _create_ui(self):
         """Criar interface"""

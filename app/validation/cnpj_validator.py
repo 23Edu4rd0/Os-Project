@@ -80,21 +80,14 @@ def cnpj_existe_na_receita(cnpj):
     return True
 
 
-def validar_inscricao_estadual(ie, estado="MG"):
+def validar_inscricao_estadual(ie: str, estado=None) -> bool:
     """
     Valida Inscrição Estadual (implementação básica para MG)
     """
     if not ie:
-        return True  # IE é obrigatória apenas se tiver CNPJ
-    
-    ie_limpa = re.sub(r'[^0-9]', '', ie)
-    
-    # Validação básica para Minas Gerais (13 dígitos)
-    if estado.upper() == "MG":
-        if len(ie_limpa) != 13:
-            return False
-        # Validação básica para MG implementada
+        return False
+    ie = ie.strip().upper()
+    if ie.upper() in ["ISENTO", "ISENTA"]:
         return True
-    
-    # Para outros estados, apenas verifica se não está vazio
-    return len(ie_limpa) > 0
+    # Se quiser permitir números, mantenha a validação abaixo:
+    return ie.isdigit() or len(ie) > 0  # sua validação antiga

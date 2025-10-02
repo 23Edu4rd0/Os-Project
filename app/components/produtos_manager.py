@@ -374,10 +374,25 @@ class ProdutosManager(QWidget):
     
     def _on_categorias_atualizadas(self):
         """Atualiza categorias quando há mudanças no gerenciador"""
-        # Este método será chamado automaticamente quando as categorias forem atualizadas
-        # Mas como não temos acesso direto aos diálogos abertos, vamos implementar 
-        # uma verificação na próxima abertura do diálogo
-        pass
+        # Recarrega as categorias no filtro se existir
+        if hasattr(self, 'category_filter') and self.category_filter:
+            current_text = self.category_filter.currentText()
+            self.category_filter.clear()
+            self.category_filter.addItem("Todas")
+            try:
+                from app.utils.categories import load_categories
+                cats = load_categories()
+                for cat in cats:
+                    self.category_filter.addItem(cat)
+                # Restaura seleção se ainda existir
+                index = self.category_filter.findText(current_text)
+                if index >= 0:
+                    self.category_filter.setCurrentIndex(index)
+            except Exception as e:
+                print(f"Erro ao atualizar categorias: {e}")
+        
+        # Recarrega produtos para refletir mudanças
+        self._load_products()
     
     def _on_produto_atualizado(self, produto_id: int = None):
         """Atualiza a lista quando um produto é modificado"""
