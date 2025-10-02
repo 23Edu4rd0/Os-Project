@@ -589,14 +589,15 @@ class PedidosInterface(QWidget):
 				return
 
 		# Filtrar por status
-		if self.status_filter != "todos":
-			# Tratar sinônimos: 'entregue' ~ 'concluído'
+		if self.status_filter and self.status_filter.lower() != "todos":
 			filtro = self.status_filter.lower()
-			if filtro in ("entregue", "concluído", "concluido"):
-				pedidos = [p for p in pedidos if (p.get("status", "") or "").lower() in ("entregue", "concluído", "concluido") or "conclu" in (p.get("status", "") or "").lower()]
-			else:
-				pedidos = [p for p in pedidos if (p.get("status", "") or "").lower() == filtro]
-		# Não filtrar 'todos' - mostrar todos os pedidos
+			pedidos_filtrados = []
+			for p in pedidos:
+				status_pedido = (p.get("status", "") or "").lower().strip()
+				# Normalizar para comparação
+				if filtro == status_pedido:
+					pedidos_filtrados.append(p)
+			pedidos = pedidos_filtrados
 		
 		# Filtrar por texto de busca (nome, CPF, telefone)
 		if hasattr(self, 'search_text') and self.search_text:
@@ -860,6 +861,8 @@ class PedidosInterface(QWidget):
 	def _filtrar_pedidos(self):
 		"""Filtra pedidos baseado no status selecionado"""
 		try:
+			status_selecionado = self.filtro_status.currentText()
+			self.status_filter = status_selecionado.lower()
 			self.carregar_dados(force_refresh=True)
 		except Exception as e:
 			print(f"Erro ao filtrar pedidos: {e}")

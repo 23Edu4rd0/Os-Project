@@ -86,8 +86,8 @@ class PedidosCard(QWidget):
         
     def criar_card(self, pedido):
         card_widget = QFrame()
-        card_widget.setMinimumSize(450, 380)  # Card mais largo para melhor visualização
-        card_widget.setMaximumSize(500, 380)
+        card_widget.setMinimumSize(410, 380)  # Card ajustado para 3 por linha
+        card_widget.setMaximumSize(440, 380)
         card_widget.setStyleSheet("""
             QFrame {
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
