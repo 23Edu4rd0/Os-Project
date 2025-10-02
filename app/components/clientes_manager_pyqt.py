@@ -1305,6 +1305,61 @@ class ClienteModal(QDialog):
         
         # Aplicar estilo
         self._aplicar_estilo()
+        
+        # Configurar navegação por Enter
+        self._setup_enter_navigation()
+    
+    def _setup_enter_navigation(self):
+        """Configura navegação por Enter entre os campos"""
+        # Lista de campos na ordem de navegação
+        self.ordem_campos = [
+            self.campos['nome'],
+            self.campos['cpf'],
+            self.campos['cnpj'],
+            self.campos['inscricao_estadual'],
+            self.campos['telefone'],
+            self.campos['email'],
+            self.campos['cep'],
+            self.campos['rua'],
+            self.campos['numero'],
+            self.campos['bairro'],
+            self.campos['cidade'],
+            self.campos['estado'],
+            self.campos['referencia']
+        ]
+        
+        # Instalar filtro de eventos em cada campo
+        for i, campo in enumerate(self.ordem_campos):
+            campo.installEventFilter(self)
+    
+    def eventFilter(self, obj, event):
+        """Filtra eventos de teclado para navegação por Enter"""
+        from PyQt6.QtCore import QEvent
+        from PyQt6.QtGui import QKeyEvent
+        
+        if event.type() == QEvent.Type.KeyPress and isinstance(event, QKeyEvent):
+            if event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+                # Se for o campo CEP, aciona busca
+                if obj == self.campos['cep']:
+                    self._buscar_cep()
+                    return True
+                
+                # Se for o último campo, salva
+                elif obj == self.campos['referencia']:
+                    self._salvar_cliente()
+                    return True
+                
+                # Caso contrário, vai para o próximo campo
+                else:
+                    try:
+                        current_index = self.ordem_campos.index(obj)
+                        if current_index < len(self.ordem_campos) - 1:
+                            self.ordem_campos[current_index + 1].setFocus()
+                            return True
+                    except ValueError:
+                        pass
+        
+        return super().eventFilter(obj, event)
     
     def _criar_secao_pessoal(self, layout):
         """Cria seção de dados pessoais"""

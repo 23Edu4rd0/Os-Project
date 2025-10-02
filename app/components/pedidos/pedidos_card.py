@@ -86,325 +86,352 @@ class PedidosCard(QWidget):
         
     def criar_card(self, pedido):
         card_widget = QFrame()
-        card_widget.setMinimumSize(320, 280)  # Altura reduzida para layout mais compacto
-        card_widget.setMaximumSize(380, 280)  # Altura máxima também reduzida
+        card_widget.setMinimumSize(450, 380)  # Card mais largo para melhor visualização
+        card_widget.setMaximumSize(500, 380)
         card_widget.setStyleSheet("""
             QFrame {
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 #323232, stop:1 #212121);
-                border: 1px solid #505050;
-                border-radius: 10px;
+                    stop:0 #2d3748, stop:1 #1a202c);
+                border: 2px solid #4a5568;
+                border-radius: 12px;
+            }
+            QFrame:hover {
+                border: 2px solid #667eea;
             }
         """)
         card_layout = QVBoxLayout(card_widget)
-        card_layout.setContentsMargins(14, 14, 14, 12)
+        card_layout.setContentsMargins(12, 12, 12, 12)
         card_layout.setSpacing(8)
+        
+        # Extrair dados
         pedido_id = pedido.get('id', 'N/A')
         cliente_nome = pedido.get('nome_cliente', 'Cliente não informado')
         cliente_telefone = pedido.get('telefone_cliente', '')
+        cpf_cliente = pedido.get('cpf_cliente', '')
         status = pedido.get('status', 'pendente')
         produtos = pedido.get('produtos', [])
         endereco = pedido.get('endereco_cliente', 'Endereço não informado')
         valor_total = pedido.get('valor_total', 0)
+        valor_entrada = pedido.get('valor_entrada', 0)
+        forma_pagamento = pedido.get('forma_pagamento', 'Não informado')
+        data_criacao = pedido.get('data_criacao', '')
+        prazo = pedido.get('prazo', 0)
 
 
+        # === HEADER MODERNIZADO ===
         header_layout = QHBoxLayout()
+        header_layout.setSpacing(10)
         
-        # Nome do cliente com estilo melhorado
-        cliente_label = QLabel(cliente_nome)
-        cliente_label.setStyleSheet("""
-            color: #ffffff;
-            font-size: 16px;
-            font-weight: bold;
-            margin: 0px;
-            padding: 2px 4px;
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 4px;
+        # Status Badge (esquerda)
+        status_colors = {
+            'pendente': ('#fbbf24', '#78350f'),
+            'em andamento': ('#60a5fa', '#1e3a8a'),
+            'em produção': ('#60a5fa', '#1e3a8a'),
+            'concluído': ('#34d399', '#064e3b'),
+            'cancelado': ('#f87171', '#7f1d1d')
+        }
+        bg_color, text_color = status_colors.get(status.lower(), ('#9ca3af', '#1f2937'))
+        
+        status_badge = QLabel(f"●  {status.upper()}")
+        status_badge.setStyleSheet(f"""
+            background: {bg_color};
+            color: {text_color};
+            font-size: 11px;
+            font-weight: 800;
+            padding: 8px 16px;
+            border-radius: 8px;
+            letter-spacing: 1px;
         """)
-        cliente_label.setWordWrap(False)
-        header_layout.addWidget(cliente_label)
+        header_layout.addWidget(status_badge)
         
         header_layout.addStretch()
         
-        # ID do pedido com estilo melhorado 
-        id_label = QLabel(f"#{pedido_id}")
+        # ID e Data (direita)
+        info_right = QVBoxLayout()
+        info_right.setSpacing(2)
+        
+        id_label = QLabel(f"OS #{pedido_id}")
         id_label.setStyleSheet("""
-            color: #bbbbbb;
-            font-size: 14px;
-            font-weight: 600;
-            padding: 2px 6px;
-            background: rgba(0, 0, 0, 0.2);
-            border-radius: 4px;
+            color: #e2e8f0;
+            font-size: 15px;
+            font-weight: 700;
         """)
-        header_layout.addWidget(id_label)
+        id_label.setAlignment(Qt.AlignmentFlag.AlignRight)
+        info_right.addWidget(id_label)
         
-        card_layout.addLayout(header_layout)
-
-
-        info_layout = QVBoxLayout()
-        info_layout.setSpacing(8)  # Aumentado de 6 para 8
-        
-        # Telefone (se disponível)
-        if cliente_telefone:
-            telefone_label = QLabel(f"📞 {cliente_telefone}")
-            telefone_label.setStyleSheet("""
-                color: #b0b0b0;
-                font-size: 12px;
-                margin: 0px;
+        if data_criacao:
+            try:
+                from datetime import datetime
+                data_obj = datetime.strptime(data_criacao, '%Y-%m-%d')
+                data_formatada = data_obj.strftime('%d/%m/%Y')
+            except:
+                data_formatada = data_criacao
+            
+            data_label = QLabel(data_formatada)
+            data_label.setStyleSheet("""
+                color: #94a3b8;
+                font-size: 11px;
             """)
-            info_layout.addWidget(telefone_label)
+            data_label.setAlignment(Qt.AlignmentFlag.AlignRight)
+            info_right.addWidget(data_label)
         
-        # Status e prazo em uma linha
-        status_prazo_layout = QHBoxLayout()
+        header_layout.addLayout(info_right)
+        card_layout.addLayout(header_layout)
         
-        # Status com cor
-        status_colors = {
-            'pendente': '#ffa726',
-            'em andamento': '#42a5f5', 
-            'em produção': '#42a5f5',
-            'concluído': '#66bb6a',
-            'cancelado': '#ef5350'
-        }
-        status_cor = status_colors.get(status.lower(), '#888888')
-        
-        status_label = QLabel(f"● {status.title()}")
-        status_label.setStyleSheet(f"""
-            color: {status_cor};
-            font-size: 12px;
-            font-weight: 600;
+        # Linha separadora
+        separator1 = QFrame()
+        separator1.setFrameShape(QFrame.Shape.HLine)
+        separator1.setStyleSheet("background: #4a5568; max-height: 1px;")
+        card_layout.addWidget(separator1)
+
+
+        # === INFORMAÇÕES DO CLIENTE ===
+        cliente_section = QFrame()
+        cliente_section.setStyleSheet("""
+            QFrame {
+                background: rgba(255, 255, 255, 0.05);
+                border: 1px solid rgba(255, 255, 255, 0.1);
+                border-radius: 8px;
+            }
         """)
-        status_prazo_layout.addWidget(status_label)
+        cliente_layout = QVBoxLayout(cliente_section)
+        cliente_layout.setContentsMargins(10, 8, 10, 8)
+        cliente_layout.setSpacing(6)
         
-        status_prazo_layout.addStretch()
+        # Nome do cliente
+        nome_layout = QHBoxLayout()
+        nome_icon = QLabel("👤")
+        nome_icon.setStyleSheet("font-size: 16px;")
+        nome_layout.addWidget(nome_icon)
         
-        # Dias restantes
+        nome_label = QLabel(cliente_nome)
+        nome_label.setStyleSheet("""
+            color: #f1f5f9;
+            font-size: 16px;
+            font-weight: 700;
+            min-height: 20px;
+        """)
+        nome_label.setWordWrap(False)
+        if len(cliente_nome) > 40:
+            nome_label.setText(cliente_nome[:40] + "...")
+            nome_label.setToolTip(cliente_nome)
+        nome_layout.addWidget(nome_label)
+        nome_layout.addStretch()
+        cliente_layout.addLayout(nome_layout)
+        
+        # Endereço em uma linha
+        endereco_layout = QHBoxLayout()
+        endereco_icon = QLabel("📍")
+        endereco_icon.setStyleSheet("font-size: 14px;")
+        endereco_layout.addWidget(endereco_icon)
+        
+        # Tenta formatar endereço compacto
+        endereco_parts = []
+        try:
+            rua = pedido.get('rua_cliente', '')
+            numero = pedido.get('numero_cliente', '')
+            bairro = pedido.get('bairro_cliente', '')
+            cidade = pedido.get('cidade_cliente', '')
+            estado = pedido.get('estado_cliente', '')
+            
+            if rua:
+                if numero:
+                    endereco_parts.append(f"{rua}, {numero}")
+                else:
+                    endereco_parts.append(rua)
+            if bairro:
+                endereco_parts.append(bairro)
+            if cidade:
+                if estado:
+                    endereco_parts.append(f"{cidade}/{estado}")
+                else:
+                    endereco_parts.append(cidade)
+        except:
+            pass
+        
+        endereco_compacto = " - ".join(endereco_parts) if endereco_parts else endereco
+        if len(endereco_compacto) > 50:
+            endereco_compacto = endereco_compacto[:50] + "..."
+        
+        endereco_label = QLabel(endereco_compacto)
+        endereco_label.setStyleSheet("""
+            color: #cbd5e1;
+            font-size: 11px;
+        """)
+        endereco_label.setWordWrap(False)
+        endereco_label.setToolTip(endereco if endereco else endereco_compacto)
+        endereco_layout.addWidget(endereco_label)
+        endereco_layout.addStretch()
+        cliente_layout.addLayout(endereco_layout)
+        
+        card_layout.addWidget(cliente_section)
+
+
+        # === SEÇÃO DE PRODUTOS MODERNIZADA ===
+        produtos_container = QFrame()
+        produtos_container.setStyleSheet("""
+            QFrame {
+                background: rgba(99, 102, 241, 0.12);
+                border: 1px solid rgba(99, 102, 241, 0.4);
+                border-radius: 8px;
+            }
+        """)
+        produtos_main_layout = QVBoxLayout(produtos_container)
+        produtos_main_layout.setContentsMargins(10, 10, 10, 10)
+        produtos_main_layout.setSpacing(8)
+        
+        # Header de produtos com contador
+        produtos_header = QHBoxLayout()
+        produtos_titulo = QLabel("📦 PRODUTOS")
+        produtos_titulo.setStyleSheet("""
+            color: #a5b4fc;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+        """)
+        produtos_header.addWidget(produtos_titulo)
+        
+        if produtos and len(produtos) > 0:
+            contador = QLabel(f"{len(produtos)}")
+            contador.setStyleSheet("""
+                background: #6366f1;
+                color: white;
+                font-size: 11px;
+                font-weight: 700;
+                padding: 3px 10px;
+                border-radius: 12px;
+            """)
+            produtos_header.addWidget(contador)
+        
+        produtos_header.addStretch()
+        
+        # Prazo de entrega no header
         dias_restantes = self._calcular_dias_restantes(pedido)
         if dias_restantes is not None:
             if dias_restantes > 0:
-                prazo_text = f"{dias_restantes} dias"
-                prazo_cor = "#66bb6a" if dias_restantes > 7 else "#ffa726" if dias_restantes > 2 else "#ef5350"
+                prazo_text = f"⏱️ {dias_restantes}d"
+                prazo_cor = "#34d399" if dias_restantes > 7 else "#fbbf24" if dias_restantes > 2 else "#f87171"
             elif dias_restantes == 0:
-                prazo_text = "Hoje"
-                prazo_cor = "#ff9800"
+                prazo_text = "⏱️ HOJE"
+                prazo_cor = "#fb923c"
             else:
-                prazo_text = f"Atrasado {abs(dias_restantes)}d"
-                prazo_cor = "#ef5350"
-                
-            prazo_label = QLabel(prazo_text)
-            prazo_label.setStyleSheet(f"""
+                prazo_text = f"⏱️ -{abs(dias_restantes)}d"
+                prazo_cor = "#ef4444"
+            
+            prazo_badge = QLabel(prazo_text)
+            prazo_badge.setStyleSheet(f"""
+                background: rgba(255, 255, 255, 0.1);
                 color: {prazo_cor};
                 font-size: 11px;
-                font-weight: 500;
+                font-weight: 700;
+                padding: 3px 10px;
+                border-radius: 12px;
             """)
-            status_prazo_layout.addWidget(prazo_label)
+            produtos_header.addWidget(prazo_badge)
         
-        info_layout.addLayout(status_prazo_layout)
-        card_layout.addLayout(info_layout)
-
-
-        produtos_container = QFrame()
-        produtos_container.setFixedHeight(80)  # Altura reduzida para mostrar apenas uma linha
-        produtos_container.setStyleSheet("""
-            QFrame {
-                background: rgba(20, 20, 20, 0.85);
-                border: 1px solid rgba(255, 255, 255, 0.15);
-                border-radius: 6px;
-                padding: 6px;
-            }
-        """)
-        produtos_layout = QHBoxLayout(produtos_container)  # Mudado para horizontal
-        produtos_layout.setContentsMargins(10, 8, 10, 8)  # Margens reduzidas
-        produtos_layout.setSpacing(6)  # Espaçamento menor
+        produtos_main_layout.addLayout(produtos_header)
         
-        # Título mais compacto
-        produtos_titulo = QLabel("📦")
-        produtos_titulo.setStyleSheet("""
-            color: #f0f0f0;
-            font-size: 14px;
-            padding: 0 4px;
-        """)
-        produtos_layout.addWidget(produtos_titulo)
+        # Lista de produtos
+        produtos_layout = QVBoxLayout()
+        produtos_layout.setSpacing(6)
         
-        # Lista de produtos simplificada
+        # Lista de produtos (máximo 2 visíveis)
         if produtos and len(produtos) > 0:
-            if len(produtos) >= 2:
-                # Se tem 2 ou mais produtos, mostrar apenas o total
-                resumo_label = QLabel(f"{len(produtos)} itens")
+            produtos_exibir = produtos[:2]  # Mostrar no máximo 2
+            
+            for produto in produtos_exibir:
+                produto_item_layout = QHBoxLayout()
                 
-                # Criar tooltip com todos os produtos
-                tooltip_text = "Produtos:\n"
-                for p in produtos:
-                    nome = p.get('descricao', p.get('nome', 'Produto'))
-                    quantidade = p.get('quantidade', 1)
-                    
-                    # Processar cores com nova estrutura
-                    cor_display = 'Não especificada'
-                    cor_data = p.get('cor_data')
-                    if cor_data:
-                        if cor_data.get('tipo') == 'separadas':
-                            tampa = cor_data.get('tampa', '')
-                            corpo = cor_data.get('corpo', '')
-                            if tampa or corpo:
-                                cor_display = f"Tampa: {tampa}, Corpo: {corpo}"
-                        elif cor_data.get('tipo') == 'unica':
-                            cor_unica = cor_data.get('cor', '')
-                            if cor_unica:
-                                cor_display = cor_unica
-                    else:
-                        # Compatibilidade com formato antigo
-                        cor_antiga = p.get('cor', '')
-                        if cor_antiga:
-                            cor_display = cor_antiga
-                    
-                    if quantidade > 1:
-                        tooltip_text += f"- {quantidade}x {nome} (Cor: {cor_display})\n"
-                    else:
-                        tooltip_text += f"- {nome} (Cor: {cor_display})\n"
+                descricao = produto.get('descricao', produto.get('nome', 'Produto'))
+                quantidade = produto.get('quantidade', 1)
                 
-
-                self._setup_tooltip(resumo_label, tooltip_text)
-                resumo_label.setStyleSheet("""
-                    color: #ffa726;
-                    font-size: 13px;
+                # Bullet point
+                bullet = QLabel("•")
+                bullet.setStyleSheet("color: #818cf8; font-size: 14px; font-weight: bold;")
+                produto_item_layout.addWidget(bullet)
+                
+                # Nome do produto
+                if quantidade > 1:
+                    texto_produto = f"{quantidade}x {descricao}"
+                else:
+                    texto_produto = descricao
+                
+                if len(texto_produto) > 28:
+                    texto_produto = texto_produto[:28] + "..."
+                
+                produto_label = QLabel(texto_produto)
+                produto_label.setStyleSheet("""
+                    color: #e2e8f0;
+                    font-size: 14px;
                     font-weight: 500;
-                    padding: 4px 8px;
-                    background: rgba(255, 167, 38, 0.1);
-                    border-radius: 4px;
                 """)
-                resumo_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-                produtos_layout.addWidget(resumo_label)
+                produto_item_layout.addWidget(produto_label)
                 
-
-                produto = produtos[0]
-                descricao = produto.get('descricao', produto.get('nome', 'Produto'))
-                quantidade = produto.get('quantidade', 1)
-                
-                # Adicionar quantidade na exibição se > 1
-                if quantidade > 1:
-                    descricao_display = f"{quantidade}x {descricao}"
-                else:
-                    descricao_display = descricao
-                    
-                if len(descricao_display) > 25:
-                    descricao_display = descricao_display[:22] + "..."
-                
-                produto_item = QLabel(f"• {descricao_display}")
-
-                self._setup_tooltip(produto_item, tooltip_text)
-                produto_item.setStyleSheet(self.PRODUTO_STYLE)
-                produtos_layout.addWidget(produto_item)
-                
-                # Indicar se há mais itens
-                if len(produtos) > 1:
-                    info_label = QLabel(f"+{len(produtos) - 1}")
-                    info_label.setStyleSheet("""
-                        color: #aaaaaa;
-                        font-size: 12px;
-                        font-weight: bold;
-                        padding: 2px 6px;
-                        background: rgba(255, 255, 255, 0.05);
-                        border-radius: 3px;
-                    """)
-                    info_label.setAlignment(Qt.AlignmentFlag.AlignRight)
-                    produtos_layout.addWidget(info_label)
-            else:
-                # Se tem apenas 1 produto, mostrar de forma simples
-                produto = produtos[0]
-                descricao = produto.get('descricao', produto.get('nome', 'Produto'))
-                quantidade = produto.get('quantidade', 1)
-                
-                # Adicionar quantidade na exibição se > 1
-                if quantidade > 1:
-                    descricao_display = f"{quantidade}x {descricao}"
-                else:
-                    descricao_display = descricao
-                    
-                if len(descricao_display) > 25:
-                    descricao_display = descricao_display[:22] + "..."
-                
-                # Criar tooltip com detalhes completos
-                nome_completo = produto.get('descricao', produto.get('nome', 'Produto'))
-                
-                # Processar cores com nova estrutura
-                cor_display = 'Não especificada'
+                # Cor do produto (se disponível)
                 cor_data = produto.get('cor_data')
                 if cor_data:
+                    cor_display = ""
                     if cor_data.get('tipo') == 'separadas':
                         tampa = cor_data.get('tampa', '')
                         corpo = cor_data.get('corpo', '')
                         if tampa or corpo:
-                            cor_display = f"Tampa: {tampa}, Corpo: {corpo}"
+                            cor_display = f"T:{tampa[:3]} C:{corpo[:3]}"
                     elif cor_data.get('tipo') == 'unica':
                         cor_unica = cor_data.get('cor', '')
                         if cor_unica:
-                            cor_display = cor_unica
-                else:
-                    # Compatibilidade com formato antigo
-                    cor_antiga = produto.get('cor', '')
-                    if cor_antiga:
-                        cor_display = cor_antiga
+                            cor_display = cor_unica[:8]
+                    
+                    if cor_display:
+                        cor_label = QLabel(cor_display)
+                        cor_label.setStyleSheet("""
+                            background: rgba(129, 140, 248, 0.2);
+                            color: #a5b4fc;
+                            font-size: 10px;
+                            font-weight: 600;
+                            padding: 4px 10px;
+                            border-radius: 6px;
+                            min-width: 80px;
+                        """)
+                        cor_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                        produto_item_layout.addWidget(cor_label)
                 
-                if quantidade > 1:
-                    tooltip = f"Produto: {quantidade}x {nome_completo}\nCor: {cor_display}"
-                else:
-                    tooltip = f"Produto: {nome_completo}\nCor: {cor_display}"
-                
-                produto_item = QLabel(f"• {descricao_display}")
-                self._setup_tooltip(produto_item, tooltip)
-                produto_item.setStyleSheet(self.PRODUTO_STYLE)
-                produtos_layout.addWidget(produto_item)
+                produto_item_layout.addStretch()
+                produtos_layout.addLayout(produto_item_layout)
+            
+            # Se tem mais produtos, mostrar indicador
+            if len(produtos) > 2:
+                mais_layout = QHBoxLayout()
+                mais_label = QLabel(f"+ {len(produtos) - 2} item(s) adicional(is)")
+                mais_label.setStyleSheet("""
+                    color: #94a3b8;
+                    font-size: 10px;
+                    font-style: italic;
+                """)
+                mais_layout.addStretch()
+                mais_layout.addWidget(mais_label)
+                mais_layout.addStretch()
+                produtos_layout.addLayout(mais_layout)
         else:
-            sem_produtos = QLabel("Sem produtos")
+            sem_produtos = QLabel("Nenhum produto cadastrado")
             sem_produtos.setStyleSheet("""
-                color: #999999;
-                font-size: 13px;
+                color: #94a3b8;
+                font-size: 11px;
                 font-style: italic;
-                padding: 4px 8px;
-                background: rgba(255, 255, 255, 0.02);
-                border-radius: 4px;
             """)
             sem_produtos.setAlignment(Qt.AlignmentFlag.AlignCenter)
             produtos_layout.addWidget(sem_produtos)
         
+        produtos_main_layout.addLayout(produtos_layout)
         card_layout.addWidget(produtos_container)
         
-        # Pequeno espaçamento para melhor distribuição vertical
-        card_layout.addSpacing(5)
-
-
-        detalhes_layout = QHBoxLayout()
-        
-        # Valor (lado esquerdo)
-        try:
-            valor_formatado = f"R$ {float(valor_total):,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
-        except:
-            valor_formatado = f"R$ {valor_total}"
-            
-        valor_label = QLabel(valor_formatado)
-        valor_label.setStyleSheet("""
-            color: #4caf50;
-            font-size: 14px;
-            font-weight: bold;
-        """)
-        detalhes_layout.addWidget(valor_label)
-        
-        detalhes_layout.addStretch()
-        
-        # Ícone de localização (lado direito)
-        if endereco and endereco != "Endereço não informado":
-            endereco_curto = endereco[:15] + "..." if len(endereco) > 15 else endereco
-            endereco_label = QLabel(f"📍 {endereco_curto}")
-            endereco_label.setStyleSheet("""
-                color: #999999;
-                font-size: 9px;
-            """)
-            endereco_label.setToolTip(endereco)  # Tooltip com endereço completo
-            detalhes_layout.addWidget(endereco_label)
-        
-        card_layout.addLayout(detalhes_layout)
-        
-        # Espaço flexível
+        # Adicionar espaço flexível antes dos botões
         card_layout.addStretch()
+        
+        # Linha separadora
+        separator2 = QFrame()
+        separator2.setFrameShape(QFrame.Shape.HLine)
+        separator2.setStyleSheet("background: #4a5568; max-height: 1px;")
+        card_layout.addWidget(separator2)
 
 
         self._criar_botoes_modernos(card_layout, pedido)
@@ -1046,6 +1073,26 @@ class PedidosCard(QWidget):
             """)
             btn_whatsapp.setEnabled(False)
             
+            # Buscar dados completos do cliente se faltar endereço ou cep
+            cliente_tem_endereco = bool(pedido.get('cep_cliente')) and bool(pedido.get('rua_cliente'))
+            if not cliente_tem_endereco:
+                try:
+                    from database.db_manager import DBManager
+                    db = DBManager()
+                    cpf = pedido.get('cpf_cliente') or pedido.get('cpf')
+                    if cpf:
+                        dados_cliente = db.buscar_cliente_por_cpf(cpf)
+                        if dados_cliente:
+                            pedido['cep_cliente'] = dados_cliente.get('cep')
+                            pedido['rua_cliente'] = dados_cliente.get('rua')
+                            pedido['numero_cliente'] = dados_cliente.get('numero')
+                            pedido['bairro_cliente'] = dados_cliente.get('bairro')
+                            pedido['cidade_cliente'] = dados_cliente.get('cidade')
+                            pedido['estado_cliente'] = dados_cliente.get('estado')
+                            pedido['endereco_cliente'] = f"{dados_cliente.get('rua', '')}, {dados_cliente.get('numero', '')}"
+                except Exception as e:
+                    print(f"Erro ao buscar dados completos do cliente para PDF: {e}")
+
             # Gerar PDF
             pdf_generator = OrdemServicoPDF(pedido)
             caminho_pdf = pdf_generator.gerar()

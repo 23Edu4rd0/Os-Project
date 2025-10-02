@@ -148,19 +148,33 @@ class DatabaseManager:
                 except Exception:
                     valor_total = 0.0
 
-                # Attempt to assemble endereco from clientes table when cpf present
+                # Buscar dados completos do endereço da tabela clientes
                 endereco_cliente = ''
+                cep_cliente = ''
+                rua_cliente = ''
+                numero_cliente = ''
+                bairro_cliente = ''
+                cidade_cliente = ''
+                estado_cliente = ''
+                
                 try:
                     cpf_norm = ''.join(ch for ch in str(cpf_cliente or '') if ch.isdigit())
                     if cpf_norm:
                         self.cursor.execute(
-                            "SELECT rua, numero, bairro, cidade, estado FROM clientes WHERE replace(replace(replace(cpf, '.', ''), '-', ''), ' ', '') = ? LIMIT 1",
+                            "SELECT cep, rua, numero, bairro, cidade, estado FROM clientes WHERE replace(replace(replace(cpf, '.', ''), '-', ''), ' ', '') = ? LIMIT 1",
                             (cpf_norm,)
                         )
                         cli_row = self.cursor.fetchone()
                         if cli_row:
-                            rua, numero_c, bairro_c, cidade_c, estado_c = cli_row
-                            endereco_cliente = f"{rua or ''} {numero_c or ''} - {bairro_c or ''} - {cidade_c or ''} / {estado_c or ''}".strip()
+                            cep_cliente, rua_cliente, numero_cliente, bairro_cliente, cidade_cliente, estado_cliente = cli_row
+                            cep_cliente = cep_cliente or ''
+                            rua_cliente = rua_cliente or ''
+                            numero_cliente = numero_cliente or ''
+                            bairro_cliente = bairro_cliente or ''
+                            cidade_cliente = cidade_cliente or ''
+                            estado_cliente = estado_cliente or ''
+                            # Montar endereço completo para compatibilidade
+                            endereco_cliente = f"{rua_cliente} {numero_cliente} - {bairro_cliente} - {cidade_cliente} / {estado_cliente}".strip()
                 except Exception:
                     endereco_cliente = ''
 
@@ -171,6 +185,13 @@ class DatabaseManager:
                     'cpf_cliente': cpf_cliente or '',
                     'telefone_cliente': telefone_cliente or '',
                     'endereco_cliente': endereco_cliente,
+                    # Dados detalhados do endereço para o PDF
+                    'cep_cliente': cep_cliente,
+                    'rua_cliente': rua_cliente,
+                    'numero_cliente': numero_cliente,
+                    'bairro_cliente': bairro_cliente,
+                    'cidade_cliente': cidade_cliente,
+                    'estado_cliente': estado_cliente,
                     'detalhes_produto': detalhes_produto or '',
                     'valor_produto': float(valor_produto or 0),
                     'valor_entrada': float(valor_entrada or 0),
@@ -274,7 +295,7 @@ class DatabaseManager:
                 
             query = '''
             SELECT id, nome, cpf, cnpj, inscricao_estadual, telefone, email, 
-                   rua, numero, bairro, cidade, estado, referencia
+                   cep, rua, numero, bairro, cidade, estado, referencia
             FROM clientes 
             WHERE replace(replace(replace(cpf, '.', ''), '-', ''), ' ', '') = ?
             LIMIT 1
@@ -291,12 +312,13 @@ class DatabaseManager:
                     'inscricao_estadual': row[4],
                     'telefone': row[5],
                     'email': row[6],
-                    'rua': row[7],
-                    'numero': row[8],
-                    'bairro': row[9],
-                    'cidade': row[10],
-                    'estado': row[11],
-                    'referencia': row[12]
+                    'cep': row[7],
+                    'rua': row[8],
+                    'numero': row[9],
+                    'bairro': row[10],
+                    'cidade': row[11],
+                    'estado': row[12],
+                    'referencia': row[13]
                 }
             return None
             
@@ -880,3 +902,5 @@ class DatabaseManager:
             import traceback
             traceback.print_exc()
             return []
+
+DBManager = DatabaseManager

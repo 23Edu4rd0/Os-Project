@@ -376,7 +376,13 @@ class PedidosInterface(QWidget):
 		primeira_linha.addWidget(status_label)
 		
 		self.filtro_status = QComboBox()
-		self.filtro_status.addItems(["Todos", "Pendente", "Em Andamento", "Concluído", "Cancelado"])
+		# Carregar status do banco de dados
+		try:
+			from app.utils.statuses import load_statuses
+			status_list = ["Todos"] + [s.title() for s in load_statuses()]
+		except Exception:
+			status_list = ["Todos", "Pendente", "Em Andamento", "Concluído", "Cancelado"]
+		self.filtro_status.addItems(status_list)
 		self.filtro_status.setStyleSheet("""
 			QComboBox {
 				background-color: #3a3a3a;
@@ -590,12 +596,7 @@ class PedidosInterface(QWidget):
 				pedidos = [p for p in pedidos if (p.get("status", "") or "").lower() in ("entregue", "concluído", "concluido") or "conclu" in (p.get("status", "") or "").lower()]
 			else:
 				pedidos = [p for p in pedidos if (p.get("status", "") or "").lower() == filtro]
-		else:
-			# 'todos' deve ocultar pedidos concluídos/entregues
-			def _is_concluido(status: str) -> bool:
-				st = (status or "").lower()
-				return (st == "entregue") or ("conclu" in st)
-			pedidos = [p for p in pedidos if not _is_concluido(p.get("status", ""))]
+		# Não filtrar 'todos' - mostrar todos os pedidos
 		
 		# Filtrar por texto de busca (nome, CPF, telefone)
 		if hasattr(self, 'search_text') and self.search_text:
@@ -638,6 +639,14 @@ class PedidosInterface(QWidget):
 				print(f"Erro no filtro de data: {e}")
 
 		# Render
+		# Separar pedidos concluídos e ativos, ordenar por data de entrega
+		def _is_concluido(status: str) -> bool:
+			st = (status or "").lower()
+			return (st == "entregue") or ("conclu" in st)
+		
+		pedidos_ativos = [p for p in pedidos if not _is_concluido(p.get("status", ""))]
+		pedidos_concluidos = [p for p in pedidos if _is_concluido(p.get("status", ""))]
+		
 		# Ordenar por data de entrega mais próxima (asc)
 		try:
 			def _dias_restantes(p):
@@ -676,9 +685,13 @@ class PedidosInterface(QWidget):
 						pass
 				# Sem data, colocar no fim
 				return 10**9
-			pedidos = sorted(pedidos, key=_dias_restantes)
+			pedidos_ativos = sorted(pedidos_ativos, key=_dias_restantes)
+			pedidos_concluidos = sorted(pedidos_concluidos, key=_dias_restantes)
 		except Exception:
 			pass
+		
+		# Juntar: ativos primeiro, concluídos depois
+		pedidos = pedidos_ativos + pedidos_concluidos
 
 		self._limpar_layout()
 		
@@ -714,10 +727,10 @@ class PedidosInterface(QWidget):
 	def _criar_grid_cards(self, pedidos):
 		grid = QWidget()
 		grid_l = QGridLayout(grid)
-		grid_l.setSpacing(12)  # Espaçamento reduzido para permitir mais cards
-		# Margens ajustadas para melhor uso do espaço
+		grid_l.setSpacing(12)  # Espaçamento reduzido entre cards
+		# Margens maiores para evitar corte
 		try:
-			grid_l.setContentsMargins(10, 10, 10, 16)  # Margens reduzidas
+			grid_l.setContentsMargins(15, 10, 15, 10)
 		except Exception:
 			pass
 
@@ -743,21 +756,12 @@ class PedidosInterface(QWidget):
 		self.card_manager.excluir_clicked.connect(self.excluir_pedido)
 		self.card_manager.status_changed.connect(self.atualizar_status)
 
-		# Calcular colunas dinamicamente baseado na largura da tela
-		largura_disponivel = max(400, self.width() - 30)  # Margem de segurança menor
-		largura_card = 300  # Largura do card reduzida ainda mais
-		espacamento = 10   # Espaçamento entre cards menor
+		# Forçar 3 colunas fixas (cards estão mais largos agora com 450-500px)
+		cols = 3
 		
-		# Forçar 4 colunas se a largura for maior que 1280px
-		if self.width() >= 1280:
-			cols = 4
-		else:
-			cols = max(1, (largura_disponivel + espacamento) // (largura_card + espacamento))
-			cols = min(cols, 4)  # Limitar a 4 conforme solicitado
+		print(f"Grid configurado para {cols} colunas")
 		
-		print(f"Largura disponível: {largura_disponivel}px, Colunas calculadas: {cols}")
-		
-		# Configurar stretch para ocupar toda a largura
+		# Configurar stretch igual para todas as colunas
 		for col in range(cols):
 			grid_l.setColumnStretch(col, 1)
 		

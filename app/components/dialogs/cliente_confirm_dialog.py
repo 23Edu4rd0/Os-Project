@@ -156,18 +156,53 @@ class ClienteConfirmDialog(QDialog):
         return "\n".join(dados)
     
     def copiar_dados(self):
-        """Copia os dados para a área de transferência"""
+        """Copia os dados para a área de transferência e abre WhatsApp Web"""
+        import webbrowser
+        import urllib.parse
+        
         try:
-            pyperclip.copy(self.texto_dados.toPlainText())
-            self.resultado = 'copiar'
-            self.accept()
-        except Exception:
-            # Fallback se pyperclip não funcionar
-            from PyQt6.QtWidgets import QApplication
-            clipboard = QApplication.clipboard()
-            clipboard.setText(self.texto_dados.toPlainText())
-            self.resultado = 'copiar'
-            self.accept()
+            # Copia para área de transferência
+            texto = self.texto_dados.toPlainText()
+            try:
+                pyperclip.copy(texto)
+            except Exception:
+                # Fallback se pyperclip não funcionar
+                from PyQt6.QtWidgets import QApplication
+                clipboard = QApplication.clipboard()
+                clipboard.setText(texto)
+            
+            # Pega o telefone do cliente se existir
+            telefone = self.cliente_data.get('telefone', '')
+            telefone_limpo = ''.join(filter(str.isdigit, telefone))
+            
+            # Prepara URL do WhatsApp Web
+            if telefone_limpo and len(telefone_limpo) >= 10:
+                # Adicionar código do país se necessário
+                if len(telefone_limpo) == 11 and not telefone_limpo.startswith('55'):
+                    telefone_limpo = '55' + telefone_limpo
+                elif len(telefone_limpo) == 10:
+                    telefone_limpo = '55' + telefone_limpo
+                
+                # Mensagem codificada
+                mensagem_encoded = urllib.parse.quote(texto)
+                url = f"https://web.whatsapp.com/send?phone={telefone_limpo}&text={mensagem_encoded}"
+            else:
+                # Se não tem telefone, só abre WhatsApp Web
+                url = "https://web.whatsapp.com"
+            
+            # Abrir WhatsApp Web
+            webbrowser.open(url)
+            
+            # Mostrar feedback mas NÃO fecha o diálogo
+            from PyQt6.QtWidgets import QMessageBox
+            QMessageBox.information(self, "Copiado", 
+                "Dados copiados para a área de transferência!\nWhatsApp Web aberto.\n\nVocê pode colar a mensagem (Ctrl+V) e enviar.")
+            
+            # NÃO chama self.accept() para não fechar o diálogo
+            
+        except Exception as e:
+            from PyQt6.QtWidgets import QMessageBox
+            QMessageBox.warning(self, "Erro", f"Erro ao abrir WhatsApp Web: {e}")
     
     def confirmar_dados(self):
         """Confirma e salva os dados"""

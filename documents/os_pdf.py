@@ -7,6 +7,9 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 import os
 import re
+import sys
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from database.db_manager import DBManager
 
 
 class OrdemServicoPDF:
@@ -93,6 +96,26 @@ class OrdemServicoPDF:
         return os.path.join(pasta_pdfs, nome_arquivo)
 
     def gerar(self):
+        # Busca dados completos do cliente se faltar CEP ou endereço
+        cep_cliente = self.dados.get("cep_cliente", "")
+        rua_cliente = self.dados.get("rua_cliente", "")
+        if not cep_cliente or not rua_cliente:
+            try:
+                db = DBManager()
+                cpf = self.dados.get('cpf_cliente') or self.dados.get('cpf')
+                if cpf:
+                    dados_cliente = db.buscar_cliente_por_cpf(cpf)
+                    if dados_cliente:
+                        self.dados['cep_cliente'] = dados_cliente.get('cep')
+                        self.dados['rua_cliente'] = dados_cliente.get('rua')
+                        self.dados['numero_cliente'] = dados_cliente.get('numero')
+                        self.dados['bairro_cliente'] = dados_cliente.get('bairro')
+                        self.dados['cidade_cliente'] = dados_cliente.get('cidade')
+                        self.dados['estado_cliente'] = dados_cliente.get('estado')
+                        self.dados['endereco_cliente'] = f"{dados_cliente.get('rua', '')}, {dados_cliente.get('numero', '')}"
+            except Exception as e:
+                print(f"[PDF] Erro ao buscar dados completos do cliente: {e}")
+
         numero_os = self.dados["numero_os"]
         nome_cliente = self.dados["nome_cliente"]
         cpf_cliente = self.dados["cpf_cliente"]
@@ -229,37 +252,33 @@ class OrdemServicoPDF:
         c.drawString(10, y_position, f'Telefone: {telefone_cliente}')
         y_position -= 15
         
-        # Endereço completo do cliente
-        if cep_cliente:
-            c.drawString(10, y_position, f'CEP: {cep_cliente}')
+        # Endereço - OBRIGATÓRIO (sempre mostrar)
+        endereco_partes = []
+        if rua_cliente:
+            endereco_partes.append(rua_cliente)
+        if numero_cliente:
+            endereco_partes.append(str(numero_cliente))
+        if bairro_cliente:
+            endereco_partes.append(bairro_cliente)
+        # Monta primeira linha: rua, número, bairro
+        endereco_linha1 = ', '.join([p for p in endereco_partes if p])
+        # Monta segunda linha: cidade, estado
+        cidade_estado = []
+        if cidade_cliente:
+            cidade_estado.append(cidade_cliente)
+        if estado_cliente:
+            cidade_estado.append(estado_cliente)
+        endereco_linha2 = ', '.join(cidade_estado)
+        # Exibe endereço em até 2 linhas
+        if endereco_linha1:
+            c.drawString(10, y_position, f'Endereço: {endereco_linha1}')
             y_position -= 15
-        
-        # Montar endereço completo
-        endereco_completo = ""
-        if endereco_cliente:
-            endereco_completo = endereco_cliente
-        elif rua_cliente:
-            endereco_completo = rua_cliente
-            if numero_cliente:
-                endereco_completo += f", {numero_cliente}"
-        
-        if endereco_completo:
-            c.drawString(10, y_position, f'Endereço: {endereco_completo}')
+        if endereco_linha2:
+            c.drawString(10, y_position, f'           {endereco_linha2}')
             y_position -= 15
-        
-        # Bairro, Cidade e Estado
-        if bairro_cliente or cidade_cliente or estado_cliente:
-            localizacao = []
-            if bairro_cliente:
-                localizacao.append(bairro_cliente)
-            if cidade_cliente:
-                localizacao.append(cidade_cliente)
-            if estado_cliente:
-                localizacao.append(estado_cliente)
-            
-            if localizacao:
-                c.drawString(10, y_position, f'Localização: {" - ".join(localizacao)}')
-                y_position -= 15
+        if not endereco_linha1 and not endereco_linha2:
+            c.drawString(10, y_position, 'Endereço: Não informado')
+            y_position -= 15
         
         y_position -= 10
 
