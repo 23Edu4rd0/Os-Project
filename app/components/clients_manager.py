@@ -1813,60 +1813,34 @@ class ClientesManager(QWidget):
     
     def _aplicar_estilo(self):
         """Aplica estilo moderno ao módulo"""
-        # Produtos-like QSS (teal accents were added in Produtos dialog, here we keep neutral table + highlighted selection style)
+        # Escopar estilos para evitar sobrescrever QWidget global e gerar fundo branco (transparente => mostra palette clara)
+        if not self.objectName():
+            self.setObjectName("clientesManager")
         self.setStyleSheet('''
-            QWidget { background-color: transparent; color: #f8f8f2; }
-            QFrame { background-color: transparent; }
-            QLabel#header { color: #e0e0e0; font-size: 22px; font-weight: bold; background-color: transparent; }
-            QPushButton { color: #eaeaea; border-radius: 6px; padding: 8px 14px; font-weight: 600; border: none; }
-            QLineEdit { background-color: #1f1f1f; color: #e6e6e6; border: 1px solid #393939; border-radius: 6px; padding: 8px 12px; font-size: 14px; }
-            QLineEdit:focus { border: 1px solid #5a5a5a; }
-            QTableWidget { background-color: #1f1f1f; color: #e6e6e6; border: 1px solid #393939; border-radius: 6px; font-size: 13px; gridline-color: #333333; selection-background-color: #2d2d2d; alternate-background-color: #232323; }
-            QHeaderView::section { background-color: #1f1f1f; color: #e6e6e6; font-weight: bold; font-size: 14px; }
+            #clientesManager { background-color: #1e1e1e; }
+            #clientesManager QFrame { background-color: #1e1e1e; }
+            #clientesManager QLabel#header { color: #e0e0e0; font-size: 22px; font-weight: bold; background: transparent; }
+            #clientesManager QPushButton { color: #eaeaea; border-radius: 6px; padding: 8px 14px; font-weight: 600; border: none; }
+            #clientesManager QLineEdit { background-color: #1f1f1f; color: #e6e6e6; border: 1px solid #393939; border-radius: 6px; padding: 8px 12px; font-size: 14px; }
+            #clientesManager QLineEdit:focus { border: 1px solid #5a5a5a; }
+            #clientesManager QTableWidget { background-color: #1f1f1f; color: #e6e6e6; border: 1px solid #393939; border-radius: 6px; font-size: 13px; gridline-color: #333333; selection-background-color: #2d2d2d; alternate-background-color: #232323; }
+            #clientesManager QHeaderView::section { background-color: #1f1f1f; color: #e6e6e6; font-weight: bold; font-size: 14px; }
             
-            /* Botão Verde - Sucesso */
-            QPushButton[btnClass="success"] {
-                background-color: #28a745;
-            }
-            QPushButton[btnClass="success"]:hover {
-                background-color: #218838;
-            }
-            QPushButton[btnClass="success"]:pressed {
-                background-color: #1e7e34;
-            }
+            #clientesManager QPushButton[btnClass="success"] { background-color: #28a745; }
+            #clientesManager QPushButton[btnClass="success"]:hover { background-color: #218838; }
+            #clientesManager QPushButton[btnClass="success"]:pressed { background-color: #1e7e34; }
             
-            /* Botão Cinza - Primário */
-            QPushButton[btnClass="primary"] {
-                background-color: #6c757d;
-            }
-            QPushButton[btnClass="primary"]:hover {
-                background-color: #5a6268;
-            }
-            QPushButton[btnClass="primary"]:pressed {
-                background-color: #545b62;
-            }
+            #clientesManager QPushButton[btnClass="primary"] { background-color: #6c757d; }
+            #clientesManager QPushButton[btnClass="primary"]:hover { background-color: #5a6268; }
+            #clientesManager QPushButton[btnClass="primary"]:pressed { background-color: #545b62; }
             
-            /* Botão Vermelho - Perigo */
-            QPushButton[btnClass="danger"] {
-                background-color: #dc3545;
-            }
-            QPushButton[btnClass="danger"]:hover {
-                background-color: #c82333;
-            }
-            QPushButton[btnClass="danger"]:pressed {
-                background-color: #bd2130;
-            }
+            #clientesManager QPushButton[btnClass="danger"] { background-color: #dc3545; }
+            #clientesManager QPushButton[btnClass="danger"]:hover { background-color: #c82333; }
+            #clientesManager QPushButton[btnClass="danger"]:pressed { background-color: #bd2130; }
             
-            /* Botão Ciano - Info */
-            QPushButton[btnClass="info"] {
-                background-color: #17a2b8;
-            }
-            QPushButton[btnClass="info"]:hover {
-                background-color: #138496;
-            }
-            QPushButton[btnClass="info"]:pressed {
-                background-color: #117a8b;
-            }
+            #clientesManager QPushButton[btnClass="info"] { background-color: #17a2b8; }
+            #clientesManager QPushButton[btnClass="info"]:hover { background-color: #138496; }
+            #clientesManager QPushButton[btnClass="info"]:pressed { background-color: #117a8b; }
         ''')
     
     def apply_produtos_style(self):

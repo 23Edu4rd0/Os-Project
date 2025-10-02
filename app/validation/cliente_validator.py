@@ -27,9 +27,19 @@ def validar_cpf(cpf):
 
 def validar_telefone(telefone):
     """Valida telefone do cliente"""
-    telefone = telefone.strip()
+    from app.validation.telefone_validator import TelefoneValidator
+    
     if not telefone:
         return False, "Telefone é obrigatório!"
+    
+    telefone = telefone.strip()
+    
+    # Usar validador de telefone completo
+    valido, mensagem = TelefoneValidator.validar_telefone(telefone)
+    
+    if not valido:
+        return False, mensagem
+    
     return True, ""
 
 
@@ -57,9 +67,10 @@ def validar_dados_cliente(cliente_data):
     if not nome:
         return False, "Nome é obrigatório!"
     
-    # Telefone é obrigatório
-    if not telefone:
-        return False, "Telefone é obrigatório!"
+    # Validar telefone (obrigatório e formato correto)
+    is_valid_tel, msg_tel = validar_telefone(telefone)
+    if not is_valid_tel:
+        return False, msg_tel
     
     # Deve ter pelo menos CPF ou CNPJ (pode ter ambos)
     if not cpf and not cnpj:

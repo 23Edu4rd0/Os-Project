@@ -52,18 +52,8 @@ class MainApp(QMainWindow):
             tooltip_font.setPointSize(9)
             QToolTip.setFont(tooltip_font)
             
-            global_style = """
-                QToolTip {
-                    background: #2a2a2a;
-                    color: #e0e0e0;
-                    border: 1px solid #4a4a4a;
-                    border-radius: 4px;
-                    padding: 4px 8px;
-                    font-size: 11px;
-                    font-weight: normal;
-                }
-            """
-            app.setStyleSheet(global_style)
+            # NÃO aplicar stylesheet aqui - deixar o theme_manager cuidar disso
+            # O tooltip já está estilizado no DARK_THEME do theme_manager
         
     def _setup_ui(self) -> None:
         """
@@ -87,9 +77,9 @@ class MainApp(QMainWindow):
         self.tab_widget.setMovable(True)
         layout.addWidget(self.tab_widget)
         
-        # Aplicar estilo moderno às abas
-        self._apply_modern_tab_style()
+        # Aplicar tema global PRIMEIRO, depois estilos específicos das abas
         apply_app_theme(self)
+        self._apply_modern_tab_style()
         QTimer.singleShot(100, self._init_tabs)
     
     def _apply_modern_tab_style(self) -> None:
@@ -100,7 +90,7 @@ class MainApp(QMainWindow):
             QTabWidget::pane {
                 border: 2px solid #3a3a3a;
                 border-radius: 10px;
-                background-color: #2b2b2b;
+                background-color: #1e1e1e;
                 margin-top: -1px;
             }
             
@@ -197,6 +187,7 @@ class MainApp(QMainWindow):
                         tab_index = self.tab_widget.addTab(manager, tab_name)
                     else:
                         widget = QWidget()
+                        widget.setStyleSheet("QWidget { background-color: #1e1e1e; }")
                         layout = QVBoxLayout(widget)
                         layout.setContentsMargins(0, 0, 0, 0)
                         manager = manager_class(widget)

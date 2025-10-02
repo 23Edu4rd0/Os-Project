@@ -1041,13 +1041,111 @@ class PedidosCard(QWidget):
         
         return msg_box
     
+    def _buscar_telefone_atualizado_cliente(self, pedido):
+        """
+        Busca o telefone mais recente do cliente no banco de dados.
+        
+        Args:
+            pedido: Dados do pedido com CPF do cliente
+            
+        Returns:
+            Telefone atualizado ou None se não encontrar
+        """
+        try:
+            from database import db_manager
+            
+            # Tentar por CPF primeiro
+            cpf = pedido.get('cpf_cliente') or pedido.get('cpf', '')
+            if cpf:
+                cpf_limpo = ''.join(filter(str.isdigit, cpf))
+                cliente = db_manager.buscar_cliente_por_cpf(cpf_limpo)
+                # buscar_cliente_por_cpf retorna dicionário
+                if cliente and cliente.get('telefone'):
+                    print(f"[DEBUG] Telefone encontrado por CPF: '{cliente['telefone']}'")
+                    return cliente['telefone']
+            
+            # Se não encontrou por CPF, tentar por nome
+            nome = pedido.get('nome_cliente', '')
+            if nome:
+                clientes = db_manager.listar_clientes()
+                # listar_clientes retorna lista de tuplas
+                # Formato: (id, nome, cpf, cnpj, inscricao_estadual, telefone, email, cep, rua, numero, bairro, cidade, estado, referencia, numero_compras)
+                for cliente_tuple in clientes:
+                    if len(cliente_tuple) > 1:
+                        nome_cliente = cliente_tuple[1]  # índice 1 = nome
+                        telefone_cliente = cliente_tuple[5]  # índice 5 = telefone
+                        
+                        if nome_cliente and nome_cliente.lower() == nome.lower():
+                            if telefone_cliente:
+                                print(f"[DEBUG] Telefone encontrado por nome: '{telefone_cliente}'")
+                                return telefone_cliente
+            
+            print(f"[DEBUG] Telefone não encontrado para cliente '{nome}'")
+            return None
+        except Exception as e:
+            print(f"[DEBUG] Erro ao buscar telefone atualizado: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
+    
+    def _validar_telefone_whatsapp(self, telefone):
+        """
+        Valida telefone para WhatsApp e retorna mensagem de erro detalhada se inválido.
+        
+        Args:
+            telefone: Telefone com ou sem formatação
+            
+        Returns:
+            Tupla (válido: bool, telefone_limpo: str, mensagem_erro: str)
+        """
+        telefone_limpo = ''.join(filter(str.isdigit, telefone))
+        tamanho = len(telefone_limpo)
+        
+        # Validações
+        if tamanho == 0:
+            return False, "", "Telefone vazio ou não informado."
+        
+        if tamanho < 10:
+            return False, telefone_limpo, (
+                f"📱 Telefone Inválido\n\n"
+                f"❌ Telefone cadastrado: {telefone}\n"
+                f"❌ Apenas {tamanho} dígito{'s' if tamanho != 1 else ''}\n\n"
+                f"✅ Formato esperado:\n"
+                f"   • Celular: (11) 98765-4321 (11 dígitos)\n"
+                f"   • Fixo: (11) 3456-7890 (10 dígitos)\n\n"
+                f"💡 O telefone está sem DDD no cadastro.\n"
+                f"   Corrija na aba 'Clientes' adicionando o DDD."
+            )
+        
+        if tamanho > 11:
+            return False, telefone_limpo, (
+                f"📱 Telefone Inválido\n\n"
+                f"❌ Telefone cadastrado: {telefone}\n"
+                f"❌ Contém {tamanho} dígitos (excesso de {tamanho - 11})\n\n"
+                f"✅ Formato esperado:\n"
+                f"   • Celular: (11) 98765-4321 (11 dígitos)\n"
+                f"   • Fixo: (11) 3456-7890 (10 dígitos)\n\n"
+                f"💡 Remova o código do país (55) do cadastro.\n"
+                f"   Corrija na aba 'Clientes'."
+            )
+        
+        # Telefone válido
+        return True, telefone_limpo, ""
+    
     def _mostrar_menu_whatsapp(self, btn_whatsapp, pedido):
         """Mostra menu com opções de WhatsApp: mensagem ou PDF"""
         try:
             from PyQt6.QtWidgets import QMenu, QMessageBox
             from PyQt6.QtGui import QAction
             
-            telefone = pedido.get('telefone_cliente', '').strip()
+            # Buscar telefone atualizado do cliente no banco de dados
+            telefone = self._buscar_telefone_atualizado_cliente(pedido)
+            
+            # Se não encontrou atualizado, usar o do pedido
+            if not telefone:
+                telefone = pedido.get('telefone_cliente', '').strip()
+            
+            print(f"[DEBUG WhatsApp] Telefone usado: '{telefone}'")
             
             if not telefone:
                 QMessageBox.warning(self, "WhatsApp", "Telefone não informado para este cliente.")
@@ -1233,9 +1331,15 @@ class PedidosCard(QWidget):
             from PyQt6.QtWidgets import QMessageBox
             from documents.os_pdf import OrdemServicoPDF
             
-            telefone = pedido.get('telefone_cliente', '').strip()
+            # Buscar telefone atualizado do cliente no banco de dados
+            telefone = self._buscar_telefone_atualizado_cliente(pedido)
+            if not telefone:
+                telefone = pedido.get('telefone_cliente', '').strip()
+            
             numero_os = pedido.get('numero_os', pedido.get('id', 'N/A'))
             cliente = pedido.get('nome_cliente', 'Cliente')
+            
+            print(f"[DEBUG WhatsApp Web PDF] Telefone usado: '{telefone}'")
             
             if not telefone:
                 QMessageBox.warning(self, "WhatsApp", "Telefone não informado para este cliente.")
@@ -1286,20 +1390,15 @@ class PedidosCard(QWidget):
             if not os.path.exists(caminho_pdf):
                 raise Exception("Erro ao gerar PDF")
             
-            # Preparar WhatsApp
-            telefone_limpo = ''.join(filter(str.isdigit, telefone))
-            
-            if len(telefone_limpo) < 10:
-                QMessageBox.warning(self, "WhatsApp", "Telefone inválido.")
+            # Validar telefone
+            valido, telefone_limpo, msg_erro = self._validar_telefone_whatsapp(telefone)
+            if not valido:
+                QMessageBox.warning(self, "WhatsApp", msg_erro)
                 return
             
-            # Adicionar código do país se necessário
-            if len(telefone_limpo) == 11 and telefone_limpo.startswith('55'):
-                pass  # Já tem código do país
-            elif len(telefone_limpo) == 11:
+            # Adicionar código do país (55) se ainda não tiver
+            if not telefone_limpo.startswith('55'):
                 telefone_limpo = '55' + telefone_limpo
-            elif len(telefone_limpo) == 10:
-                telefone_limpo = '5511' + telefone_limpo
             
             # Mensagem para acompanhar o PDF
             mensagem = f"""Olá {cliente}!
@@ -1401,9 +1500,15 @@ Segue em anexo o PDF da sua Ordem de Serviço #{numero_os}.
             from PyQt6.QtWidgets import QMessageBox
             from documents.os_pdf import OrdemServicoPDF
             
-            telefone = pedido.get('telefone_cliente', '').strip()
+            # Buscar telefone atualizado do cliente no banco de dados
+            telefone = self._buscar_telefone_atualizado_cliente(pedido)
+            if not telefone:
+                telefone = pedido.get('telefone_cliente', '').strip()
+            
             numero_os = pedido.get('numero_os', pedido.get('id', 'N/A'))
             cliente = pedido.get('nome_cliente', 'Cliente')
+            
+            print(f"[DEBUG WhatsApp App PDF] Telefone usado: '{telefone}'")
             
             if not telefone:
                 QMessageBox.warning(self, "WhatsApp", "Telefone não informado para este cliente.")
@@ -1434,20 +1539,15 @@ Segue em anexo o PDF da sua Ordem de Serviço #{numero_os}.
             if not os.path.exists(caminho_pdf):
                 raise Exception("Erro ao gerar PDF")
             
-            # Preparar WhatsApp
-            telefone_limpo = ''.join(filter(str.isdigit, telefone))
-            
-            if len(telefone_limpo) < 10:
-                QMessageBox.warning(self, "WhatsApp", "Telefone inválido.")
+            # Validar telefone
+            valido, telefone_limpo, msg_erro = self._validar_telefone_whatsapp(telefone)
+            if not valido:
+                QMessageBox.warning(self, "WhatsApp", msg_erro)
                 return
             
-            # Adicionar código do país se necessário
-            if len(telefone_limpo) == 11 and telefone_limpo.startswith('55'):
-                pass  # Já tem código do país
-            elif len(telefone_limpo) == 11:
+            # Adicionar código do país (55) se ainda não tiver
+            if not telefone_limpo.startswith('55'):
                 telefone_limpo = '55' + telefone_limpo
-            elif len(telefone_limpo) == 10:
-                telefone_limpo = '5511' + telefone_limpo
             
             # Mensagem informando sobre o PDF (app não pode anexar automaticamente)
             mensagem = f"""Olá {cliente}!
@@ -1542,28 +1642,29 @@ Em breve enviaremos o documento completo.
             from PyQt6.QtCore import QTimer
             from PyQt6.QtWidgets import QMessageBox
             
-            telefone = pedido.get('telefone_cliente', '').strip()
+            # Buscar telefone atualizado do cliente no banco de dados
+            telefone = self._buscar_telefone_atualizado_cliente(pedido)
+            if not telefone:
+                telefone = pedido.get('telefone_cliente', '').strip()
+            
             numero_os = pedido.get('numero_os', pedido.get('id', 'N/A'))
             cliente = pedido.get('nome_cliente', 'Cliente')
+            
+            print(f"[DEBUG WhatsApp Mensagem] Telefone usado: '{telefone}'")
             
             if not telefone:
                 QMessageBox.warning(self, "WhatsApp", "Telefone não informado para este cliente.")
                 return
             
-            # Remover caracteres não numéricos
-            telefone_limpo = ''.join(filter(str.isdigit, telefone))
-            
-            if len(telefone_limpo) < 10:
-                QMessageBox.warning(self, "WhatsApp", "Telefone inválido.")
+            # Validar telefone
+            valido, telefone_limpo, msg_erro = self._validar_telefone_whatsapp(telefone)
+            if not valido:
+                QMessageBox.warning(self, "WhatsApp", msg_erro)
                 return
             
-            # Adicionar código do país se necessário
-            if len(telefone_limpo) == 11 and telefone_limpo.startswith('55'):
-                pass  # Já tem código do país
-            elif len(telefone_limpo) == 11:
+            # Adicionar código do país (55) se ainda não tiver
+            if not telefone_limpo.startswith('55'):
                 telefone_limpo = '55' + telefone_limpo
-            elif len(telefone_limpo) == 10:
-                telefone_limpo = '5511' + telefone_limpo
             
             # Feedback visual: mudança no botão
             texto_original = btn_whatsapp.text()
@@ -1583,14 +1684,12 @@ Em breve enviaremos o documento completo.
             """)
             btn_whatsapp.setEnabled(False)
             
-            # Mensagem pré-formatada
-            mensagem = f"""Olá {cliente}!
-
-Tudo bem? Aqui é sobre sua Ordem de Serviço #{numero_os}.
-
-Gostaria de passar uma atualização sobre o andamento do seu pedido.
-
-Qualquer dúvida, estou à disposição!"""
+            # Mensagem pré-formatada (tom mais humano e natural)
+            mensagem = (
+                f"Oi {cliente}, tudo bem?\n\n"
+                f"Estou te enviando uma mensagem sobre a sua Ordem de Serviço nº {numero_os}. "
+                f"Queria te atualizar brevemente sobre o andamento — se precisar de algo, é só falar comigo por aqui.\n\n"
+            )
             
             # Codificar mensagem para URL
             mensagem_encoded = urllib.parse.quote(mensagem)
@@ -1662,37 +1761,37 @@ Qualquer dúvida, estou à disposição!"""
             import urllib.parse
             from PyQt6.QtWidgets import QMessageBox
             
-            telefone = pedido.get('telefone_cliente', '').strip()
+            # Buscar telefone atualizado do cliente no banco de dados
+            telefone = self._buscar_telefone_atualizado_cliente(pedido)
+            if not telefone:
+                telefone = pedido.get('telefone_cliente', '').strip()
+            
             numero_os = pedido.get('numero_os', pedido.get('id', 'N/A'))
             cliente = pedido.get('nome_cliente', 'Cliente')
+            
+            print(f"[DEBUG WhatsApp Direto] Telefone usado: '{telefone}'")
             
             if not telefone:
                 QMessageBox.warning(self, "WhatsApp", "Telefone não informado para este cliente.")
                 return
             
-            # Remover caracteres não numéricos
-            telefone_limpo = ''.join(filter(str.isdigit, telefone))
-            
-            if len(telefone_limpo) < 10:
-                QMessageBox.warning(self, "WhatsApp", "Telefone inválido.")
+            # Validar telefone
+            valido, telefone_limpo, msg_erro = self._validar_telefone_whatsapp(telefone)
+            if not valido:
+                QMessageBox.warning(self, "WhatsApp", msg_erro)
                 return
             
-            # Adicionar código do país se necessário
-            if len(telefone_limpo) == 11 and telefone_limpo.startswith('55'):
-                pass  # Já tem código do país
-            elif len(telefone_limpo) == 11:
+            # Adicionar código do país (55) se ainda não tiver
+            if not telefone_limpo.startswith('55'):
                 telefone_limpo = '55' + telefone_limpo
-            elif len(telefone_limpo) == 10:
-                telefone_limpo = '5511' + telefone_limpo
             
-            # Mensagem pré-formatada
-            mensagem = f"""Olá {cliente}!
-
-Tudo bem? Aqui é sobre sua Ordem de Serviço #{numero_os}.
-
-Gostaria de passar uma atualização sobre o andamento do seu pedido.
-
-Qualquer dúvida, estou à disposição!"""
+            # Mensagem pré-formatada (tom mais humano e natural)
+            mensagem = (
+                f"Oi {cliente}, tudo bem?\n\n"
+                f"Aqui é a merkava, e viemos te atualizar sobre o seu pedido. "
+                f"Tenho uma atualização e, se quiser saber mais ou tiver qualquer dúvida, pode me responder aqui mesmo.\n\n"
+                
+            )
             
             # Codificar mensagem para URL
             mensagem_encoded = urllib.parse.quote(mensagem)

@@ -8,11 +8,58 @@ from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushBut
                             QLineEdit, QComboBox, QGroupBox, QTableWidget, QTableWidgetItem,
                             QHeaderView, QWidget, QMessageBox, QCompleter, QFrame, QFormLayout,
                             QScrollArea, QAbstractScrollArea, QSpinBox, QGridLayout)
-from PyQt6.QtCore import Qt, pyqtSignal, QStringListModel
+from PyQt6.QtCore import Qt, pyqtSignal, QStringListModel, QEvent
 from PyQt6.QtGui import QFont
 
 from database import db_manager
 from app.numero_os import Contador
+
+
+class ClickableComboBox(QComboBox):
+    """ComboBox que abre dropdown ao clicar em qualquer parte e ignora scroll do mouse"""
+    
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setEditable(True)
+        self.lineEdit().setReadOnly(True)
+        self.lineEdit().installEventFilter(self)
+        self.installEventFilter(self)  # Instalar event filter no próprio combobox também
+        
+    def eventFilter(self, obj, event):
+        # Bloquear scroll do mouse
+        if event.type() == QEvent.Type.Wheel:
+            event.ignore()
+            return True
+            
+        # Fazer combobox abrir ao clicar em qualquer parte
+        if obj == self.lineEdit():
+            if event.type() == QEvent.Type.MouseButtonPress:
+                self.showPopup()
+                return True
+        return super().eventFilter(obj, event)
+    
+    def wheelEvent(self, event):
+        """Bloquear completamente eventos de roda do mouse"""
+        event.ignore()
+
+
+class NoScrollSpinBox(QSpinBox):
+    """QSpinBox que ignora eventos de scroll do mouse"""
+    
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.installEventFilter(self)
+        
+    def eventFilter(self, obj, event):
+        # Bloquear scroll do mouse
+        if event.type() == QEvent.Type.Wheel:
+            event.ignore()
+            return True
+        return super().eventFilter(obj, event)
+    
+    def wheelEvent(self, event):
+        """Bloquear completamente eventos de roda do mouse"""
+        event.ignore()
 
 
 class NovoPedidosModal(QDialog):
@@ -381,16 +428,38 @@ class NovoPedidosModal(QDialog):
         form_grid = QGridLayout()
         form_grid.setSpacing(10)
         
-        # Produto
+        # Produto - ComboBox clicável em toda área
         form_grid.addWidget(QLabel("Produto:"), 0, 0)
-        self.input_produto = QLineEdit()
-        self.input_produto.setPlaceholderText("Nome do produto")
-        self.input_produto.setStyleSheet(field_style)
+        self.input_produto = ClickableComboBox()
+        self._preencher_combo_produtos()
+        self.input_produto.setStyleSheet(field_style + """
+            QComboBox {
+                padding-right: 20px;
+            }
+            QComboBox::drop-down {
+                border: none;
+                width: 20px;
+            }
+            QComboBox::down-arrow {
+                image: none;
+                border-left: 4px solid transparent;
+                border-right: 4px solid transparent;
+                border-top: 6px solid #999;
+                margin-right: 6px;
+            }
+            QComboBox QAbstractItemView {
+                background: #2a2a2a;
+                border: 1px solid #555;
+                selection-background-color: #007acc;
+                selection-color: #fff;
+                padding: 4px;
+            }
+        """)
         form_grid.addWidget(self.input_produto, 0, 1, 1, 2)
         
         # Quantidade e Valor
         form_grid.addWidget(QLabel("Qtd:"), 1, 0)
-        self.input_quantidade = QSpinBox()
+        self.input_quantidade = NoScrollSpinBox()
         self.input_quantidade.setMinimum(1)
         self.input_quantidade.setMaximum(9999)
         self.input_quantidade.setValue(1)
@@ -412,14 +481,14 @@ class NovoPedidosModal(QDialog):
         # 2 cores por padrão (Tampa e Corpo) - armazenar labels como atributos
         self.label_tampa = QLabel("Tampa:")
         form_grid.addWidget(self.label_tampa, 2, 0)
-        self.combo_cor_tampa = QComboBox()
+        self.combo_cor_tampa = ClickableComboBox()
         self.combo_cor_tampa.addItems(cores_disponiveis)
         self.combo_cor_tampa.setStyleSheet(field_style)
         form_grid.addWidget(self.combo_cor_tampa, 2, 1)
         
         self.label_corpo = QLabel("Corpo:")
         form_grid.addWidget(self.label_corpo, 2, 2)
-        self.combo_cor_corpo = QComboBox()
+        self.combo_cor_corpo = ClickableComboBox()
         self.combo_cor_corpo.addItems(cores_disponiveis)
         self.combo_cor_corpo.setStyleSheet(field_style)
         form_grid.addWidget(self.combo_cor_corpo, 2, 3)
@@ -456,7 +525,7 @@ class NovoPedidosModal(QDialog):
         self.label_cor_unica.setVisible(False)
         form_grid.addWidget(self.label_cor_unica, 2, 0)
         
-        self.combo_cor = QComboBox()
+        self.combo_cor = ClickableComboBox()
         self.combo_cor.addItems(cores_disponiveis)
         self.combo_cor.setStyleSheet(field_style)
         self.combo_cor.setVisible(False)
@@ -528,26 +597,44 @@ class NovoPedidosModal(QDialog):
         total_layout.addWidget(self.label_total)
         group_layout.addLayout(total_layout)
         
-        # Configurar autocomplete
-        self._configurar_completer_produtos()
-        
-        # Conectar eventos
-        self.input_produto.textChanged.connect(self._on_produto_changed)
+        # Conectar eventos do ComboBox de produtos
+        self.input_produto.currentTextChanged.connect(self._on_produto_changed)
+        self.input_produto.activated.connect(self._on_produto_selecionado_combo)
         self.input_valor.returnPressed.connect(self._adicionar_produto)
-        self.input_produto.returnPressed.connect(self._adicionar_produto)
         
         layout.addWidget(group)
     
-    def _configurar_completer_produtos(self):
-        """Configura autocomplete para produtos"""
-        produtos_nomes = [produto['nome'] for produto in self.produtos_dict.values() if 'nome' in produto]
-        # Remove duplicatas mantendo ordem
-        produtos_unicos = list(dict.fromkeys(produtos_nomes))
+    def _preencher_combo_produtos(self):
+        """Preenche o combo de produtos com formatação: Nome - R$ Preço - Código: XXX"""
+        self.input_produto.clear()
+        self.input_produto.addItem("")  # Item vazio no topo
         
-        completer = QCompleter(produtos_unicos)
-        completer.setCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
-        completer.activated.connect(self._on_produto_selecionado)
-        self.input_produto.setCompleter(completer)
+        # Criar lista única de produtos (evitar duplicatas por lowercase)
+        produtos_unicos = {}
+        for produto in self.produtos_dict.values():
+            if 'nome' in produto and 'id' in produto:
+                prod_id = produto['id']
+                if prod_id not in produtos_unicos:
+                    produtos_unicos[prod_id] = produto
+        
+        # Ordenar por nome
+        produtos_ordenados = sorted(produtos_unicos.values(), key=lambda p: p['nome'].lower())
+        
+        # Adicionar ao combo formatado
+        for produto in produtos_ordenados:
+            nome = produto['nome']
+            preco = produto.get('preco', 0.0)
+            codigo = produto.get('codigo', '')
+            
+            # Formatar: "Nome - R$ Preço - Código: XXX"
+            preco_formatado = f"{preco:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
+            texto_display = f"{nome} - R$ {preco_formatado}"
+            if codigo:
+                texto_display += f" - Código: {codigo}"
+            
+            self.input_produto.addItem(texto_display)
+            # Guardar dados do produto no item (via UserRole)
+            self.input_produto.setItemData(self.input_produto.count() - 1, produto, Qt.ItemDataRole.UserRole)
     
     def _criar_secao_pagamento(self, layout):
         """Cria a seção de pagamento - design minimalista"""
@@ -618,7 +705,7 @@ class NovoPedidosModal(QDialog):
         
         # Método de pagamento
         form_grid.addWidget(QLabel("Método:"), 2, 0)
-        self.metodo_pagamento = QComboBox()
+        self.metodo_pagamento = ClickableComboBox()
         self.metodo_pagamento.addItems([
             "PIX", "Cartão de Crédito", "Cartão de Débito",
             "Dinheiro", "Transferência Bancária", "Boleto", "Cheque", "Crediário"
@@ -628,7 +715,7 @@ class NovoPedidosModal(QDialog):
         
         # Status
         form_grid.addWidget(QLabel("Status:"), 3, 0)
-        self.status_pedido = QComboBox()
+        self.status_pedido = ClickableComboBox()
         try:
             from app.utils.statuses import load_statuses
             self.status_pedido.addItems(load_statuses())
@@ -757,52 +844,59 @@ class NovoPedidosModal(QDialog):
             self.cliente_selecionado = None
     
     def _on_produto_changed(self, texto):
-        """Evento quando o texto do produto muda"""
+        """Evento quando o texto do combo produto muda (digitação)"""
+        if not texto or texto.strip() == "":
+            return
         
-        # Buscar por nome exato primeiro
-        if texto in self.produtos_dict:
-            produto = self.produtos_dict[texto]
+        # Se o texto for exatamente um item do combo (seleção via mouse/teclado)
+        index = self.input_produto.findText(texto, Qt.MatchFlag.MatchExactly)
+        if index >= 0:
+            produto = self.input_produto.itemData(index, Qt.ItemDataRole.UserRole)
+            if produto:
+                preco = produto.get('preco', 0.0)
+                self.input_valor.setText(f"{preco:.2f}")
+                return
+        
+        # Buscar por nome digitado (sem formatação)
+        # Extrair apenas o nome antes do " - R$"
+        nome_busca = texto.split(" - R$")[0].strip()
+        
+        # Buscar no dicionário
+        if nome_busca in self.produtos_dict:
+            produto = self.produtos_dict[nome_busca]
             preco = produto.get('preco', 0.0)
             self.input_valor.setText(f"{preco:.2f}")
             return
         
         # Buscar por nome lowercase
-        texto_lower = texto.lower()
-        if texto_lower in self.produtos_dict:
-            produto = self.produtos_dict[texto_lower]
+        if nome_busca.lower() in self.produtos_dict:
+            produto = self.produtos_dict[nome_busca.lower()]
             preco = produto.get('preco', 0.0)
             self.input_valor.setText(f"{preco:.2f}")
             return
             
     
-    def _on_produto_selecionado(self, texto):
-        """Evento quando um produto é selecionado no completer"""
-        
-        # Buscar por nome exato primeiro
-        if texto in self.produtos_dict:
-            produto = self.produtos_dict[texto]
-            preco = produto.get('preco', 0.0)
-            self.input_valor.setText(f"{preco:.2f}")
+    def _on_produto_selecionado_combo(self, index):
+        """Evento quando um produto é selecionado no combo"""
+        if index <= 0:  # Item vazio ou inválido
             return
         
-        # Buscar por nome lowercase
-        texto_lower = texto.lower()
-        if texto_lower in self.produtos_dict:
-            produto = self.produtos_dict[texto_lower]
+        # Obter dados do produto armazenados no item
+        produto = self.input_produto.itemData(index, Qt.ItemDataRole.UserRole)
+        if produto:
             preco = produto.get('preco', 0.0)
             self.input_valor.setText(f"{preco:.2f}")
-            return
             
     
     def _adicionar_produto(self):
         """Adiciona um produto à lista"""
-        nome = self.input_produto.text().strip()
+        texto_combo = self.input_produto.currentText().strip()
         valor_texto = self.input_valor.text().strip()
         quantidade = self.input_quantidade.value()
         
         # Validações
-        if not nome:
-            QMessageBox.warning(self, "Aviso", "Digite o nome do produto!")
+        if not texto_combo:
+            QMessageBox.warning(self, "Aviso", "Selecione um produto!")
             return
         
         if not valor_texto or valor_texto in ['0', '0,00', '0.00']:
@@ -816,12 +910,21 @@ class NovoPedidosModal(QDialog):
             QMessageBox.warning(self, "Aviso", "Valor inválido!")
             return
         
+        # Extrair nome do produto (antes do " - R$")
+        nome = texto_combo.split(" - R$")[0].strip()
+        
         # Buscar código no catálogo
         codigo = ''
         if nome in self.produtos_dict:
             produto_cat = self.produtos_dict[nome]
             codigo = produto_cat.get('codigo', '')
             # Usar preço do catálogo se disponível
+            if produto_cat.get('preco', 0) > 0:
+                valor = produto_cat['preco']
+        elif nome.lower() in self.produtos_dict:
+            produto_cat = self.produtos_dict[nome.lower()]
+            codigo = produto_cat.get('codigo', '')
+            nome = produto_cat.get('nome', nome)  # Nome correto do catálogo
             if produto_cat.get('preco', 0) > 0:
                 valor = produto_cat['preco']
         
@@ -849,7 +952,7 @@ class NovoPedidosModal(QDialog):
         self._atualizar_tabela_produtos()
         
         # Limpar campos
-        self.input_produto.clear()
+        self.input_produto.setCurrentIndex(0)  # Voltar para item vazio
         self.input_valor.clear()
         self.combo_cor.setCurrentIndex(0)
         self.combo_cor_tampa.setCurrentIndex(0)

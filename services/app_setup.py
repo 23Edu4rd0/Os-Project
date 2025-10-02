@@ -33,16 +33,8 @@ def setup_application(root_dir: Path) -> QApplication:
     app.setFont(font)
     
     # Configurar tooltips para serem menores e mais discretos
-    app.setStyleSheet("""
-        QToolTip {
-            background: #2a2a2a;
-            color: #e0e0e0;
-            border: 1px solid #4a4a4a;
-            border-radius: 4px;
-            padding: 4px 8px;
-            font-size: 11px;
-        }
-    """)
+    # NÃO aplicar stylesheet aqui para não sobrescrever o tema
+    pass
     
     # Instalar correção de posicionamento de tooltips
     install_tooltip_fix(app)

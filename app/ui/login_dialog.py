@@ -130,7 +130,7 @@ class LoginDialog(QDialog):
             self.password = pwd
             self.accept()
         else:
-            self._show_error("Usuário ou senha incorretos!")
+            self._show_error("Usuário ou senha incorretos! \nDica: admin / 1234")
             self.pass_input.clear()
             self.pass_input.setFocus()
             self._shake_animation()
