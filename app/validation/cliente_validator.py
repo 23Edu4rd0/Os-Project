@@ -61,13 +61,9 @@ def validar_dados_cliente(cliente_data):
     if not telefone:
         return False, "Telefone é obrigatório!"
     
-    # Deve ter CPF ou CNPJ
+    # Deve ter pelo menos CPF ou CNPJ (pode ter ambos)
     if not cpf and not cnpj:
-        return False, "Informe CPF ou CNPJ!"
-    
-    # Não pode ter CPF e CNPJ ao mesmo tempo
-    if cpf and cnpj:
-        return False, "Informe apenas CPF ou CNPJ, não ambos!"
+        return False, "Informe pelo menos CPF ou CNPJ!"
     
     # Validar CPF se informado
     if cpf:

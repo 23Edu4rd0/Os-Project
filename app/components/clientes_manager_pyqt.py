@@ -13,6 +13,7 @@ from database import db_manager
 from app.ui.theme import apply_app_theme
 from app.utils.formatters import formatar_cpf
 from app.utils.cep_api import CepAPI
+from app.utils.keyboard_shortcuts import setup_standard_shortcuts
 
 
 class ClienteDetailDialog(QDialog):
@@ -145,6 +146,12 @@ class ClienteDetailDialog(QDialog):
             ref_label.setStyleSheet("font-size: 11px; color: #c0c0c0; margin-top: 4px;")
             right.addWidget(ref_label)
         
+        # Número de compras (mantido mesmo após deletar pedidos)
+        numero_compras = self.cliente.get('numero_compras', 0) or 0
+        compras_label = QLabel(f"<b>🛒 Compras:</b> {numero_compras}")
+        compras_label.setStyleSheet("font-size: 13px; color: #50fa7b; font-weight: bold; margin-top: 8px;")
+        right.addWidget(compras_label)
+        
         right.addStretch()
 
         # Proporções das colunas: 35%, 30%, 35%
@@ -251,6 +258,41 @@ class ClienteDetailDialog(QDialog):
         """)
         self.btn_edit.setEnabled(False)
         
+        # Botão WhatsApp
+        self.btn_whatsapp = QPushButton("💬 WhatsApp")
+        self.btn_whatsapp.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.btn_whatsapp.setMinimumHeight(45)
+        self.btn_whatsapp.setMinimumWidth(140)
+        self.btn_whatsapp.setStyleSheet("""
+            QPushButton {
+                font-size: 14px; 
+                font-weight: 600;
+                padding: 12px 20px; 
+                background-color: #25D366; 
+                color: white; 
+                border: none;
+                border-radius: 8px;
+                text-align: center;
+            }
+            QPushButton:hover {
+                background-color: #20BA5A;
+            }
+            QPushButton:pressed {
+                background-color: #1DA851;
+            }
+            QPushButton:disabled {
+                background-color: #404040;
+                color: #888;
+            }
+        """)
+        # Habilitar WhatsApp se tiver telefone
+        tem_telefone = bool(self.cliente.get('telefone', '').strip())
+        self.btn_whatsapp.setEnabled(tem_telefone)
+        if not tem_telefone:
+            self.btn_whatsapp.setToolTip("Telefone não informado")
+        else:
+            self.btn_whatsapp.setToolTip("Enviar mensagem pelo WhatsApp")
+        
         # Botão Fechar
         self.btn_close = QPushButton("Fechar")
         self.btn_close.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
@@ -279,6 +321,7 @@ class ClienteDetailDialog(QDialog):
         # Layout responsivo dos botões
         btn_layout.addWidget(self.btn_add)
         btn_layout.addWidget(self.btn_edit)
+        btn_layout.addWidget(self.btn_whatsapp)
         btn_layout.addStretch()  # Empurra o botão Fechar para a direita
         btn_layout.addWidget(self.btn_close)
         
@@ -290,6 +333,7 @@ class ClienteDetailDialog(QDialog):
 
         self.btn_add.clicked.connect(self.abrir_ordem_completa)
         self.btn_edit.clicked.connect(self.editar_pedido_selecionado)
+        self.btn_whatsapp.clicked.connect(self._mostrar_menu_whatsapp)
         self.btn_close.clicked.connect(self.accept)
 
         self.orders_table.itemSelectionChanged.connect(self._on_table_selection_changed)
@@ -504,8 +548,11 @@ class ClienteDetailDialog(QDialog):
             # Confirmação de exclusão
             reply = QMessageBox.question(
                 self, 
-                "Confirmar Exclusão", 
-                f"Tem certeza que deseja deletar a OS {pedido_id}?\n\nEsta ação não pode ser desfeita.",
+                "⚠️ Confirmar Exclusão", 
+                f"Tem certeza que deseja deletar a OS {pedido_id}?\n\n"
+                f"⚠️ O pedido será movido para a lixeira!\n"
+                f"Você poderá recuperá-lo dentro de 30 dias.\n"
+                f"Após esse período, será removido permanentemente.",
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                 QMessageBox.StandardButton.No
             )
@@ -518,7 +565,7 @@ class ClienteDetailDialog(QDialog):
                 sucesso = db_manager.deletar_pedido(pedido_id)
                 
                 if sucesso:
-                    QMessageBox.information(self, "Sucesso", "Pedido deletado com sucesso!")
+                    self.parent()._mostrar_mensagem_auto_close("✅ Sucesso", "Pedido deletado com sucesso!", "success", 5)
                     # Recarrega a tabela para atualizar a interface
                     self.carregar_pedidos()
                 else:
@@ -546,7 +593,7 @@ class ClienteDetailDialog(QDialog):
 
         ok = db_manager.salvar_ordem(dados)
         if ok:
-            QMessageBox.information(self, "Sucesso", "Ordem salva com sucesso")
+            self.parent()._mostrar_mensagem_auto_close("✅ Sucesso", "Ordem salva com sucesso!", "success", 5)
             # limpar campos
             self.input_numero.clear()
             self.input_produto.clear()
@@ -650,6 +697,278 @@ class ClienteDetailDialog(QDialog):
             pedidos_modal._criar_modal_completo(None, cliente_fixo=True, nome_cliente_label=nome_label)
         except Exception as e:
             QMessageBox.critical(self, "Erro", f"Não foi possível abrir modal completo: {e}")
+    
+    def _mostrar_menu_whatsapp(self):
+        """Mostra menu com opções de WhatsApp"""
+        try:
+            telefone = self.cliente.get('telefone', '').strip()
+            
+            if not telefone:
+                QMessageBox.warning(self, "WhatsApp", "Telefone não informado para este cliente.")
+                return
+            
+            # Criar menu de contexto
+            menu = QMenu(self)
+            menu.setStyleSheet("""
+                QMenu {
+                    background-color: #3a3a3a;
+                    border: 1px solid #555555;
+                    border-radius: 6px;
+                    color: #e6e6e6;
+                    font-size: 13px;
+                    padding: 4px;
+                }
+                QMenu::item {
+                    padding: 10px 20px;
+                    margin: 2px;
+                    border-radius: 4px;
+                }
+                QMenu::item:selected {
+                    background-color: #25d366;
+                    color: white;
+                }
+                QMenu::separator {
+                    height: 1px;
+                    background-color: #555555;
+                    margin: 6px 10px;
+                }
+            """)
+            
+            from PyQt6.QtGui import QAction
+            
+            # Seção 1: Abrir conversa
+            acao_abrir_app = QAction("� Abrir conversa (App)", self)
+            acao_abrir_app.setToolTip("Abre o WhatsApp no aplicativo instalado")
+            acao_abrir_app.triggered.connect(lambda: self._abrir_whatsapp(usar_web=False))
+            menu.addAction(acao_abrir_app)
+            
+            acao_abrir_web = QAction("🌐 Abrir conversa (Web)", self)
+            acao_abrir_web.setToolTip("Abre o WhatsApp no navegador")
+            acao_abrir_web.triggered.connect(lambda: self._abrir_whatsapp(usar_web=True))
+            menu.addAction(acao_abrir_web)
+            
+            menu.addSeparator()
+            
+            # Seção 2: Confirmar dados
+            acao_confirmar_app = QAction("✅ Confirmar dados (App)", self)
+            acao_confirmar_app.setToolTip("Envia confirmação de dados pelo aplicativo")
+            acao_confirmar_app.triggered.connect(lambda: self._confirmar_dados_cliente(usar_web=False))
+            menu.addAction(acao_confirmar_app)
+            
+            acao_confirmar_web = QAction("✅ Confirmar dados (Web)", self)
+            acao_confirmar_web.setToolTip("Envia confirmação de dados pelo navegador")
+            acao_confirmar_web.triggered.connect(lambda: self._confirmar_dados_cliente(usar_web=True))
+            menu.addAction(acao_confirmar_web)
+            
+            # Mostrar menu próximo ao botão
+            menu.exec(self.btn_whatsapp.mapToGlobal(self.btn_whatsapp.rect().bottomLeft()))
+            
+        except Exception as e:
+            QMessageBox.critical(self, "Erro", f"Erro ao abrir menu WhatsApp: {str(e)}")
+            print(f"Erro no menu WhatsApp: {e}")
+    
+    def _abrir_whatsapp(self, usar_web=True):
+        """Abre conversa do WhatsApp com o cliente (sem mensagem pré-definida)"""
+        try:
+            import webbrowser
+            
+            telefone = self.cliente.get('telefone', '').strip()
+            
+            # Limpar telefone
+            telefone_limpo = ''.join(filter(str.isdigit, telefone))
+            if telefone_limpo and len(telefone_limpo) >= 10:
+                if not telefone_limpo.startswith('55'):
+                    telefone_limpo = '55' + telefone_limpo
+                
+                if usar_web:
+                    url = f"https://web.whatsapp.com/send?phone={telefone_limpo}"
+                else:
+                    url = f"https://api.whatsapp.com/send?phone={telefone_limpo}"
+                
+                webbrowser.open(url)
+                
+                plataforma = "WhatsApp Web" if usar_web else "aplicativo WhatsApp"
+                QMessageBox.information(
+                    self, 
+                    "WhatsApp", 
+                    f"{plataforma} aberto!\n\nConversa com {self.cliente.get('nome', 'cliente')} pronta para iniciar."
+                )
+            else:
+                QMessageBox.warning(self, "Erro", "Telefone inválido.")
+                
+        except Exception as e:
+            QMessageBox.critical(self, "Erro", f"Erro ao abrir WhatsApp: {e}")
+            print(f"Erro ao abrir WhatsApp: {e}")
+    
+    def _enviar_mensagem_pedido(self, usar_web=True):
+        """Envia mensagem do pedido selecionado via WhatsApp"""
+        try:
+            selected = self.orders_table.selectedItems()
+            if not selected:
+                QMessageBox.information(self, "Selecione um pedido", "Selecione um pedido na tabela primeiro.")
+                return
+            
+            row = self.orders_table.currentRow()
+            pedido_id_item = self.orders_table.item(row, 0)
+            if not pedido_id_item:
+                return
+            
+            # Obter o ID real
+            pedido_id = pedido_id_item.data(Qt.ItemDataRole.UserRole)
+            
+            # Buscar dados completos do pedido
+            pedido = db_manager.get_pedido_por_id(pedido_id)
+            if not pedido:
+                QMessageBox.warning(self, "Erro", "Pedido não encontrado.")
+                return
+            
+            # Enviar via WhatsApp (mesmo método usado nos cards)
+            import webbrowser
+            import urllib.parse
+            
+            telefone = self.cliente.get('telefone', '').strip()
+            numero_os = pedido.get('numero_os', 'N/A')
+            cliente = self.cliente.get('nome', '')
+            status = pedido.get('status', 'Em produção')
+            
+            # Montar mensagem
+            mensagem = f"🛍️ *Pedido #{numero_os}*\n\n"
+            mensagem += f"👤 Cliente: {cliente}\n"
+            mensagem += f"📊 Status: {status}\n\n"
+            
+            # Adicionar produtos se houver
+            if pedido.get('produtos'):
+                mensagem += "📦 *Produtos:*\n"
+                for i, prod in enumerate(pedido['produtos'], 1):
+                    desc = prod.get('descricao', 'Produto')
+                    qtd = prod.get('quantidade', 1)
+                    mensagem += f"{i}. {desc} (x{qtd})\n"
+                mensagem += "\n"
+            
+            # Valor total
+            valor_total = pedido.get('valor_total', 0)
+            if valor_total:
+                mensagem += f"💰 Valor Total: R$ {valor_total:.2f}\n"
+            
+            mensagem += "\n_Mensagem automática do Sistema de OS_"
+            
+            # Limpar telefone
+            telefone_limpo = ''.join(filter(str.isdigit, telefone))
+            if telefone_limpo and len(telefone_limpo) >= 10:
+                if not telefone_limpo.startswith('55'):
+                    telefone_limpo = '55' + telefone_limpo
+                
+                mensagem_encoded = urllib.parse.quote(mensagem)
+                
+                if usar_web:
+                    url = f"https://web.whatsapp.com/send?phone={telefone_limpo}&text={mensagem_encoded}"
+                else:
+                    url = f"https://api.whatsapp.com/send?phone={telefone_limpo}&text={mensagem_encoded}"
+                
+                # Copiar para área de transferência
+                clipboard = QApplication.clipboard()
+                clipboard.setText(mensagem)
+                
+                # Abrir WhatsApp
+                webbrowser.open(url)
+                
+                plataforma = "WhatsApp Web" if usar_web else "aplicativo WhatsApp"
+                QMessageBox.information(
+                    self, 
+                    "WhatsApp", 
+                    f"Mensagem copiada para a área de transferência!\n{plataforma} aberto.\n\nVocê pode colar a mensagem (Ctrl+V) e enviar."
+                )
+            else:
+                QMessageBox.warning(self, "Erro", "Telefone inválido.")
+                
+        except Exception as e:
+            QMessageBox.critical(self, "Erro", f"Erro ao enviar mensagem: {e}")
+            print(f"Erro ao enviar mensagem WhatsApp: {e}")
+    
+    def _confirmar_dados_cliente(self, usar_web=True):
+        """Envia mensagem para confirmação de dados do cliente"""
+        try:
+            import webbrowser
+            import urllib.parse
+            
+            telefone = self.cliente.get('telefone', '').strip()
+            
+            mensagem = f"Oi {self.cliente.get('nome', '')}, tudo bem? 😊\n\n"
+            mensagem += "Estou passando aqui pra confirmar seus dados com você:\n\n"
+            mensagem += f"*Nome:* {self.cliente.get('nome', '')}\n"
+            
+            if self.cliente.get('cpf'):
+                from app.utils.formatters import formatar_cpf
+                mensagem += f"*CPF:* {formatar_cpf(self.cliente.get('cpf', ''))}\n"
+            
+            if self.cliente.get('cnpj'):
+                mensagem += f"*CNPJ:* {self.cliente.get('cnpj', '')}\n"
+            
+            if self.cliente.get('inscricao_estadual'):
+                mensagem += f"*Inscrição Estadual:* {self.cliente.get('inscricao_estadual', '')}\n"
+            
+            if telefone:
+                mensagem += f"*Telefone:* {telefone}\n"
+            
+            if self.cliente.get('email'):
+                mensagem += f"*Email:* {self.cliente.get('email', '')}\n"
+            
+            # Endereço
+            endereco_parts = []
+            if self.cliente.get('rua'):
+                endereco_parts.append(self.cliente.get('rua', ''))
+            if self.cliente.get('numero'):
+                endereco_parts.append(f"nº {self.cliente.get('numero', '')}")
+            if self.cliente.get('bairro'):
+                endereco_parts.append(self.cliente.get('bairro', ''))
+            if self.cliente.get('cidade'):
+                endereco_parts.append(self.cliente.get('cidade', ''))
+            if self.cliente.get('estado'):
+                endereco_parts.append(self.cliente.get('estado', ''))
+            if self.cliente.get('cep'):
+                from app.utils.cep_api import CepAPI
+                endereco_parts.append(f"CEP {CepAPI.format_cep_display(self.cliente.get('cep', ''))}")
+            
+            if endereco_parts:
+                mensagem += f"\n*Endereço:*\n{', '.join(endereco_parts)}\n"
+            
+            if self.cliente.get('referencia'):
+                mensagem += f"*Ponto de referência:* {self.cliente.get('referencia', '')}\n"
+            
+            mensagem += "\nDá uma conferida aí pra mim, por favor! Se tiver algo errado ou precisar atualizar, me avisa que eu corrijo aqui 👍"
+            
+            # Limpar telefone
+            telefone_limpo = ''.join(filter(str.isdigit, telefone))
+            if telefone_limpo and len(telefone_limpo) >= 10:
+                if not telefone_limpo.startswith('55'):
+                    telefone_limpo = '55' + telefone_limpo
+                
+                mensagem_encoded = urllib.parse.quote(mensagem)
+                
+                if usar_web:
+                    url = f"https://web.whatsapp.com/send?phone={telefone_limpo}&text={mensagem_encoded}"
+                else:
+                    url = f"https://api.whatsapp.com/send?phone={telefone_limpo}&text={mensagem_encoded}"
+                
+                # Copiar para área de transferência
+                clipboard = QApplication.clipboard()
+                clipboard.setText(mensagem)
+                
+                # Abrir WhatsApp
+                webbrowser.open(url)
+                
+                plataforma = "WhatsApp Web" if usar_web else "aplicativo WhatsApp"
+                QMessageBox.information(
+                    self, 
+                    "WhatsApp", 
+                    f"Dados do cliente copiados para a área de transferência!\n{plataforma} aberto.\n\nVocê pode colar a mensagem (Ctrl+V) e enviar."
+                )
+            else:
+                QMessageBox.warning(self, "Erro", "Telefone inválido.")
+                
+        except Exception as e:
+            QMessageBox.critical(self, "Erro", f"Erro ao enviar dados: {e}")
+            print(f"Erro ao enviar dados WhatsApp: {e}")
 
 
 class ClientesManager(QWidget):
@@ -662,6 +981,7 @@ class ClientesManager(QWidget):
         self._conectar_sinais()
         self._setup_interface()
         self.carregar_dados()
+        self._setup_keyboard_shortcuts()
     
     def _conectar_sinais(self):
         """Conecta os sinais globais para atualização em tempo real"""
@@ -704,6 +1024,63 @@ class ClientesManager(QWidget):
         # Aplicar estilo
         self._aplicar_estilo()
     
+    def _mostrar_mensagem_auto_close(self, titulo, mensagem, icone="information", segundos=5):
+        """Mostra uma mensagem não-bloqueante que fecha automaticamente após X segundos com contador"""
+        from PyQt6.QtCore import QTimer, Qt
+        
+        # Criar mensagem não-bloqueante
+        msg_box = QMessageBox(self)
+        msg_box.setWindowTitle(titulo)
+        msg_box.setWindowModality(Qt.WindowModality.NonModal)  # Não-bloqueante!
+        
+        # Definir ícone
+        if icone == "information":
+            msg_box.setIcon(QMessageBox.Icon.Information)
+        elif icone == "warning":
+            msg_box.setIcon(QMessageBox.Icon.Warning)
+        elif icone == "success":
+            msg_box.setIcon(QMessageBox.Icon.Information)
+        
+        # Estilo padrão para todos (tema escuro)
+        msg_box.setStyleSheet("""
+            QMessageBox { 
+                min-width: 400px;
+            }
+            QLabel {
+                font-size: 12px;
+                min-width: 350px;
+            }
+        """)
+        
+        # Adicionar botão OK
+        msg_box.setStandardButtons(QMessageBox.StandardButton.Ok)
+        
+        # Variáveis para o contador
+        msg_box._tempo_restante = segundos
+        msg_box._mensagem_original = mensagem
+        
+        # Atualizar texto com contador
+        def atualizar_contador():
+            if msg_box._tempo_restante > 0:
+                texto_com_timer = f"{msg_box._mensagem_original}\n\n⏱️ Fecha automaticamente em {msg_box._tempo_restante}s"
+                msg_box.setText(texto_com_timer)
+                msg_box._tempo_restante -= 1
+            else:
+                msg_box.accept()
+        
+        # Mostrar texto inicial com contador
+        atualizar_contador()
+        
+        # Timer para atualizar o contador a cada segundo
+        timer = QTimer(msg_box)
+        timer.timeout.connect(atualizar_contador)
+        timer.start(1000)  # Atualiza a cada 1 segundo
+        
+        # Mostrar (não-bloqueante)
+        msg_box.show()
+        
+        return msg_box
+    
     def _criar_barra_superior(self, layout):
         """Cria barra superior com botões e pesquisa"""
         top_frame = QFrame()
@@ -715,6 +1092,7 @@ class ClientesManager(QWidget):
         self.btn_novo.setMinimumWidth(100)
         self.btn_novo.setMinimumHeight(36)
         self.btn_novo.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_novo.setProperty("btnClass", "success")  # Verde
         self.btn_novo.clicked.connect(self.novo_cliente)
         top_layout.addWidget(self.btn_novo)
 
@@ -722,6 +1100,7 @@ class ClientesManager(QWidget):
         self.btn_editar.setMinimumWidth(100)
         self.btn_editar.setMinimumHeight(36)
         self.btn_editar.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_editar.setProperty("btnClass", "primary")  # Azul
         self.btn_editar.clicked.connect(self.editar_cliente)
         top_layout.addWidget(self.btn_editar)
 
@@ -729,6 +1108,7 @@ class ClientesManager(QWidget):
         self.btn_excluir.setMinimumWidth(100)
         self.btn_excluir.setMinimumHeight(36)
         self.btn_excluir.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_excluir.setProperty("btnClass", "danger")  # Vermelho
         self.btn_excluir.clicked.connect(self.excluir_cliente)
         top_layout.addWidget(self.btn_excluir)
 
@@ -736,6 +1116,7 @@ class ClientesManager(QWidget):
         self.btn_recarregar.setMinimumWidth(100)
         self.btn_recarregar.setMinimumHeight(36)
         self.btn_recarregar.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_recarregar.setProperty("btnClass", "success")  # Verde
         self.btn_recarregar.clicked.connect(self.carregar_dados)
         top_layout.addWidget(self.btn_recarregar)
 
@@ -766,27 +1147,55 @@ class ClientesManager(QWidget):
         self.btn_limpar.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_limpar.clicked.connect(self.limpar_pesquisa)
         top_layout.addWidget(self.btn_limpar)
+        
+        # Contador de resultados
+        self.label_resultados = QLabel("")
+        self.label_resultados.setStyleSheet("""
+            QLabel {
+                color: #888888;
+                font-size: 12px;
+                font-weight: 500;
+                padding: 0px 15px;
+            }
+        """)
+        top_layout.addWidget(self.label_resultados)
 
         layout.addWidget(top_frame)
     
     def _criar_tabela(self, layout):
-        """Cria tabela de clientes com scroll suave"""
+        """Cria tabela de clientes com scroll suave e ordenação"""
         self.table = QTableWidget()
         
         # Configurar colunas
-        columns = ["ID", "Nome", "CPF", "CNPJ", "Insc. Estadual", "Telefone", "Email", "CEP", "Rua", "Nº", "Bairro", "Cidade", "UF", "Referência"]
+        columns = ["ID", "Nome", "CPF", "CNPJ", "Insc. Estadual", "Telefone", "Email", "CEP", "Rua", "Nº", "Bairro", "Cidade", "UF", "Referência", "Compras"]
         self.table.setColumnCount(len(columns))
         self.table.setHorizontalHeaderLabels(columns)
         
+        # HABILITAR ORDENAÇÃO POR COLUNA
+        self.table.setSortingEnabled(True)
+        
         # Configurar larguras das colunas (mais compacto)
         header = self.table.horizontalHeader()
-        column_widths = [50, 160, 90, 100, 80, 100, 140, 80, 120, 40, 90, 90, 40, 110]
+        column_widths = [50, 160, 90, 100, 80, 100, 140, 80, 120, 40, 90, 90, 40, 110, 0]  # última = 0 (oculta)
         
         for i, width in enumerate(column_widths):
             self.table.setColumnWidth(i, width)
         
+        # Ocultar coluna numero_compras (índice 14) - usada apenas para passar dados ao diálogo
+        self.table.setColumnHidden(14, True)
+        
+        # Permitir redimensionamento manual das colunas
+        header.setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
+        
         # Esticar última coluna
         header.setStretchLastSection(True)
+        
+        # Permitir mover colunas (arrastar e soltar)
+        header.setSectionsMovable(True)
+        
+        # Menu contextual no cabeçalho
+        header.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        header.customContextMenuRequested.connect(self._show_header_context_menu)
         
         # Configurar seleção
         self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
@@ -864,6 +1273,124 @@ class ClientesManager(QWidget):
         
         self.table.wheelEvent = smooth_table_wheel
     
+    def _export_table_data(self):
+        """Exporta os dados visíveis da tabela para CSV"""
+        try:
+            from datetime import datetime
+            import csv
+            import os
+            
+            # Diretório de exportação
+            export_dir = os.path.expanduser("~/Documents/OrdemServico/Exportacoes")
+            os.makedirs(export_dir, exist_ok=True)
+            
+            # Nome do arquivo com timestamp
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"clientes_{timestamp}.csv"
+            filepath = os.path.join(export_dir, filename)
+            
+            # Coletar dados visíveis
+            with open(filepath, 'w', newline='', encoding='utf-8-sig') as csvfile:
+                writer = csv.writer(csvfile, delimiter=';')
+                
+                # Cabeçalhos das colunas visíveis
+                headers = []
+                visible_columns = []
+                for col in range(self.table.columnCount()):
+                    if not self.table.isColumnHidden(col):
+                        headers.append(self.table.horizontalHeaderItem(col).text())
+                        visible_columns.append(col)
+                
+                writer.writerow(headers)
+                
+                # Dados das linhas
+                for row in range(self.table.rowCount()):
+                    row_data = []
+                    for col in visible_columns:
+                        item = self.table.item(row, col)
+                        row_data.append(item.text() if item else "")
+                    writer.writerow(row_data)
+            
+            # Mensagem de sucesso
+            self._mostrar_mensagem_auto_close(
+                "✅ Exportação Concluída",
+                f"Arquivo salvo em:\n{filepath}\n\n"
+                f"📊 {self.table.rowCount()} clientes exportados\n"
+                f"📁 Pasta: {os.path.basename(os.path.dirname(filepath))}",
+                "success",
+                4
+            )
+            
+        except Exception as e:
+            QMessageBox.critical(self, "❌ Erro", f"Erro ao exportar dados:\n{e}")
+    
+    def _show_header_context_menu(self, pos):
+        """Mostra menu contextual no cabeçalho da tabela"""
+        header = self.table.horizontalHeader()
+        column = header.logicalIndexAt(pos)
+        
+        menu = QMenu(self)
+        menu.setStyleSheet("""
+            QMenu {
+                background-color: #2d2d2d;
+                color: #e6e6e6;
+                border: 1px solid #555555;
+                border-radius: 5px;
+                padding: 5px;
+            }
+            QMenu::item {
+                padding: 8px 25px;
+                border-radius: 3px;
+            }
+            QMenu::item:selected {
+                background-color: #007ACC;
+            }
+            QMenu::separator {
+                height: 1px;
+                background: #555555;
+                margin: 5px 10px;
+            }
+        """)
+        
+        # Ordenação
+        sort_asc_action = menu.addAction("↑ Ordenar Crescente")
+        sort_desc_action = menu.addAction("↓ Ordenar Decrescente")
+        
+        menu.addSeparator()
+        
+        # Ocultar/Mostrar colunas
+        hide_col_action = menu.addAction("👁️ Ocultar Esta Coluna")
+        show_cols_menu = menu.addMenu("👁️ Mostrar Colunas")
+        
+        # Adicionar opções para mostrar colunas ocultas
+        for i in range(self.table.columnCount()):
+            if self.table.isColumnHidden(i):
+                col_name = self.table.horizontalHeaderItem(i).text()
+                show_action = show_cols_menu.addAction(f"  {col_name}")
+                show_action.setData(i)
+        
+        menu.addSeparator()
+        
+        # Ajuste automático de largura
+        auto_resize_action = menu.addAction("↔️ Ajustar Largura Automaticamente")
+        
+        # Executar ação
+        action = menu.exec(header.mapToGlobal(pos))
+        
+        if action == sort_asc_action:
+            self.table.sortItems(column, Qt.SortOrder.AscendingOrder)
+        elif action == sort_desc_action:
+            self.table.sortItems(column, Qt.SortOrder.DescendingOrder)
+        elif action == hide_col_action:
+            self.table.setColumnHidden(column, True)
+        elif action == auto_resize_action:
+            self.table.resizeColumnToContents(column)
+        elif action and show_cols_menu.actions():
+            # Mostrar coluna selecionada
+            col_index = action.data()
+            if col_index is not None:
+                self.table.setColumnHidden(col_index, False)
+    
     def _animate_table_scroll(self):
         """Anima scroll da tabela"""
         diff = self.table_target_scroll - self.table_current_scroll
@@ -877,6 +1404,26 @@ class ClientesManager(QWidget):
         self.table_current_scroll += diff * self.table_scroll_speed
         self.table.verticalScrollBar().setValue(int(self.table_current_scroll))
     
+    def _setup_keyboard_shortcuts(self):
+        """Configura os atalhos de teclado para a tela de clientes"""
+        try:
+            callbacks = {
+                'new': self.novo_cliente,  # Ctrl+N
+                'save': None,  # Não aplicável nesta tela
+                'search': lambda: self.search_entry.setFocus(),  # Ctrl+F
+                'reload': self.carregar_dados,  # F5
+                'delete': self.excluir_cliente,  # Delete
+            }
+            self.shortcut_manager = setup_standard_shortcuts(self, callbacks)
+            
+            # Atualizar tooltips dos botões com atalhos
+            self.btn_novo.setToolTip("Criar novo cliente (Ctrl+N)")
+            self.btn_recarregar.setToolTip("Recarregar lista de clientes (F5)")
+            self.btn_excluir.setToolTip("Excluir cliente selecionado (Delete)")
+            self.search_entry.setToolTip("Buscar cliente (Ctrl+F)")
+        except Exception as e:
+            print(f"Erro ao configurar atalhos: {e}")
+    
     def carregar_dados(self):
         """Carrega dados dos clientes"""
         try:
@@ -887,7 +1434,7 @@ class ClientesManager(QWidget):
             
             # Preencher dados
             for row, cliente in enumerate(clientes):
-                # cliente é uma tupla: (id, nome, cpf, cnpj, inscricao_estadual, telefone, email, cep, rua, numero, bairro, cidade, estado, referencia)
+                # cliente é uma tupla: (id, nome, cpf, cnpj, inscricao_estadual, telefone, email, cep, rua, numero, bairro, cidade, estado, referencia, numero_compras)
                 if len(cliente) >= 14:
                     raw_cpf = str(cliente[2] or '')
                     # Formatação de CNPJ
@@ -912,6 +1459,9 @@ class ClientesManager(QWidget):
                     else:
                         cep_fmt = ''
                     
+                    # Extrair numero_compras (índice 14)
+                    numero_compras_val = str(cliente[14] or '0') if len(cliente) > 14 else '0'
+                    
                     dados = [
                         str(cliente[0] or ''),   # id
                         str(cliente[1] or ''),   # nome
@@ -926,7 +1476,8 @@ class ClientesManager(QWidget):
                         str(cliente[10] or ''),  # bairro
                         str(cliente[11] or ''),  # cidade
                         str(cliente[12] or ''),  # estado
-                        str(cliente[13] or '')   # referencia
+                        str(cliente[13] or ''),  # referencia
+                        numero_compras_val       # numero_compras (coluna oculta para dados)
                     ]
                     
                     for col, valor in enumerate(dados):
@@ -941,6 +1492,16 @@ class ClientesManager(QWidget):
             self.table.resizeRowsToContents()
             
             print(f"Carregados {len(clientes)} clientes na tabela")
+            
+            # Atualizar contador de resultados
+            if hasattr(self, 'label_resultados'):
+                total = len(clientes)
+                if total == 0:
+                    self.label_resultados.setText("Nenhum cliente encontrado")
+                elif total == 1:
+                    self.label_resultados.setText("1 cliente encontrado")
+                else:
+                    self.label_resultados.setText(f"{total} clientes encontrados")
             
         except Exception as e:
             QMessageBox.critical(self, "Erro", f"Falha ao carregar clientes: {e}")
@@ -1046,6 +1607,12 @@ class ClientesManager(QWidget):
                 dados['estado'] = valor
             elif col == 13:
                 dados['referencia'] = valor
+            elif col == 14:
+                # Converter para int, defaultando para 0
+                try:
+                    dados['numero_compras'] = int(valor) if valor else 0
+                except (ValueError, TypeError):
+                    dados['numero_compras'] = 0
 
         dialog = ClienteDetailDialog(self, dados)
         dialog.exec()
@@ -1084,7 +1651,7 @@ class ClientesManager(QWidget):
                 from app.signals import get_signals
                 signals = get_signals()
                 signals.cliente_excluido.emit(int(cliente_id))
-                QMessageBox.information(self, "Sucesso", "Cliente excluído com sucesso!")
+                self._mostrar_mensagem_auto_close("✅ Sucesso", "Cliente excluído com sucesso!", "success", 5)
             except Exception as e:
                 QMessageBox.critical(self, "Erro", f"Erro ao excluir cliente: {e}")
     
@@ -1235,8 +1802,55 @@ class ClientesManager(QWidget):
         QGroupBox::title { color: #e6e6e6; }
         """
 
+        # Adicionar estilos de botões coloridos
+        button_colors = """
+        /* Botão Verde - Sucesso (Novo, Recarregar) */
+        QPushButton[btnClass="success"] {
+            background-color: #28a745;
+        }
+        QPushButton[btnClass="success"]:hover {
+            background-color: #218838;
+        }
+        QPushButton[btnClass="success"]:pressed {
+            background-color: #1e7e34;
+        }
+        
+        /* Botão Azul - Primário (Editar) */
+        QPushButton[btnClass="primary"] {
+            background-color: #007bff;
+        }
+        QPushButton[btnClass="primary"]:hover {
+            background-color: #0069d9;
+        }
+        QPushButton[btnClass="primary"]:pressed {
+            background-color: #0056b3;
+        }
+        
+        /* Botão Vermelho - Perigo (Excluir) */
+        QPushButton[btnClass="danger"] {
+            background-color: #dc3545;
+        }
+        QPushButton[btnClass="danger"]:hover {
+            background-color: #c82333;
+        }
+        QPushButton[btnClass="danger"]:pressed {
+            background-color: #bd2130;
+        }
+        
+        /* Botão Azul Claro - Info (Exportar) */
+        QPushButton[btnClass="info"] {
+            background-color: #17a2b8;
+        }
+        QPushButton[btnClass="info"]:hover {
+            background-color: #138496;
+        }
+        QPushButton[btnClass="info"]:pressed {
+            background-color: #117a8b;
+        }
+        """
+        
         # apply to widget
-        self.setStyleSheet((self.styleSheet() or "") + "\n" + style)
+        self.setStyleSheet((self.styleSheet() or "") + "\n" + style + "\n" + button_colors)
         # set some object names for per-widget fine tuning if needed
         try:
             self.search_entry.setObjectName('clientes_search')
@@ -1549,7 +2163,7 @@ class ClienteModal(QDialog):
                             dados['estado'],
                             dados['referencia']
                         )
-                        QMessageBox.information(self, "Sucesso", "Cliente atualizado com sucesso!")
+                        self._mostrar_mensagem_auto_close("✅ Sucesso", "Cliente atualizado com sucesso!", "success", 5)
                     else:
                         # Criar novo cliente
                         db_manager.criar_cliente_completo(
@@ -1567,7 +2181,7 @@ class ClienteModal(QDialog):
                             dados['estado'],
                             dados['referencia']
                         )
-                        QMessageBox.information(self, "Sucesso", "Cliente criado com sucesso!")
+                        self._mostrar_mensagem_auto_close("✅ Sucesso", "Cliente criado com sucesso!", "success", 5)
                     
                     self.accept()  # Fecha o modal
                     

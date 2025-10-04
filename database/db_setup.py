@@ -67,6 +67,7 @@ class DatabaseSetup:
             )
             ''')
             
+            # Índices para melhorar performance de consultas
             cursor.execute('''
             CREATE INDEX IF NOT EXISTS idx_numero_os ON ordem_servico(numero_os)
             ''')
@@ -76,11 +77,23 @@ class DatabaseSetup:
             ''')
             
             cursor.execute('''
+            CREATE INDEX IF NOT EXISTS idx_status ON ordem_servico(status)
+            ''')
+            
+            cursor.execute('''
+            CREATE INDEX IF NOT EXISTS idx_nome_cliente ON ordem_servico(nome_cliente)
+            ''')
+            
+            cursor.execute('''
             CREATE INDEX IF NOT EXISTS idx_cliente_nome ON clientes(nome)
             ''')
             
             cursor.execute('''
             CREATE INDEX IF NOT EXISTS idx_cliente_cpf ON clientes(cpf)
+            ''')
+            
+            cursor.execute('''
+            CREATE INDEX IF NOT EXISTS idx_cliente_telefone ON clientes(telefone)
             ''')
 
             # Garantir colunas CNPJ e Inscrição Estadual existentes (migração)
@@ -131,6 +144,14 @@ class DatabaseSetup:
             cursor.execute('''
             CREATE INDEX IF NOT EXISTS idx_produtos_nome ON produtos(nome)
             ''')
+            
+            cursor.execute('''
+            CREATE INDEX IF NOT EXISTS idx_produtos_categoria ON produtos(categoria)
+            ''')
+            
+            cursor.execute('''
+            CREATE INDEX IF NOT EXISTS idx_produtos_preco ON produtos(preco)
+            ''')
             # Garantir coluna 'codigo' existente para compatibilidade (migração simples)
             try:
                 cursor.execute("ALTER TABLE produtos ADD COLUMN codigo TEXT")
@@ -151,6 +172,10 @@ class DatabaseSetup:
 
             cursor.execute('''
             CREATE INDEX IF NOT EXISTS idx_gastos_data ON gastos(data)
+            ''')
+            
+            cursor.execute('''
+            CREATE INDEX IF NOT EXISTS idx_gastos_tipo ON gastos(tipo)
             ''')
         except Exception as e:
             print(f"Erro ao criar tabelas: {e}")

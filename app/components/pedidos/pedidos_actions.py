@@ -16,8 +16,11 @@ class PedidosActions:
         """Exclui um pedido"""
         reply = QMessageBox.question(
             self.interface,
-            "Confirmar Exclusão",
-            f"Tem certeza que deseja excluir o pedido #{pedido_id}?\n\nEsta ação não pode ser desfeita.",
+            "⚠️ Confirmar Exclusão",
+            f"Tem certeza que deseja excluir o pedido #{pedido_id}?\n\n"
+            f"⚠️ O pedido será movido para a lixeira!\n"
+            f"Você poderá recuperá-lo dentro de 30 dias.\n"
+            f"Após esse período, será removido permanentemente.",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.No
         )

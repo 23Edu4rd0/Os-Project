@@ -974,6 +974,64 @@ class PedidosCard(QWidget):
             print(f"Erro ao calcular dias restantes: {e}")
             return None
     
+    def _mostrar_mensagem_auto_close(self, titulo, mensagem, icone="information", segundos=5):
+        """Mostra uma mensagem não-bloqueante que fecha automaticamente após X segundos com contador"""
+        from PyQt6.QtWidgets import QMessageBox
+        from PyQt6.QtCore import QTimer, Qt
+        
+        # Criar mensagem não-bloqueante
+        msg_box = QMessageBox(self)
+        msg_box.setWindowTitle(titulo)
+        msg_box.setWindowModality(Qt.WindowModality.NonModal)  # Não-bloqueante!
+        
+        # Definir ícone
+        if icone == "information":
+            msg_box.setIcon(QMessageBox.Icon.Information)
+        elif icone == "warning":
+            msg_box.setIcon(QMessageBox.Icon.Warning)
+        elif icone == "success":
+            msg_box.setIcon(QMessageBox.Icon.Information)
+        
+        # Estilo padrão para todos (tema escuro)
+        msg_box.setStyleSheet("""
+            QMessageBox { 
+                min-width: 400px;
+            }
+            QLabel {
+                font-size: 12px;
+                min-width: 350px;
+            }
+        """)
+        
+        # Adicionar botão OK
+        msg_box.setStandardButtons(QMessageBox.StandardButton.Ok)
+        
+        # Variáveis para o contador
+        msg_box._tempo_restante = segundos
+        msg_box._mensagem_original = mensagem
+        
+        # Atualizar texto com contador
+        def atualizar_contador():
+            if msg_box._tempo_restante > 0:
+                texto_com_timer = f"{msg_box._mensagem_original}\n\n⏱️ Fecha automaticamente em {msg_box._tempo_restante}s"
+                msg_box.setText(texto_com_timer)
+                msg_box._tempo_restante -= 1
+            else:
+                msg_box.accept()
+        
+        # Mostrar texto inicial com contador
+        atualizar_contador()
+        
+        # Timer para atualizar o contador a cada segundo
+        timer = QTimer(msg_box)
+        timer.timeout.connect(atualizar_contador)
+        timer.start(1000)  # Atualiza a cada 1 segundo
+        
+        # Mostrar (não-bloqueante)
+        msg_box.show()
+        
+        return msg_box
+    
     def _mostrar_menu_whatsapp(self, btn_whatsapp, pedido):
         """Mostra menu com opções de WhatsApp: mensagem ou PDF"""
         try:
@@ -1017,15 +1075,24 @@ class PedidosCard(QWidget):
             # Separador
             menu.addSeparator()
             
+            # Ação: Criar PDF (sem enviar)
+            acao_criar_pdf = QAction("📄 Criar PDF", self)
+            acao_criar_pdf.setToolTip("Gerar PDF da OS e abrir pasta")
+            acao_criar_pdf.triggered.connect(lambda: self._criar_pdf_apenas(btn_whatsapp, pedido))
+            menu.addAction(acao_criar_pdf)
+            
+            # Separador
+            menu.addSeparator()
+            
             # Ação: Enviar PDF via App
-            acao_pdf_app = QAction("📄 PDF via App", self)
-            acao_pdf_app.setToolTip("Gerar PDF e abrir WhatsApp App (mobile)")
+            acao_pdf_app = QAction("� PDF via App", self)
+            acao_pdf_app.setToolTip("Criar PDF e abrir WhatsApp App com arquivo anexado")
             acao_pdf_app.triggered.connect(lambda: self._enviar_pdf_whatsapp_app(btn_whatsapp, pedido))
             menu.addAction(acao_pdf_app)
             
             # Ação: Enviar PDF via Web  
             acao_pdf_web = QAction("🌐 PDF via Web", self)
-            acao_pdf_web.setToolTip("Gerar PDF e abrir WhatsApp Web (arrastar arquivo)")
+            acao_pdf_web.setToolTip("Criar PDF e abrir WhatsApp Web (arrastar arquivo)")
             acao_pdf_web.triggered.connect(lambda: self._enviar_pdf_whatsapp_web(btn_whatsapp, pedido))
             menu.addAction(acao_pdf_web)
             
@@ -1036,6 +1103,116 @@ class PedidosCard(QWidget):
             from PyQt6.QtWidgets import QMessageBox
             QMessageBox.critical(self, "Erro", f"Erro ao abrir menu WhatsApp: {str(e)}")
             print(f"Erro no menu WhatsApp: {e}")
+    
+    def _criar_pdf_apenas(self, btn_whatsapp, pedido):
+        """Gera apenas o PDF da OS sem enviar para WhatsApp"""
+        try:
+            import os
+            import subprocess
+            import platform
+            from PyQt6.QtCore import QTimer
+            from PyQt6.QtWidgets import QMessageBox
+            from documents.os_pdf import OrdemServicoPDF
+            
+            numero_os = pedido.get('numero_os', pedido.get('id', 'N/A'))
+            cliente = pedido.get('nome_cliente', 'Cliente')
+            
+            # Feedback visual: gerando PDF
+            texto_original = btn_whatsapp.text()
+            btn_whatsapp.setText("Gerando PDF...")
+            btn_whatsapp.setStyleSheet("""
+                QPushButton {
+                    background-color: #FF9800;
+                    color: white;
+                    border: 1px solid #F57C00;
+                    border-radius: 4px;
+                    padding: 5px 8px;
+                    font-size: 10px;
+                    font-weight: bold;
+                    min-width: 70px;
+                    max-height: 28px;
+                }
+            """)
+            btn_whatsapp.setEnabled(False)
+            
+            # Buscar dados completos do cliente se faltar endereço ou cep
+            cliente_tem_endereco = bool(pedido.get('cep_cliente')) and bool(pedido.get('rua_cliente'))
+            if not cliente_tem_endereco:
+                try:
+                    from database.db_manager import db_manager
+                    cpf = pedido.get('cpf_cliente') or pedido.get('cpf')
+                    if cpf:
+                        cpf_limpo = ''.join(filter(str.isdigit, cpf))
+                        dados_cliente = db_manager.buscar_cliente_por_cpf(cpf_limpo)
+                        if dados_cliente:
+                            pedido['cep_cliente'] = dados_cliente.get('cep')
+                            pedido['rua_cliente'] = dados_cliente.get('rua')
+                            pedido['numero_cliente'] = dados_cliente.get('numero')
+                            pedido['bairro_cliente'] = dados_cliente.get('bairro')
+                            pedido['cidade_cliente'] = dados_cliente.get('cidade')
+                            pedido['estado_cliente'] = dados_cliente.get('estado')
+                except Exception:
+                    pass
+            
+            # Gerar PDF
+            gerador = OrdemServicoPDF(pedido)
+            caminho_pdf = gerador.gerar()
+            
+            if not caminho_pdf or not os.path.exists(caminho_pdf):
+                raise Exception("Falha ao gerar PDF")
+            
+            # Feedback: PDF pronto
+            btn_whatsapp.setText("PDF Criado!")
+            btn_whatsapp.setStyleSheet("""
+                QPushButton {
+                    background-color: #4CAF50;
+                    color: white;
+                    border: 1px solid #388E3C;
+                    border-radius: 4px;
+                    padding: 5px 8px;
+                    font-size: 10px;
+                    font-weight: bold;
+                    min-width: 70px;
+                    max-height: 28px;
+                }
+            """)
+            
+            # Abrir pasta onde o PDF foi salvo
+            pasta_pdf = os.path.dirname(caminho_pdf)
+            sistema = platform.system()
+            
+            if sistema == 'Windows':
+                os.startfile(pasta_pdf)
+            elif sistema == 'Darwin':  # macOS
+                subprocess.run(['open', pasta_pdf])
+            else:  # Linux
+                subprocess.run(['xdg-open', pasta_pdf])
+            
+            # Mostrar informações (não-bloqueante, fecha em 5 segundos)
+            self._mostrar_mensagem_auto_close(
+                "✅ PDF Criado com Sucesso!", 
+                f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+                f"📋 Ordem de Serviço #{numero_os}\n"
+                f"👤 Cliente: {cliente}\n"
+                f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+                f"📄 Arquivo:\n   {os.path.basename(caminho_pdf)}\n\n"
+                f"📁 Localização:\n   {pasta_pdf}\n\n"
+                f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+                f"✨ A pasta foi aberta automaticamente!\n"
+                f"💡 O PDF está pronto para ser enviado.",
+                "success",
+                5
+            )
+            
+            # Após 3 segundos, volta ao normal
+            QTimer.singleShot(3000, lambda: self._restaurar_botao_whatsapp(btn_whatsapp, texto_original))
+            
+        except Exception as e:
+            from PyQt6.QtWidgets import QMessageBox
+            QMessageBox.critical(self, "Erro", f"Erro ao gerar PDF: {str(e)}")
+            print(f"Erro ao criar PDF: {e}")
+            # Restaurar botão em caso de erro
+            self._restaurar_botao_whatsapp(btn_whatsapp, "WhatsApp")
     
     def _enviar_pdf_whatsapp_web(self, btn_whatsapp, pedido):
         """Gera PDF da OS e envia via WhatsApp"""
@@ -1166,23 +1343,34 @@ Segue em anexo o PDF da sua Ordem de Serviço #{numero_os}.
                 print(f"Não foi possível abrir pasta: {e}")
             
             # Mostrar instruções detalhadas
-            instrucoes = f"""✅ WhatsApp Web aberto para {cliente}!
+            instrucoes = f"""━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📋 Ordem de Serviço #{numero_os}
+👤 Cliente: {cliente}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-�️ Pasta do PDF aberta: {os.path.basename(pasta_pdf)}
-📄 Arquivo: {os.path.basename(caminho_pdf)}
+✅ WhatsApp Web foi aberto!
+✅ Pasta do PDF foi aberta!
 
+📄 Arquivo:
+   {os.path.basename(caminho_pdf)}
+
+📁 Localização:
+   {os.path.basename(pasta_pdf)}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 📋 COMO ENVIAR O PDF:
-1️⃣ No WhatsApp Web, localize a conversa com {cliente}
-2️⃣ Clique no ícone � (anexar arquivo) na conversa
-3️⃣ Selecione "Documento" ou arraste o PDF da pasta
-4️⃣ Adicione uma mensagem se desejar
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1️⃣ Localize a conversa com {cliente}
+2️⃣ Clique no ícone 📎 (anexar)
+3️⃣ Selecione "Documento"
+4️⃣ Escolha o PDF ou arraste da pasta
 5️⃣ Clique em Enviar ✅
 
-💡 DICA: Você pode arrastar o arquivo direto da pasta para a conversa!"""
+💡 Arraste direto da pasta para agilizar!"""
             
-            QMessageBox.information(self, "📱 WhatsApp Web + PDF", instrucoes)
-            
-            # Após 3 segundos, volta ao normal
+            # Mostrar instruções (não-bloqueante, fecha em 10 segundos - mais tempo para ler)
+            self._mostrar_mensagem_auto_close("🌐 WhatsApp Web + PDF", instrucoes, "information", 10)
             QTimer.singleShot(3000, lambda: self._restaurar_botao_whatsapp(btn_whatsapp, texto_original))
             
         except Exception as e:
@@ -1198,6 +1386,8 @@ Segue em anexo o PDF da sua Ordem de Serviço #{numero_os}.
             import webbrowser
             import urllib.parse
             import os
+            import subprocess
+            import platform
             from PyQt6.QtCore import QTimer
             from PyQt6.QtWidgets import QMessageBox
             from documents.os_pdf import OrdemServicoPDF
@@ -1287,15 +1477,45 @@ Em breve enviaremos o documento completo.
             # Abrir WhatsApp App
             webbrowser.open(url_app)
             
-            # Mostrar informações
-            QMessageBox.information(self, "📱 WhatsApp App", 
-                f"WhatsApp App aberto para {cliente}!\n\n"
-                f"📄 PDF gerado: {os.path.basename(caminho_pdf)}\n"
-                f"📁 Local: {os.path.dirname(caminho_pdf)}\n\n"
-                f"💡 O PDF foi salvo localmente.\n"
-                f"Envie manualmente ou use a opção 'PDF via Web'.")
+            # Abrir pasta do PDF para facilitar o envio manual
+            pasta_pdf = os.path.dirname(caminho_pdf)
+            sistema = platform.system()
             
-            # Após 3 segundos, volta ao normal
+            try:
+                if sistema == 'Windows':
+                    # No Windows, podemos selecionar o arquivo na pasta
+                    subprocess.run(['explorer', '/select,', os.path.normpath(caminho_pdf)])
+                elif sistema == 'Darwin':  # macOS
+                    subprocess.run(['open', '-R', caminho_pdf])
+                else:  # Linux
+                    # No Linux, abre a pasta
+                    subprocess.run(['xdg-open', pasta_pdf])
+            except Exception:
+                # Se falhar, apenas abre a pasta normalmente
+                if sistema == 'Windows':
+                    os.startfile(pasta_pdf)
+                elif sistema == 'Darwin':
+                    subprocess.run(['open', pasta_pdf])
+                else:
+                    subprocess.run(['xdg-open', pasta_pdf])
+            
+            # Mostrar informações (não-bloqueante, fecha em 5 segundos)
+            self._mostrar_mensagem_auto_close(
+                "📱 WhatsApp App Aberto!", 
+                f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+                f"📋 Ordem de Serviço #{numero_os}\n"
+                f"👤 Cliente: {cliente}\n"
+                f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+                f"✅ WhatsApp App foi aberto!\n"
+                f"✅ Pasta do PDF foi aberta!\n\n"
+                f"📄 Arquivo:\n   {os.path.basename(caminho_pdf)}\n\n"
+                f"📁 Localização:\n   {pasta_pdf}\n\n"
+                f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+                f"💡 Arraste o PDF para o WhatsApp\n"
+                f"   ou anexe manualmente.",
+                "success",
+                5
+            )
             QTimer.singleShot(3000, lambda: self._restaurar_botao_whatsapp(btn_whatsapp, texto_original))
             
         except Exception as e:
@@ -1474,8 +1694,13 @@ Qualquer dúvida, estou à disposição!"""
             # Abrir WhatsApp
             webbrowser.open(url)
             
-            # Feedback visual de sucesso
-            QMessageBox.information(self, "WhatsApp", f"WhatsApp aberto para {cliente}!\nTelefone: {telefone}")
+            # Feedback visual de sucesso (não-bloqueante, fecha em 5 segundos)
+            self._mostrar_mensagem_auto_close(
+                "WhatsApp",
+                f"WhatsApp aberto para {cliente}!\nTelefone: {telefone}",
+                "success",
+                5
+            )
             
         except Exception as e:
             from PyQt6.QtWidgets import QMessageBox

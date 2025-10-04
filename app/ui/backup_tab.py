@@ -110,6 +110,58 @@ class BackupTab(QWidget):
 
         top_row.addLayout(right_col)
         self.layout().addLayout(top_row)
+        
+        # Middle row: Soft Delete and Auto Backup
+        middle_row = QHBoxLayout()
+        
+        self.btn_view_deleted = QPushButton("📋 Ver Registros Deletados")
+        self.btn_view_deleted.clicked.connect(self.on_view_deleted)
+        self.btn_view_deleted.setMinimumHeight(36)
+        self.btn_view_deleted.setStyleSheet('padding:6px 12px; background-color: #3d5a80;')
+        middle_row.addWidget(self.btn_view_deleted)
+        
+        self.btn_backup_now = QPushButton("💾 Backup Manual")
+        self.btn_backup_now.clicked.connect(self.on_backup_now)
+        self.btn_backup_now.setMinimumHeight(36)
+        self.btn_backup_now.setStyleSheet('padding:6px 12px; background-color: #2a9d8f;')
+        middle_row.addWidget(self.btn_backup_now)
+        
+        self.btn_view_auto_backups = QPushButton("📅 Backups Automáticos")
+        self.btn_view_auto_backups.clicked.connect(self.on_view_auto_backups)
+        self.btn_view_auto_backups.setMinimumHeight(36)
+        self.btn_view_auto_backups.setStyleSheet('padding:6px 12px; background-color: #264653;')
+        middle_row.addWidget(self.btn_view_auto_backups)
+        
+        self.layout().addLayout(middle_row)
+        
+        # Export row: Export data to CSV/Excel
+        export_row = QHBoxLayout()
+        export_row.setContentsMargins(0, 10, 0, 10)
+        
+        export_label = QLabel("📊 Exportar Dados:")
+        export_label.setStyleSheet("font-weight: bold; font-size: 14px; color: #17a2b8;")
+        export_row.addWidget(export_label)
+        
+        self.btn_export_clientes = QPushButton("👥 Exportar Clientes")
+        self.btn_export_clientes.clicked.connect(self.on_export_clientes)
+        self.btn_export_clientes.setMinimumHeight(36)
+        self.btn_export_clientes.setStyleSheet('padding:6px 12px; background-color: #17a2b8;')
+        export_row.addWidget(self.btn_export_clientes)
+        
+        self.btn_export_produtos = QPushButton("🛍️ Exportar Produtos")
+        self.btn_export_produtos.clicked.connect(self.on_export_produtos)
+        self.btn_export_produtos.setMinimumHeight(36)
+        self.btn_export_produtos.setStyleSheet('padding:6px 12px; background-color: #17a2b8;')
+        export_row.addWidget(self.btn_export_produtos)
+        
+        self.btn_export_pedidos = QPushButton("📋 Exportar Pedidos")
+        self.btn_export_pedidos.clicked.connect(self.on_export_pedidos)
+        self.btn_export_pedidos.setMinimumHeight(36)
+        self.btn_export_pedidos.setStyleSheet('padding:6px 12px; background-color: #17a2b8;')
+        export_row.addWidget(self.btn_export_pedidos)
+        
+        export_row.addStretch()
+        self.layout().addLayout(export_row)
 
         # bottom row: destructive operations
         bottom_row = QHBoxLayout()
@@ -261,6 +313,107 @@ class BackupTab(QWidget):
                 signals.cores_atualizadas.emit()
             except Exception:
                 pass
+    
+    def on_view_deleted(self):
+        """Abre diálogo para visualizar e restaurar registros deletados"""
+        from app.ui.soft_delete_viewer import SoftDeleteViewer
+        try:
+            dlg = SoftDeleteViewer(self)
+            dlg.exec()
+            self.add_log('Visualizador de registros deletados aberto')
+        except Exception as e:
+            QMessageBox.critical(self, "Erro", f"Erro ao abrir visualizador: {e}")
+            self.add_log(f'Erro ao abrir visualizador de deletados: {e}')
+    
+    def on_backup_now(self):
+        """Força um backup manual imediato"""
+        try:
+            from app.utils.auto_backup import get_auto_backup_scheduler
+            scheduler = get_auto_backup_scheduler(self)
+            
+            sucesso, mensagem = scheduler.force_backup_now()
+            
+            if sucesso:
+                QMessageBox.information(self, "Sucesso", f"✅ {mensagem}")
+                self.add_log(f'Backup manual: {mensagem}')
+            else:
+                QMessageBox.warning(self, "Erro", f"❌ {mensagem}")
+                self.add_log(f'Erro no backup manual: {mensagem}')
+        except Exception as e:
+            QMessageBox.critical(self, "Erro", f"Erro ao criar backup: {e}")
+            self.add_log(f'Erro no backup manual: {e}')
+    
+    def on_view_auto_backups(self):
+        """Mostra lista de backups automáticos"""
+        try:
+            from app.utils.auto_backup import get_auto_backup_scheduler
+            scheduler = get_auto_backup_scheduler(self)
+            
+            backups = scheduler.get_backup_list()
+            
+            if not backups:
+                QMessageBox.information(self, "Info", "Nenhum backup automático encontrado")
+                return
+            
+            # Criar mensagem com lista
+            msg = "📅 Backups Automáticos:\n\n"
+            for nome, data, tamanho in backups:
+                msg += f"📄 {nome}\n"
+                msg += f"   📅 {data}\n"
+                msg += f"   💾 {tamanho:.2f} MB\n\n"
+            
+            QMessageBox.information(self, "Backups Automáticos", msg)
+            self.add_log(f'{len(backups)} backups automáticos listados')
+        except Exception as e:
+            QMessageBox.critical(self, "Erro", f"Erro ao listar backups: {e}")
+    
+    def on_export_clientes(self):
+        """Exporta todos os clientes para CSV"""
+        try:
+            from app.utils.data_exporter import DataExporter
+            sucesso, mensagem = DataExporter.export_clientes_csv()
+            
+            if sucesso:
+                QMessageBox.information(self, "Sucesso", f"✅ {mensagem}")
+                self.add_log(f'Clientes exportados: {mensagem}')
+            else:
+                QMessageBox.warning(self, "Erro", f"❌ {mensagem}")
+                self.add_log(f'Erro ao exportar clientes: {mensagem}')
+        except Exception as e:
+            QMessageBox.critical(self, "Erro", f"Erro ao exportar clientes:\n{e}")
+            self.add_log(f'Erro ao exportar clientes: {e}')
+    
+    def on_export_produtos(self):
+        """Exporta todos os produtos para CSV"""
+        try:
+            from app.utils.data_exporter import DataExporter
+            sucesso, mensagem = DataExporter.export_produtos_csv()
+            
+            if sucesso:
+                QMessageBox.information(self, "Sucesso", f"✅ {mensagem}")
+                self.add_log(f'Produtos exportados: {mensagem}')
+            else:
+                QMessageBox.warning(self, "Erro", f"❌ {mensagem}")
+                self.add_log(f'Erro ao exportar produtos: {mensagem}')
+        except Exception as e:
+            QMessageBox.critical(self, "Erro", f"Erro ao exportar produtos:\n{e}")
+            self.add_log(f'Erro ao exportar produtos: {e}')
+    
+    def on_export_pedidos(self):
+        """Exporta todos os pedidos para CSV"""
+        try:
+            from app.utils.data_exporter import DataExporter
+            sucesso, mensagem = DataExporter.export_pedidos_csv()
+            
+            if sucesso:
+                QMessageBox.information(self, "Sucesso", f"✅ {mensagem}")
+                self.add_log(f'Pedidos exportados: {mensagem}')
+            else:
+                QMessageBox.warning(self, "Erro", f"❌ {mensagem}")
+                self.add_log(f'Erro ao exportar pedidos: {mensagem}')
+        except Exception as e:
+            QMessageBox.critical(self, "Erro", f"Erro ao exportar pedidos:\n{e}")
+            self.add_log(f'Erro ao exportar pedidos: {e}')
 
     def _apply_styles(self):
         """Apply a compact dark stylesheet with subtle rounded panels."""

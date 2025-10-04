@@ -13,6 +13,7 @@ from PyQt6.QtGui import QFont, QPalette, QColor, QIcon, QPainter, QPixmap, QPoly
 import re
 from database import db_manager
 from app.utils.currency_parser import CurrencyParser
+from app.utils.keyboard_shortcuts import setup_standard_shortcuts
 
 
 
@@ -354,10 +355,70 @@ class ProdutosManager(QWidget):
     
     def __init__(self, parent=None):
         super().__init__(parent)
+        self._animation_in_progress = False  # Flag para evitar animações múltiplas
+        self._last_selected_row = -1  # Última linha selecionada
         self._conectar_sinais()
         self._setup_ui()
         self._setup_styles()
         self._load_products()
+        self._setup_keyboard_shortcuts()
+    
+    def _mostrar_mensagem_auto_close(self, titulo, mensagem, icone="information", segundos=5):
+        """Mostra uma mensagem não-bloqueante que fecha automaticamente após X segundos com contador"""
+        from PyQt6.QtCore import QTimer
+        
+        # Criar mensagem não-bloqueante
+        msg_box = QMessageBox(self)
+        msg_box.setWindowTitle(titulo)
+        msg_box.setWindowModality(Qt.WindowModality.NonModal)  # Não-bloqueante!
+        
+        # Definir ícone
+        if icone == "information":
+            msg_box.setIcon(QMessageBox.Icon.Information)
+        elif icone == "warning":
+            msg_box.setIcon(QMessageBox.Icon.Warning)
+        elif icone == "success":
+            msg_box.setIcon(QMessageBox.Icon.Information)
+        
+        # Estilo padrão para todos (tema escuro)
+        msg_box.setStyleSheet("""
+            QMessageBox { 
+                min-width: 400px;
+            }
+            QLabel {
+                font-size: 12px;
+                min-width: 350px;
+            }
+        """)
+        
+        # Adicionar botão OK
+        msg_box.setStandardButtons(QMessageBox.StandardButton.Ok)
+        
+        # Variáveis para o contador
+        msg_box._tempo_restante = segundos
+        msg_box._mensagem_original = mensagem
+        
+        # Atualizar texto com contador
+        def atualizar_contador():
+            if msg_box._tempo_restante > 0:
+                texto_com_timer = f"{msg_box._mensagem_original}\n\n⏱️ Fecha automaticamente em {msg_box._tempo_restante}s"
+                msg_box.setText(texto_com_timer)
+                msg_box._tempo_restante -= 1
+            else:
+                msg_box.accept()
+        
+        # Mostrar texto inicial com contador
+        atualizar_contador()
+        
+        # Timer para atualizar o contador a cada segundo
+        timer = QTimer(msg_box)
+        timer.timeout.connect(atualizar_contador)
+        timer.start(1000)  # Atualiza a cada 1 segundo
+        
+        # Mostrar (não-bloqueante)
+        msg_box.show()
+        
+        return msg_box
     
     def _conectar_sinais(self):
         """Conecta os sinais globais para atualização em tempo real"""
@@ -424,18 +485,39 @@ class ProdutosManager(QWidget):
         self.search_input.textChanged.connect(self._load_products)
         header_layout.addWidget(self.search_input)
         
+        # Contador de resultados
+        self.label_resultados = QLabel("")
+        self.label_resultados.setStyleSheet("""
+            QLabel {
+                color: #888888;
+                font-size: 12px;
+                font-weight: 500;
+                padding: 0px 10px;
+            }
+        """)
+        header_layout.addWidget(self.label_resultados)
+        
         # Botões de ação
         self.new_btn = QPushButton("➕ Novo")
         self.edit_btn = QPushButton("✏️ Editar")
         self.delete_btn = QPushButton("🗑️ Excluir")
+        self.refresh_btn = QPushButton("🔄 Recarregar")
         
         self.new_btn.clicked.connect(self._new_product)
         self.edit_btn.clicked.connect(self._edit_product)
         self.delete_btn.clicked.connect(self._delete_product)
+        self.refresh_btn.clicked.connect(self._load_products)
+        
+        # Aplicar cores intuitivas aos botões
+        self.new_btn.setProperty("btnClass", "success")  # Verde
+        self.edit_btn.setProperty("btnClass", "primary")  # Azul
+        self.delete_btn.setProperty("btnClass", "danger")  # Vermelho
+        self.refresh_btn.setProperty("btnClass", "success")  # Verde
         
         header_layout.addWidget(self.new_btn)
         header_layout.addWidget(self.edit_btn)
         header_layout.addWidget(self.delete_btn)
+        header_layout.addWidget(self.refresh_btn)
         
         layout.addLayout(header_layout)
         
@@ -510,7 +592,7 @@ class ProdutosManager(QWidget):
         # Configurações básicas
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
-        self.table.setAlternatingRowColors(True)
+        self.table.setAlternatingRowColors(False)  # Desabilitar para não conflitar com animação
         self.table.setSortingEnabled(True)
         
         # Ocultar cabeçalho vertical (números das linhas)
@@ -532,6 +614,98 @@ class ProdutosManager(QWidget):
         
         # Conectar duplo clique
         self.table.doubleClicked.connect(self._edit_product)
+        
+        # Conectar seleção para efeito visual
+        self.table.itemSelectionChanged.connect(self._on_selection_changed)
+    
+    def _on_selection_changed(self):
+        """Efeito visual ao selecionar uma linha com flash animado"""
+        # Evitar múltiplas animações ao mesmo tempo
+        if self._animation_in_progress:
+            return
+        
+        selected_rows = self.table.selectionModel().selectedRows()
+        if not selected_rows:
+            return
+        
+        row = selected_rows[0].row()
+        
+        # Se é a mesma linha, não animar novamente
+        if row == self._last_selected_row:
+            return
+        
+        self._last_selected_row = row
+        self._animation_in_progress = True
+        
+        from PyQt6.QtCore import QTimer
+        from PyQt6.QtGui import QColor, QFont
+        
+        # Criar efeito de "flash" com múltiplas etapas
+        colors = [
+            QColor("#00D4FF"),  # Ciano brilhante
+            QColor("#00B8E6"),  # Ciano médio
+            QColor("#3a5a7a"),  # Azul escuro (cor final)
+        ]
+        
+        def apply_flash(step=0):
+            if step < len(colors):
+                # Pintar TODAS as células da linha
+                for col in range(self.table.columnCount()):
+                    item = self.table.item(row, col)
+                    # Se não existe item, criar um vazio
+                    if not item:
+                        item = QTableWidgetItem("")
+                        self.table.setItem(row, col, item)
+                    
+                    # Aplicar cor de fundo
+                    item.setBackground(colors[step])
+                    
+                    # No primeiro flash, destacar o texto
+                    if step == 0:
+                        font = item.font()
+                        font.setBold(True)
+                        item.setFont(font)
+                        item.setForeground(QColor("#FFFFFF"))
+                
+                # Forçar atualização visual
+                self.table.viewport().update()
+                
+                # Próxima etapa
+                QTimer.singleShot(150, lambda: apply_flash(step + 1))
+            else:
+                # Finalizar animação
+                self._animation_in_progress = False
+                # Limpar e reselecionar para aplicar estilo padrão
+                self.table.clearSelection()
+                self.table.selectRow(row)
+                self.table.viewport().update()
+        
+        apply_flash()
+    
+    def _setup_keyboard_shortcuts(self):
+        """Configura os atalhos de teclado para a tela de produtos"""
+        try:
+            callbacks = {
+                'new': self._new_product,  # Ctrl+N
+                'save': None,  # Não aplicável nesta tela
+                'search': lambda: self.search_input.setFocus(),  # Ctrl+F
+                'reload': self._load_products,  # F5
+                'delete': self._delete_selected_product,  # Delete
+            }
+            self.shortcut_manager = setup_standard_shortcuts(self, callbacks)
+            
+            # Atualizar tooltips dos botões com atalhos
+            self.new_btn.setToolTip("Adicionar novo produto (Ctrl+N)")
+            self.search_input.setToolTip("Buscar produto (Ctrl+F)")
+            self.refresh_btn.setToolTip("Recarregar lista de produtos (F5)")
+        except Exception as e:
+            print(f"Erro ao configurar atalhos: {e}")
+    
+    def _delete_selected_product(self):
+        """Deleta o produto selecionado"""
+        current_row = self.table.currentRow()
+        if current_row >= 0:
+            self._delete_product(current_row)
     
     def _load_products(self):
         """Carregar produtos na tabela"""
@@ -588,6 +762,16 @@ class ProdutosManager(QWidget):
             # Atualizar info
             self.info_label.setText(f"Produtos carregados: {len(products)}")
             
+            # Atualizar contador de resultados
+            if hasattr(self, 'label_resultados'):
+                total = len(products)
+                if total == 0:
+                    self.label_resultados.setText("Nenhum produto encontrado")
+                elif total == 1:
+                    self.label_resultados.setText("1 produto encontrado")
+                else:
+                    self.label_resultados.setText(f"{total} produtos encontrados")
+            
             # DEBUG: Verificar scroll após carregamento
             
             # Verificar se scroll bar está visível
@@ -615,8 +799,8 @@ class ProdutosManager(QWidget):
                 )
                 
                 if product_id:
-                    QMessageBox.information(self, "✅ Sucesso", 
-                                          f"Produto '{data['name']}' criado com sucesso!")
+                    self._mostrar_mensagem_auto_close("✅ Sucesso", 
+                                          f"Produto '{data['name']}' criado com sucesso!", "success", 5)
                     # Emitir sinal de produto criado
                     from app.signals import get_signals
                     signals = get_signals()
@@ -666,8 +850,8 @@ class ProdutosManager(QWidget):
                 )
                 
                 if success:
-                    QMessageBox.information(self, "✅ Sucesso",
-                                          f"Produto '{data['name']}' atualizado com sucesso!")
+                    self._mostrar_mensagem_auto_close("✅ Sucesso",
+                                          f"Produto '{data['name']}' atualizado com sucesso!", "success", 5)
                     # Emitir sinal de produto editado
                     from app.signals import get_signals
                     signals = get_signals()
@@ -701,7 +885,7 @@ class ProdutosManager(QWidget):
             if reply == QMessageBox.StandardButton.Yes:
                 success = db_manager.deletar_produto(product_id)
                 if success:
-                    QMessageBox.information(self, "✅ Sucesso", "Produto excluído com sucesso!")
+                    self._mostrar_mensagem_auto_close("✅ Sucesso", "Produto excluído com sucesso!", "success", 5)
                     # Emitir sinal de produto excluído
                     from app.signals import get_signals
                     signals = get_signals()
@@ -748,6 +932,39 @@ class ProdutosManager(QWidget):
             QPushButton:pressed {
                 background-color: #1f7a75;
             }
+            
+            /* Botão Verde - Sucesso (Novo, Recarregar) */
+            QPushButton[btnClass="success"] {
+                background-color: #28a745;
+            }
+            QPushButton[btnClass="success"]:hover {
+                background-color: #218838;
+            }
+            QPushButton[btnClass="success"]:pressed {
+                background-color: #1e7e34;
+            }
+            
+            /* Botão Azul - Primário (Editar) */
+            QPushButton[btnClass="primary"] {
+                background-color: #007bff;
+            }
+            QPushButton[btnClass="primary"]:hover {
+                background-color: #0069d9;
+            }
+            QPushButton[btnClass="primary"]:pressed {
+                background-color: #0056b3;
+            }
+            
+            /* Botão Vermelho - Perigo (Excluir) */
+            QPushButton[btnClass="danger"] {
+                background-color: #dc3545;
+            }
+            QPushButton[btnClass="danger"]:hover {
+                background-color: #c82333;
+            }
+            QPushButton[btnClass="danger"]:pressed {
+                background-color: #bd2130;
+            }
             QTableWidget {
                 background-color: transparent;
                 border: none;
@@ -763,11 +980,15 @@ class ProdutosManager(QWidget):
                 border: none;
             }
             QTableWidget::item:selected {
-                background-color: #2d2d2d;
-                color: #e6e6e6;
+                background-color: #3a5a7a;
+                color: #ffffff;
+                font-weight: bold;
             }
-            QTableWidget::item:alternate {
-                background-color: #232323;
+            QTableWidget::item:selected:hover {
+                background-color: #4a6a8a;
+            }
+            QTableWidget::item:hover {
+                background-color: #3a3a3a;
             }
             QHeaderView::section {
                 background-color: transparent;

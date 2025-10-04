@@ -117,6 +117,19 @@ class OrderCRUD:
             
             self.cursor.execute(query, valores)
             self.conn.commit()
+            
+            # Incrementar contador de compras do cliente
+            try:
+                if cpf_norm:
+                    self.cursor.execute("""
+                        UPDATE clientes 
+                        SET numero_compras = numero_compras + 1
+                        WHERE cpf = ? OR cnpj = ?
+                    """, (cpf_norm, cpf_norm))
+                    self.conn.commit()
+            except Exception as e:
+                print(f"Aviso: não foi possível atualizar contador de compras: {e}")
+            
             return True
             
         except Exception as e:
@@ -169,10 +182,18 @@ class OrderCRUD:
             return False
     
     def deletar_ordem(self, pedido_id):
-        """Deleta ordem por ID"""
+        """Marca ordem como deletada (soft delete) - fica na lixeira por 30 dias"""
         try:
-            self.cursor.execute('DELETE FROM ordem_servico WHERE id = ?', (pedido_id,))
+            from datetime import datetime
+            deleted_at = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            
+            # Soft delete: marcar como deletado em vez de remover
+            self.cursor.execute(
+                'UPDATE ordem_servico SET deleted_at = ? WHERE id = ?',
+                (deleted_at, pedido_id)
+            )
             self.conn.commit()
+            print(f"✅ Pedido {pedido_id} movido para lixeira (recuperável por 30 dias)")
             return True
             
         except Exception as e:

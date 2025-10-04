@@ -142,37 +142,66 @@ class PedidoResumoDialog(QDialog):
                 label_cliente = QLabel(f"• Cliente: {pedido['cliente_nome']}")
                 layout_geral.addWidget(label_cliente)
                 
-                # Buscar dados completos do cliente se houver CPF
+                # Buscar dados completos do cliente se houver CPF/CNPJ
+                cliente_completo = None
                 if pedido.get('cpf_cliente'):
                     from database.db_manager import DatabaseManager
                     db = DatabaseManager()
-                    cliente_completo = db.buscar_cliente_por_cpf(pedido['cpf_cliente'])
+                    
+                    # Normalizar documento (remover pontuação)
+                    documento_norm = ''.join(ch for ch in str(pedido['cpf_cliente']) if ch.isdigit())
+                    
+                    # Buscar por CPF ou CNPJ
+                    if documento_norm:
+                        # Tentar buscar por CPF primeiro
+                        cliente_completo = db.buscar_cliente_por_cpf(documento_norm)
+                        
+                        # Se não encontrou, tentar buscar por CNPJ
+                        if not cliente_completo:
+                            try:
+                                db.cursor.execute(
+                                    """SELECT id, nome, cpf, cnpj, inscricao_estadual, telefone, email, 
+                                       cep, rua, numero, bairro, cidade, estado, referencia
+                                       FROM clientes 
+                                       WHERE replace(replace(replace(replace(cnpj, '.', ''), '/', ''), '-', ''), ' ', '') = ?
+                                       LIMIT 1""",
+                                    (documento_norm,)
+                                )
+                                row = db.cursor.fetchone()
+                                if row:
+                                    cliente_completo = {
+                                        'id': row[0], 'nome': row[1], 'cpf': row[2], 'cnpj': row[3],
+                                        'inscricao_estadual': row[4], 'telefone': row[5], 'email': row[6],
+                                        'cep': row[7], 'rua': row[8], 'numero': row[9], 'bairro': row[10],
+                                        'cidade': row[11], 'estado': row[12], 'referencia': row[13]
+                                    }
+                            except Exception as e:
+                                print(f"Erro ao buscar cliente por CNPJ: {e}")
                     
                     if cliente_completo:
-                        # CPF
-                        if cliente_completo.get('cpf'):
+                        # Determinar se é CPF ou CNPJ
+                        tem_cpf = cliente_completo.get('cpf') and str(cliente_completo.get('cpf')).strip() not in ['', 'None']
+                        tem_cnpj = cliente_completo.get('cnpj') and str(cliente_completo.get('cnpj')).strip() not in ['', 'None']
+                        
+                        # Mostrar CPF se tiver
+                        if tem_cpf:
                             label_cpf = QLabel(f"  - CPF: {cliente_completo['cpf']}")
                             layout_geral.addWidget(label_cpf)
                         
-                        # CNPJ
-                        if cliente_completo.get('cnpj'):
+                        # Mostrar CNPJ e Inscrição Estadual se tiver
+                        if tem_cnpj:
                             label_cnpj = QLabel(f"  - CNPJ: {cliente_completo['cnpj']}")
                             layout_geral.addWidget(label_cnpj)
-                        
-                        # Inscrição Estadual
-                        if cliente_completo.get('inscricao_estadual'):
-                            label_ie = QLabel(f"  - Inscrição Estadual: {cliente_completo['inscricao_estadual']}")
-                            layout_geral.addWidget(label_ie)
+                            
+                            # Inscrição Estadual (só mostrar se tiver CNPJ)
+                            if cliente_completo.get('inscricao_estadual'):
+                                label_ie = QLabel(f"  - Inscrição Estadual: {cliente_completo['inscricao_estadual']}")
+                                layout_geral.addWidget(label_ie)
                         
                         # Telefone
                         if cliente_completo.get('telefone'):
                             label_tel = QLabel(f"  - Telefone: {cliente_completo['telefone']}")
                             layout_geral.addWidget(label_tel)
-                        
-                        # Email
-                        if cliente_completo.get('email'):
-                            label_email = QLabel(f"  - Email: {cliente_completo['email']}")
-                            layout_geral.addWidget(label_email)
                         
                         # Endereço completo
                         endereco_partes = []
@@ -186,27 +215,35 @@ class PedidoResumoDialog(QDialog):
                             endereco_partes.append(cliente_completo['cidade'])
                         if cliente_completo.get('estado'):
                             endereco_partes.append(cliente_completo['estado'])
+                        if cliente_completo.get('cep'):
+                            endereco_partes.append(f"CEP: {cliente_completo['cep']}")
                         
                         if endereco_partes:
                             endereco_completo = ', '.join(endereco_partes)
                             label_endereco = QLabel(f"  - Endereço: {endereco_completo}")
+                            label_endereco.setWordWrap(True)
                             layout_geral.addWidget(label_endereco)
                         
-                        # Referência
+                        # Email (opcional)
+                        if cliente_completo.get('email'):
+                            label_email = QLabel(f"  - Email: {cliente_completo['email']}")
+                            layout_geral.addWidget(label_email)
+                        
+                        # Referência (opcional)
                         if cliente_completo.get('referencia'):
                             label_ref = QLabel(f"  - Referência: {cliente_completo['referencia']}")
                             layout_geral.addWidget(label_ref)
                     else:
                         # Se não encontrou o cliente completo, mostrar dados básicos do pedido
                         if pedido.get('cpf_cliente'):
-                            label_cpf_basico = QLabel(f"  - CPF: {pedido['cpf_cliente']}")
+                            label_cpf_basico = QLabel(f"  - CPF/CNPJ: {pedido['cpf_cliente']}")
                             layout_geral.addWidget(label_cpf_basico)
                         
                         if pedido.get('telefone_cliente'):
                             label_tel_basico = QLabel(f"  - Telefone: {pedido['telefone_cliente']}")
                             layout_geral.addWidget(label_tel_basico)
                 else:
-                    # Se não há CPF, mostrar apenas telefone do pedido se disponível
+                    # Se não há CPF/CNPJ, mostrar apenas telefone do pedido se disponível
                     if pedido.get('telefone_cliente'):
                         label_tel_basico = QLabel(f"  - Telefone: {pedido['telefone_cliente']}")
                         layout_geral.addWidget(label_tel_basico)

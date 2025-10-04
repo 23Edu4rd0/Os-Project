@@ -67,6 +67,7 @@ class MainApp(QMainWindow):
         self._setup_ui()
         self._apply_global_styles()
         self._restore_window_state()
+        self._init_auto_backup()
         
         logger.info("Application initialized successfully")
     
@@ -145,14 +146,14 @@ class MainApp(QMainWindow):
                     stop: 0.5 #3a3a3a, stop: 0.9 #2e2e2e, stop: 1 #2a2a2a);
                 border: 2px solid #555555;
                 border-bottom: none;
-                border-top-left-radius: 10px;
-                border-top-right-radius: 10px;
+                border-top-left-radius: 15px;
+                border-top-right-radius: 15px;
                 color: #e0e0e0;
                 font-weight: 600;
                 font-size: 13px;
                 padding: 12px 20px;
-                margin-right: 3px;
-                margin-left: 3px;
+                margin-right: 5px;
+                margin-left: 5px;
                 margin-top: 5px;
                 min-width: 120px;
                 text-align: center;
@@ -299,6 +300,18 @@ class MainApp(QMainWindow):
         except Exception as e:
             logger.warning(f"Failed to save window state: {e}")
     
+    def _init_auto_backup(self):
+        """Inicializa o sistema de backup automático"""
+        try:
+            from app.utils.auto_backup import get_auto_backup_scheduler
+            
+            self.auto_backup = get_auto_backup_scheduler(self)
+            self.auto_backup.start()
+            
+            logger.info("Sistema de backup automático iniciado (diário às 23h)")
+        except Exception as e:
+            logger.error(f"Erro ao iniciar backup automático: {e}")
+    
     def closeEvent(self, event) -> None:
         """
         Handle the window close event by saving the current window state and logging the process.
@@ -308,6 +321,12 @@ class MainApp(QMainWindow):
         """
         try:
             logger.info("Closing application...")
+            
+            # Parar backup automático
+            if hasattr(self, 'auto_backup'):
+                self.auto_backup.stop()
+                logger.info("Backup automático parado")
+            
             self._save_window_state()
             event.accept()
             logger.info("Application closed successfully")

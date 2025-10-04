@@ -7,7 +7,7 @@ def _carregar_clientes(self):
         clientes = db_manager.listar_clientes()
         self.clientes_dict = {}
         for cliente in clientes:
-            if len(cliente) >= 13:  # Todos os campos disponíveis
+            if len(cliente) >= 14:  # Todos os campos disponíveis (incluindo CEP)
                 cliente_id = cliente[0]
                 nome = cliente[1] or ''
                 cpf = cliente[2] or ''
@@ -15,12 +15,13 @@ def _carregar_clientes(self):
                 inscricao_estadual = cliente[4] or ''
                 telefone = cliente[5] or ''
                 email = cliente[6] or ''
-                rua = cliente[7] or ''
-                numero = cliente[8] or ''
-                bairro = cliente[9] or ''
-                cidade = cliente[10] or ''
-                estado = cliente[11] or ''
-                referencia = cliente[12] or ''
+                cep = cliente[7] or ''  # CEP estava sendo ignorado
+                rua = cliente[8] or ''  # Corrigido do índice 7 para 8
+                numero = cliente[9] or ''  # Corrigido do índice 8 para 9
+                bairro = cliente[10] or ''  # Corrigido do índice 9 para 10
+                cidade = cliente[11] or ''  # Corrigido do índice 10 para 11
+                estado = cliente[12] or ''  # Corrigido do índice 11 para 12
+                referencia = cliente[13] or ''  # Corrigido do índice 12 para 13
                 
                 if nome:
                     telefone_fmt = self._format_phone(telefone)
@@ -33,6 +34,7 @@ def _carregar_clientes(self):
                         'inscricao_estadual': inscricao_estadual,
                         'telefone': telefone,
                         'email': email,
+                        'cep': cep,
                         'rua': rua,
                         'numero': numero,
                         'bairro': bairro,

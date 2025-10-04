@@ -112,23 +112,23 @@ class NovoPedidosModal(QDialog):
                 if nome:
                     # Estrutura da tabela clientes:
                     # 0=id, 1=nome, 2=cpf, 3=cnpj, 4=inscricao_estadual, 5=telefone, 
-                    # 6=email, 7=rua, 8=numero, 9=bairro, 10=cidade, 11=estado, 12=referencia
+                    # 6=email, 7=cep, 8=rua, 9=numero, 10=bairro, 11=cidade, 12=estado, 13=referencia
                     cpf = row[2] or ''
                     cnpj = row[3] or ''
                     telefone = row[5] or ''
                     
                     # Construir endereço completo
                     endereco_partes = []
-                    if row[7]:  # rua
-                        endereco_partes.append(row[7])
-                    if row[8]:  # numero
+                    if row[8]:  # rua (corrigido de 7 para 8)
                         endereco_partes.append(row[8])
-                    if row[9]:  # bairro
+                    if row[9]:  # numero (corrigido de 8 para 9)
                         endereco_partes.append(row[9])
-                    if row[10]:  # cidade
+                    if row[10]:  # bairro (corrigido de 9 para 10)
                         endereco_partes.append(row[10])
-                    if row[11]:  # estado
+                    if row[11]:  # cidade (corrigido de 10 para 11)
                         endereco_partes.append(row[11])
+                    if row[12]:  # estado (corrigido de 11 para 12)
+                        endereco_partes.append(row[12])
                     
                     endereco = ', '.join(endereco_partes)
                     

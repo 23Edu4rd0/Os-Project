@@ -21,6 +21,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, pyqtSignal, QDate, QTimer
 from PyQt6.QtGui import QFont, QPalette, QColor
 from app.signals import get_signals
+from app.utils.keyboard_shortcuts import setup_standard_shortcuts
 
 # Import robusto do gerenciador de banco de dados
 try:
@@ -261,7 +262,6 @@ class PedidosInterface(QWidget):
 		
 		# Variáveis de filtro
 		self.search_text = ""
-		self.date_filter_active = False
 
 		# Helpers
 		self.card_manager = PedidosCard(self)
@@ -271,6 +271,9 @@ class PedidosInterface(QWidget):
 
 		# UI
 		self._setup_interface()
+		
+		# Configurar atalhos de teclado
+		self._setup_keyboard_shortcuts()
 	
 	def _conectar_sinais(self):
 		"""Conecta os sinais globais para atualização em tempo real"""
@@ -322,10 +325,37 @@ class PedidosInterface(QWidget):
 		header_layout.setContentsMargins(15, 0, 15, 0)
 		
 		titulo = QLabel("Pedidos")
-		titulo.setStyleSheet("font-size: 18px; font-weight: bold; color: #ffffff;")
+		titulo.setStyleSheet("font-size: 18px; font-weight: bold; color: #ffffff; background-color: transparent;")
 		header_layout.addWidget(titulo)
 		
 		header_layout.addStretch()
+		
+		# Botão recarregar
+		self.btn_recarregar = QPushButton("🔄 Recarregar")
+		self.btn_recarregar.setStyleSheet("""
+			QPushButton {
+				background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+					stop:0 #48bb78, stop:1 #38a169);
+				color: white;
+				border: none;
+				border-radius: 6px;
+				border-bottom: 2px solid #2f855a;
+				padding: 8px 15px;
+				font-size: 12px;
+				font-weight: 600;
+			}
+			QPushButton:hover {
+				background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+					stop:0 #4fd88b, stop:1 #43bd7d);
+			}
+			QPushButton:pressed {
+				padding-top: 9px;
+				padding-bottom: 7px;
+			}
+		""")
+		self.btn_recarregar.setToolTip("Recarregar lista de pedidos")
+		self.btn_recarregar.clicked.connect(self.recarregar_pedidos)
+		header_layout.addWidget(self.btn_recarregar)
 		
 		# Botão novo pedido modernizado
 		self.btn_novo = QPushButton("Novo Pedido")
@@ -372,7 +402,7 @@ class PedidosInterface(QWidget):
 		
 		# Status
 		status_label = QLabel("Status:")
-		status_label.setStyleSheet("color: #cccccc; font-size: 12px; font-weight: 600;")
+		status_label.setStyleSheet("color: #cccccc; font-size: 12px; font-weight: 600; background-color: transparent;")
 		primeira_linha.addWidget(status_label)
 		
 		self.filtro_status = QComboBox()
@@ -411,7 +441,7 @@ class PedidosInterface(QWidget):
 		
 		# Campo de pesquisa por nome/CPF/telefone
 		search_label = QLabel("Buscar:")
-		search_label.setStyleSheet("color: #cccccc; font-size: 12px; font-weight: 600;")
+		search_label.setStyleSheet("color: #cccccc; font-size: 12px; font-weight: 600; background-color: transparent;")
 		primeira_linha.addWidget(search_label)
 		
 		self.search_input = QLineEdit()
@@ -436,10 +466,10 @@ class PedidosInterface(QWidget):
 		self.search_input.textChanged.connect(self._on_search_changed)
 		primeira_linha.addWidget(self.search_input)
 		
-		primeira_linha.addStretch()
+		primeira_linha.addSpacing(8)  # Pequeno espaço entre busca e botão
 		
 		# Botão limpar filtros
-		self.btn_limpar = QPushButton("🗙 Limpar")
+		self.btn_limpar = QPushButton("🧹 Limpar")
 		self.btn_limpar.setStyleSheet("""
 			QPushButton {
 				background-color: #d32f2f;
@@ -457,66 +487,21 @@ class PedidosInterface(QWidget):
 		self.btn_limpar.clicked.connect(self._limpar_filtros)
 		primeira_linha.addWidget(self.btn_limpar)
 		
-		filtros_main_layout.addLayout(primeira_linha)
+		primeira_linha.addStretch()
 		
-		# Segunda linha: Filtro por data
-		segunda_linha = QHBoxLayout()
-		
-		data_label = QLabel("Período:")
-		data_label.setStyleSheet("color: #cccccc; font-size: 12px; font-weight: 600;")
-		segunda_linha.addWidget(data_label)
-		
-		# Data inicial
-		self.data_inicial = CustomDateEdit()
-		self.data_inicial.setDate(QDate.currentDate().addDays(-30))  # 30 dias atrás
-		self.data_inicial.setDisplayFormat("dd/MM/yyyy")  # Formato brasileiro
-
-		self.data_inicial.dateChanged.connect(self._on_date_changed)
-		segunda_linha.addWidget(self.data_inicial)
-		
-		ate_label = QLabel("até")
-		ate_label.setStyleSheet("color: #cccccc; font-size: 12px;")
-		segunda_linha.addWidget(ate_label)
-		
-		# Data final
-		self.data_final = CustomDateEdit()
-		self.data_final.setDate(QDate.currentDate())
-		self.data_final.setDisplayFormat("dd/MM/yyyy")  # Formato brasileiro
-
-		self.data_final.dateChanged.connect(self._on_date_changed)
-		segunda_linha.addWidget(self.data_final)
-		
-		# Checkbox para habilitar filtro de data
-		self.filtro_data_ativo = QCheckBox("Filtrar por período")
-		self.filtro_data_ativo.setStyleSheet("""
-			QCheckBox {
-				color: #cccccc;
-				font-size: 12px;
-				spacing: 5px;
-			}
-			QCheckBox::indicator {
-				width: 16px;
-				height: 16px;
-				border: 1px solid #555555;
-				border-radius: 3px;
-				background-color: #2d2d2d;
-			}
-			QCheckBox::indicator:checked {
-				background-color: #007acc;
-				border-color: #007acc;
-			}
-		""")
-		self.filtro_data_ativo.stateChanged.connect(self._on_date_filter_changed)
-		segunda_linha.addWidget(self.filtro_data_ativo)
-		
-		segunda_linha.addStretch()
-		
-		# Contador de resultados
+		# Contador de resultados (alinhado à direita)
 		self.label_resultados = QLabel("")
-		self.label_resultados.setStyleSheet("color: #888888; font-size: 11px; font-style: italic;")
-		segunda_linha.addWidget(self.label_resultados)
+		self.label_resultados.setStyleSheet("""
+			color: #b0b0b0; 
+			font-size: 12px; 
+			font-style: italic; 
+			font-weight: 500;
+			padding: 0 8px;
+		""")
+		self.label_resultados.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+		primeira_linha.addWidget(self.label_resultados)
 		
-		filtros_main_layout.addLayout(segunda_linha)
+		filtros_main_layout.addLayout(primeira_linha)
 		
 		layout.addWidget(filtros_container)
 		
@@ -610,35 +595,6 @@ class PedidosInterface(QWidget):
 				return any(self.search_text in field for field in search_fields if field)
 			
 			pedidos = [p for p in pedidos if _match_search(p)]
-		
-		# Filtrar por período de datas
-		if hasattr(self, 'date_filter_active') and self.date_filter_active:
-			from datetime import datetime
-			try:
-				data_inicio = self.data_inicial.date().toPython()
-				data_fim = self.data_final.date().toPython()
-				
-				def _in_date_range(pedido):
-					data_criacao = pedido.get('data_criacao')
-					if not data_criacao:
-						return False
-					try:
-						# Tentar parsear diferentes formatos de data
-						if isinstance(data_criacao, str):
-							for fmt in ('%Y-%m-%d %H:%M:%S', '%Y-%m-%d', '%d/%m/%Y'):
-								try:
-									data_pedido = datetime.strptime(data_criacao, fmt).date()
-									return data_inicio <= data_pedido <= data_fim
-								except ValueError:
-									continue
-						return False
-					except Exception:
-						return False
-				
-				pedidos = [p for p in pedidos if _in_date_range(p)]
-			except Exception as e:
-				print(f"Erro no filtro de data: {e}")
-
 		# Render
 		# Separar pedidos concluídos e ativos, ordenar por data de entrega
 		def _is_concluido(status: str) -> bool:
@@ -718,6 +674,23 @@ class PedidosInterface(QWidget):
 			w = item.widget()
 			if w is not None:
 				w.deleteLater()
+
+	def recarregar_pedidos(self):
+		"""Recarrega a lista de pedidos com feedback visual"""
+		# Desabilitar botão temporariamente
+		self.btn_recarregar.setEnabled(False)
+		self.btn_recarregar.setText("🔄 Recarregando...")
+		
+		# Processar eventos para atualizar a UI
+		from PyQt6.QtWidgets import QApplication
+		QApplication.processEvents()
+		
+		# Recarregar dados
+		self.carregar_dados(force_refresh=True)
+		
+		# Reabilitar botão
+		self.btn_recarregar.setEnabled(True)
+		self.btn_recarregar.setText("🔄 Recarregar")
 
 	def _mostrar_msg(self, texto: str, cor: str = "#cccccc"):
 		lbl = QLabel(texto)
@@ -800,6 +773,25 @@ class PedidosInterface(QWidget):
 			self.carregar_dados(force_refresh=True)
 		except Exception:
 			pass
+	
+	def _setup_keyboard_shortcuts(self):
+		"""Configura os atalhos de teclado para a interface de pedidos"""
+		try:
+			callbacks = {
+				'new': self.novo_pedido,  # Ctrl+N
+				'save': None,  # Não aplicável nesta tela
+				'search': lambda: self.search_input.setFocus(),  # Ctrl+F
+				'reload': self.recarregar_pedidos,  # F5
+				'delete': None,  # Delete individual por card
+			}
+			self.shortcut_manager = setup_standard_shortcuts(self, callbacks)
+			
+			# Atualizar tooltips dos botões com atalhos
+			self.btn_novo.setToolTip("Criar novo pedido (Ctrl+N)")
+			self.btn_recarregar.setToolTip("Recarregar lista de pedidos (F5)")
+			self.search_input.setToolTip("Buscar pedido (Ctrl+F)")
+		except Exception as e:
+			print(f"Erro ao configurar atalhos: {e}")
 
 	# Ações públicas ---------------------------------------------------------
 	def novo_pedido(self):
@@ -836,6 +828,24 @@ class PedidosInterface(QWidget):
 		signals.pedido_editado.emit(pedido_id)
 
 	def excluir_pedido(self, pedido_id: int):
+		"""Exclui pedido com confirmação"""
+		from PyQt6.QtWidgets import QMessageBox
+		
+		# Mostrar confirmação ANTES de deletar
+		reply = QMessageBox.question(
+			self,
+			"⚠️ Confirmar Exclusão",
+			f"Tem certeza que deseja excluir o pedido #{pedido_id}?\n\n"
+			f"⚠️ O pedido será movido para a lixeira!\n"
+			f"Você poderá recuperá-lo dentro de 30 dias.\n"
+			f"Após esse período, será removido permanentemente.",
+			QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+			QMessageBox.StandardButton.No
+		)
+		
+		if reply != QMessageBox.StandardButton.Yes:
+			return  # Cancelou
+		
 		try:
 			if hasattr(db_manager, "deletar_pedido"):
 				db_manager.deletar_pedido(pedido_id)
@@ -845,7 +855,16 @@ class PedidosInterface(QWidget):
 			# Emitir sinal de exclusão
 			signals = get_signals()
 			signals.pedido_excluido.emit(pedido_id)
+			
+			# Mostrar mensagem de sucesso
+			QMessageBox.information(
+				self,
+				"✅ Sucesso",
+				f"Pedido #{pedido_id} movido para a lixeira!\n\n"
+				f"Você pode recuperá-lo em Backup → Registros Deletados."
+			)
 		except Exception as e:
+			QMessageBox.critical(self, "❌ Erro", f"Erro ao excluir pedido: {e}")
 			print(f"Erro ao excluir: {e}")
 
 	def atualizar_status(self, pedido_id: int, novo_status: str):
@@ -872,25 +891,11 @@ class PedidosInterface(QWidget):
 		self.search_text = text.lower().strip()
 		self._aplicar_filtros()
 	
-	def _on_date_changed(self):
-		"""Chamado quando as datas mudam"""
-		if self.date_filter_active:
-			self._aplicar_filtros()
-	
-	def _on_date_filter_changed(self, state):
-		"""Chamado quando o checkbox de filtro por data muda"""
-		self.date_filter_active = state == 2  # Qt.CheckState.Checked
-		self._aplicar_filtros()
-	
 	def _limpar_filtros(self):
 		"""Limpa todos os filtros aplicados"""
 		self.search_input.clear()
 		self.filtro_status.setCurrentIndex(0)  # "Todos"
-		self.filtro_data_ativo.setChecked(False)
-		self.data_inicial.setDate(QDate.currentDate().addDays(-30))
-		self.data_final.setDate(QDate.currentDate())
 		self.search_text = ""
-		self.date_filter_active = False
 		self._aplicar_filtros()
 	
 	def _aplicar_filtros(self):

@@ -30,6 +30,7 @@ class ReportQueries:
             query = '''
             SELECT * FROM ordem_servico 
             WHERE date(data_criacao) BETWEEN ? AND ?
+            AND deleted_at IS NULL
             ORDER BY data_criacao DESC
             '''
             self.cursor.execute(query, (data_inicio, data_fim))
@@ -44,6 +45,7 @@ class ReportQueries:
             query = '''
             SELECT * FROM ordem_servico 
             WHERE nome_cliente LIKE ?
+            AND deleted_at IS NULL
             ORDER BY data_criacao DESC
             '''
             self.cursor.execute(query, (f'%{nome_cliente}%',))
@@ -61,6 +63,7 @@ class ReportQueries:
             query = '''
             SELECT * FROM ordem_servico
             WHERE replace(replace(replace(cpf_cliente, '.', ''), '-', ''), ' ', '') = ?
+            AND deleted_at IS NULL
             ORDER BY data_criacao DESC
             '''
             self.cursor.execute(query, (cpf,))

@@ -38,7 +38,36 @@ class DatabaseManager:
             DatabaseSetup.criar_tabelas(self.cursor)
             self.conn.commit()
             
+            # Executar migração de Soft Delete
+            self._migrate_soft_delete()
+            
+            # Executar migração de numero_compras
+            self._migrate_numero_compras()
+            
             self._inicializado = True
+    
+    def _migrate_soft_delete(self):
+        """Executa migração de Soft Delete"""
+        try:
+            from app.utils.soft_delete import SoftDeleteManager
+            sucesso, mensagem = SoftDeleteManager.migrate_add_deleted_at_columns()
+            if sucesso:
+                print(f"✅ {mensagem}")
+            else:
+                print(f"⚠️ {mensagem}")
+        except Exception as e:
+            print(f"⚠️ Erro na migração de Soft Delete: {e}")
+    
+    def _migrate_numero_compras(self):
+        """Executa migração e sincronização de numero_compras"""
+        try:
+            print("🔄 Iniciando migração/sincronização de numero_compras...")
+            from database.migrations import migrate_add_numero_compras
+            migrate_add_numero_compras(self.conn)
+        except Exception as e:
+            print(f"⚠️ Erro na migração de numero_compras: {e}")
+            import traceback
+            traceback.print_exc()
 
     def salvar_ordem(self, dados, nome_pdf=""):
         """Salva ordem de serviço usando módulo CRUD"""
@@ -91,12 +120,13 @@ class DatabaseManager:
     def listar_pedidos_ordenados_por_prazo(self, limite=50):
         """Lista pedidos ordenados por prazo - INCLUINDO TODOS OS CAMPOS PARA EDIÇÃO"""
         try:
-            # Query com todos os campos necessários para edição
+            # Query com todos os campos necessários para edição (APENAS PEDIDOS NÃO DELETADOS)
             query = '''
-            SELECT id, numero_os, nome_cliente, cpf_cliente, telefone_cliente, detalhes_produto, 
-                   valor_produto, valor_entrada, frete, forma_pagamento,
-                   prazo, data_criacao, dados_json
+            SELECT id, numero_os, data_criacao, nome_cliente, cpf_cliente, telefone_cliente, 
+                   detalhes_produto, valor_produto, valor_entrada, frete, forma_pagamento,
+                   prazo, nome_pdf, dados_json, status
             FROM ordem_servico
+            WHERE deleted_at IS NULL
             ORDER BY data_criacao DESC
             LIMIT ?
             '''
@@ -105,12 +135,12 @@ class DatabaseManager:
 
             pedidos = []
             for row in resultados:
-                # Expecting 13 columns
-                if len(row) < 13:
+                # Expecting 15 columns
+                if len(row) < 15:
                     continue
-                (id_, numero_os, nome_cliente, cpf_cliente, telefone_cliente, detalhes_produto,
-                 valor_produto, valor_entrada, frete, forma_pagamento,
-                 prazo, data_criacao, dados_json) = row[:13]
+                (id_, numero_os, data_criacao, nome_cliente, cpf_cliente, telefone_cliente,
+                 detalhes_produto, valor_produto, valor_entrada, frete, forma_pagamento,
+                 prazo, nome_pdf, dados_json, status) = row[:15]
 
                 # Parse JSON fields and determine a sensible default status from persisted list
                 try:
@@ -158,11 +188,17 @@ class DatabaseManager:
                 estado_cliente = ''
                 
                 try:
-                    cpf_norm = ''.join(ch for ch in str(cpf_cliente or '') if ch.isdigit())
-                    if cpf_norm:
+                    # Normalizar CPF/CNPJ (remover pontuação)
+                    documento_norm = ''.join(ch for ch in str(cpf_cliente or '') if ch.isdigit())
+                    if documento_norm:
+                        # Buscar por CPF ou CNPJ (ambos armazenados sem pontuação)
                         self.cursor.execute(
-                            "SELECT cep, rua, numero, bairro, cidade, estado FROM clientes WHERE replace(replace(replace(cpf, '.', ''), '-', ''), ' ', '') = ? LIMIT 1",
-                            (cpf_norm,)
+                            """SELECT cep, rua, numero, bairro, cidade, estado 
+                               FROM clientes 
+                               WHERE replace(replace(replace(cpf, '.', ''), '-', ''), ' ', '') = ? 
+                                  OR replace(replace(replace(replace(cnpj, '.', ''), '/', ''), '-', ''), ' ', '') = ?
+                               LIMIT 1""",
+                            (documento_norm, documento_norm)
                         )
                         cli_row = self.cursor.fetchone()
                         if cli_row:
@@ -175,7 +211,8 @@ class DatabaseManager:
                             estado_cliente = estado_cliente or ''
                             # Montar endereço completo para compatibilidade
                             endereco_cliente = f"{rua_cliente} {numero_cliente} - {bairro_cliente} - {cidade_cliente} / {estado_cliente}".strip()
-                except Exception:
+                except Exception as e:
+                    print(f"Erro ao buscar endereço do cliente: {e}")
                     endereco_cliente = ''
 
                 pedido = {
@@ -265,7 +302,7 @@ class DatabaseManager:
         try:
             if limite:
                 query = '''
-                SELECT id, nome, cpf, cnpj, inscricao_estadual, telefone, email, cep, rua, numero, bairro, cidade, estado, referencia
+                SELECT id, nome, cpf, cnpj, inscricao_estadual, telefone, email, cep, rua, numero, bairro, cidade, estado, referencia, numero_compras
                 FROM clientes 
                 ORDER BY nome 
                 LIMIT ?
@@ -273,7 +310,7 @@ class DatabaseManager:
                 self.cursor.execute(query, (limite,))
             else:
                 query = '''
-                SELECT id, nome, cpf, cnpj, inscricao_estadual, telefone, email, cep, rua, numero, bairro, cidade, estado, referencia
+                SELECT id, nome, cpf, cnpj, inscricao_estadual, telefone, email, cep, rua, numero, bairro, cidade, estado, referencia, numero_compras
                 FROM clientes 
                 ORDER BY nome
                 '''

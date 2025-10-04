@@ -25,13 +25,15 @@ class ProductsCRUD:
             return None
 
     def listar_produtos(self, busca: str = "", limite: int = 200) -> List[Tuple]:
+        """Lista produtos não deletados (deleted_at IS NULL)"""
         try:
             if busca:
                 self.cursor.execute(
                     """
                     SELECT id, nome, codigo, preco, descricao, categoria, criado_em
                     FROM produtos
-                    WHERE nome LIKE ? OR categoria LIKE ? OR codigo LIKE ?
+                    WHERE (nome LIKE ? OR categoria LIKE ? OR codigo LIKE ?)
+                      AND deleted_at IS NULL
                     ORDER BY nome ASC
                     LIMIT ?
                     """,
@@ -42,6 +44,7 @@ class ProductsCRUD:
                     """
                     SELECT id, nome, codigo, preco, descricao, categoria, criado_em
                     FROM produtos
+                    WHERE deleted_at IS NULL
                     ORDER BY nome ASC
                     LIMIT ?
                     """,
@@ -69,10 +72,15 @@ class ProductsCRUD:
             return False
 
     def deletar_produto(self, produto_id: int) -> bool:
+        """Soft delete de produto - marca como deletado ao invés de remover"""
         try:
-            self.cursor.execute("DELETE FROM produtos WHERE id = ?", (produto_id,))
-            self.conn.commit()
-            return True
+            from app.utils.soft_delete import SoftDeleteManager
+            success, msg = SoftDeleteManager.soft_delete_produto(produto_id)
+            if success:
+                print(f"✅ Produto {produto_id} marcado como deletado")
+            else:
+                print(f"❌ Erro ao deletar produto: {msg}")
+            return success
         except Exception as e:
-            print(f"Erro ao deletar produto: {e}")
+            print(f"❌ Erro ao deletar produto: {e}")
             return False
