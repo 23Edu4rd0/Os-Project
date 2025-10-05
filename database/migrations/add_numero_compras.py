@@ -43,9 +43,30 @@ def migrate_add_numero_compras(db_connection):
         ordem_columns = [col[1] for col in cursor.fetchall()]
         has_deleted_at = 'deleted_at' in ordem_columns
         
-        # Query com ou sem filtro de deleted_at
-        deleted_filter = "AND ordem_servico.deleted_at IS NULL" if has_deleted_at else ""
-        
+        # Considerar apenas pedidos do último ano, não cancelados nem deletados
+        from datetime import datetime, timedelta
+        hoje = datetime.now()
+        um_ano_atras = (hoje - timedelta(days=365)).strftime('%Y-%m-%d %H:%M:%S')
+        hoje_str = hoje.strftime('%Y-%m-%d %H:%M:%S')
+        # Detectar coluna de data válida
+        data_col = None
+        for candidate in ['data_criacao', 'data_emissao', 'created_at', 'data']:
+            if candidate in ordem_columns:
+                data_col = candidate
+                break
+        if not data_col:
+            raise Exception('Nenhuma coluna de data encontrada em ordem_servico')
+        # Só filtrar por status se a coluna existir
+        has_status = 'status' in ordem_columns
+        if has_deleted_at and has_status:
+            deleted_filter = "AND ordem_servico.deleted_at IS NULL AND (ordem_servico.status IS NULL OR ordem_servico.status NOT IN ('cancelado', 'cancelada'))"
+        elif has_deleted_at:
+            deleted_filter = "AND ordem_servico.deleted_at IS NULL"
+        elif has_status:
+            deleted_filter = "AND (ordem_servico.status IS NULL OR ordem_servico.status NOT IN ('cancelado', 'cancelada'))"
+        else:
+            deleted_filter = ""
+
         # Atualizar baseado em CPF (normalizado - sem pontuação)
         cursor.execute(f"""
             UPDATE clientes 
@@ -56,11 +77,12 @@ def migrate_add_numero_compras(db_connection):
                       replace(replace(replace(clientes.cpf, '.', ''), '-', ''), ' ', '')
                   AND clientes.cpf IS NOT NULL
                   AND clientes.cpf != ''
+                  AND ordem_servico.{data_col} >= ? AND ordem_servico.{data_col} <= ?
                   {deleted_filter}
             )
             WHERE clientes.cpf IS NOT NULL AND clientes.cpf != ''
-        """)
-        
+        """, (um_ano_atras, hoje_str))
+
         # Atualizar baseado em CNPJ (normalizado - sem pontuação)
         cursor.execute(f"""
             UPDATE clientes 
@@ -71,12 +93,13 @@ def migrate_add_numero_compras(db_connection):
                       replace(replace(replace(replace(clientes.cnpj, '.', ''), '/', ''), '-', ''), ' ', '')
                   AND clientes.cnpj IS NOT NULL
                   AND clientes.cnpj != ''
+                  AND ordem_servico.{data_col} >= ? AND ordem_servico.{data_col} <= ?
                   {deleted_filter}
             )
             WHERE clientes.cnpj IS NOT NULL 
               AND clientes.cnpj != ''
               AND numero_compras = 0
-        """)
+        """, (um_ano_atras, hoje_str))
         
         db_connection.commit()
         

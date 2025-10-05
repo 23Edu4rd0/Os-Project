@@ -4,6 +4,9 @@ Ações de pedidos em PyQt6
 
 from PyQt6.QtWidgets import QMessageBox, QInputDialog
 from database import db_manager
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class PedidosActions:
@@ -41,6 +44,7 @@ class PedidosActions:
                 return True
                 
             except Exception as e:
+                logger.error(f"Erro ao excluir pedido: {e}", exc_info=True)
                 QMessageBox.critical(
                     self.interface,
                     "Erro",
@@ -86,6 +90,7 @@ class PedidosActions:
             return True
             
         except Exception as e:
+            logger.error(f"Erro ao atualizar status: {e}", exc_info=True)
             QMessageBox.critical(
                 self.interface,
                 "Erro",
@@ -154,6 +159,7 @@ class PedidosActions:
                 return True
             
         except Exception as e:
+            logger.error(f"Erro ao duplicar pedido: {e}", exc_info=True)
             QMessageBox.critical(
                 self.interface,
                 "Erro",

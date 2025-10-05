@@ -109,3 +109,36 @@ class ReportQueries:
         except Exception as e:
             print(f"Erro ao buscar vendas por dia: {e}")
             return []
+
+    def relatorio_top_clientes(self, limite=10):
+        """Retorna os clientes com mais compras (top clientes)"""
+        try:
+            query = '''
+            SELECT nome_cliente, cpf_cliente, COUNT(*) as total_compras, SUM(valor_produto + frete) as total_gasto
+            FROM ordem_servico
+            WHERE deleted_at IS NULL
+            GROUP BY nome_cliente, cpf_cliente
+            ORDER BY total_compras DESC, total_gasto DESC
+            LIMIT ?
+            '''
+            self.cursor.execute(query, (limite,))
+            return self.cursor.fetchall()
+        except Exception as e:
+            print(f"Erro ao gerar relatório de top clientes: {e}")
+            return []
+
+    def relatorio_pedidos_deletados(self, dias=30):
+        """Retorna estatísticas de pedidos deletados nos últimos N dias"""
+        try:
+            from datetime import datetime, timedelta
+            data_limite = (datetime.now() - timedelta(days=dias)).strftime('%Y-%m-%d %H:%M:%S')
+            query = '''
+            SELECT COUNT(*) as total_deletados, SUM(valor_produto + frete) as valor_deletado
+            FROM ordem_servico
+            WHERE deleted_at IS NOT NULL AND deleted_at >= ?
+            '''
+            self.cursor.execute(query, (data_limite,))
+            return self.cursor.fetchone()
+        except Exception as e:
+            print(f"Erro ao gerar relatório de pedidos deletados: {e}")
+            return (0, 0)

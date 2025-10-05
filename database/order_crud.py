@@ -4,7 +4,9 @@ Módulo para operações CRUD de ordens de serviço
 import sqlite3
 import json
 from datetime import datetime
+import logging
 
+logger = logging.getLogger(__name__)
 
 def _normalize_cpf(cpf):
     """Return only digits from cpf (normalize format)."""
@@ -117,7 +119,7 @@ class OrderCRUD:
             
             self.cursor.execute(query, valores)
             self.conn.commit()
-            
+            logger.info(f"Ordem criada: numero_os={dados.get('numero_os')}, cliente={nome_cliente}, valor_produto={valor_produto}")
             # Incrementar contador de compras do cliente
             try:
                 if cpf_norm:
@@ -128,12 +130,10 @@ class OrderCRUD:
                     """, (cpf_norm, cpf_norm))
                     self.conn.commit()
             except Exception as e:
-                print(f"Aviso: não foi possível atualizar contador de compras: {e}")
-            
+                logger.warning(f"Aviso: não foi possível atualizar contador de compras: {e}")
             return True
-            
         except Exception as e:
-            print(f"Erro ao criar ordem: {e}")
+            logger.error(f"Erro ao criar ordem: {e}", exc_info=True)
             return False
     
     def buscar_ordem(self, numero_os):
@@ -153,32 +153,21 @@ class OrderCRUD:
                 mapped['produtos'] = []
             return mapped
         except Exception as e:
-            print(f"Erro ao buscar ordem: {e}")
+            logger.error(f"Erro ao buscar ordem: {e}", exc_info=True)
             return None
     
     def atualizar_ordem(self, pedido_id, campos):
         """Atualiza campos específicos da ordem"""
         try:
-            print(f"=== ATUALIZANDO ORDEM ===")
-            print(f"Pedido ID: {pedido_id}")
-            print(f"Campos: {campos}")
-            
             set_clause = ', '.join([f'{campo} = ?' for campo in campos.keys()])
             query = f'UPDATE ordem_servico SET {set_clause} WHERE id = ?'
-            
-            print(f"Query: {query}")
-            
             valores = list(campos.values()) + [pedido_id]
-            print(f"Valores: {valores}")
-            
             self.cursor.execute(query, valores)
             self.conn.commit()
-            
-            print("Atualização realizada com sucesso!")
+            logger.info(f"Ordem atualizada: pedido_id={pedido_id}, campos={campos}")
             return True
-            
         except Exception as e:
-            print(f"Erro ao atualizar ordem: {e}")
+            logger.error(f"Erro ao atualizar ordem: {e}", exc_info=True)
             return False
     
     def deletar_ordem(self, pedido_id):
@@ -186,16 +175,14 @@ class OrderCRUD:
         try:
             from datetime import datetime
             deleted_at = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            
             # Soft delete: marcar como deletado em vez de remover
             self.cursor.execute(
                 'UPDATE ordem_servico SET deleted_at = ? WHERE id = ?',
                 (deleted_at, pedido_id)
             )
             self.conn.commit()
-            print(f"✅ Pedido {pedido_id} movido para lixeira (recuperável por 30 dias)")
+            logger.info(f"Pedido {pedido_id} movido para lixeira (recuperável por 30 dias)")
             return True
-            
         except Exception as e:
-            print(f"Erro ao deletar ordem: {e}")
+            logger.error(f"Erro ao deletar ordem: {e}", exc_info=True)
             return False

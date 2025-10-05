@@ -940,4 +940,8 @@ class DatabaseManager:
             traceback.print_exc()
             return []
 
+    def excluir_pedido(self, pedido_id):
+        """Compatibilidade: chama deletar_pedido"""
+        return self.deletar_pedido(pedido_id)
+
 DBManager = DatabaseManager
