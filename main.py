@@ -1,31 +1,34 @@
-#!/usr/bin/env python3
+
 """
-Service Order System v1.0.0
+main.py - Entry point for Merkava Service Order System
 
-Desktop application for managing service orders, clients, products, and backup.
-
-Main features:
-- Tabbed interface for clients, orders, products, and backup.
-- Window state and active tab persistence.
-- Structured logging and global exception handling.
+Features:
+ - Tabbed interface for clients, orders, products, and backup
+ - Window state and active tab persistence
+ - Structured logging and global exception handling
 
 Author: Eduardo Viana Chaves
 License: MIT
 """
 
+
 import sys
 import logging
 import warnings
 from pathlib import Path
-from typing import Optional
 
+# --- Suppress warnings for cleaner output ---
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 warnings.filterwarnings("ignore", category=RuntimeWarning)
 
-from PyQt6.QtWidgets import QApplication, QMainWindow, QTabWidget, QWidget, QVBoxLayout, QMessageBox
+# --- PyQt6 Imports ---
+from PyQt6.QtWidgets import (
+    QApplication, QMainWindow, QTabWidget, QWidget, QVBoxLayout, QMessageBox
+)
 from PyQt6.QtGui import QFont, QIcon
 from PyQt6.QtCore import QTimer, QSettings
 
+# --- Logging Setup ---
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -36,39 +39,70 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# --- Project Root ---
 ROOT_DIR = Path(__file__).resolve().parent
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
+
+
+# --- App Imports ---
 from app.ui.theme import apply_app_theme
+from app.ui.login_dialog import LoginDialog
+from app.ui.app_loader_thread import AppLoaderThread
+
+
+# --- Helper para Tooltips ---
+def install_tooltip_fix(app):
+    """
+    Instala um filtro de eventos global para corrigir o posicionamento dos tooltips.
+    Os tooltips aparecerão sempre próximos ao cursor do mouse.
+    """
+    from PyQt6.QtCore import QObject, QEvent, Qt
+    from PyQt6.QtWidgets import QToolTip
+    from PyQt6.QtGui import QCursor
+    
+    class ToolTipEventFilter(QObject):
+        def eventFilter(self, obj, event):
+            # Quando um tooltip está prestes a ser mostrado, reposicioná-lo
+            if event.type() == QEvent.Type.ToolTip:
+                # Obter posição do cursor
+                cursor_pos = QCursor.pos()
+                # Offset para não cobrir o cursor (10 pixels abaixo e 5 à direita)
+                tooltip_pos = cursor_pos + type(cursor_pos)(5, 10)
+                
+                # Se o widget tem tooltip definido, mostrá-lo na posição do cursor
+                if obj.toolTip():
+                    QToolTip.showText(tooltip_pos, obj.toolTip(), obj)
+                    return True  # Evento tratado, não propagar
+            
+            return super().eventFilter(obj, event)
+    
+    # Instalar filtro global
+    tooltip_filter = ToolTipEventFilter(app)
+    app.installEventFilter(tooltip_filter)
+    # Manter referência para não ser coletado pelo garbage collector
+    app._tooltip_filter = tooltip_filter
 
 
 class MainApp(QMainWindow):
     """
     Main application window for the Service Order System.
-
-    Provides a tabbed interface for managing clients, service orders,
-    products, and backup/restore operations. Handles window state persistence and logging.
+    Provides a tabbed interface for managing clients, service orders, products, and backup/restore operations.
+    Handles window state persistence and logging.
     """
-    
+
     APP_NAME = "Sistema de Ordem de Serviço"
     APP_VERSION = "1.0.0"
-    
+
     def __init__(self):
-        """
-        Initialize the main window, configure the UI, apply global styles, and restore previous window state.
-        Logs the initialization process.
-        """
         super().__init__()
         logger.info(f"Initializing {self.APP_NAME} v{self.APP_VERSION}")
-        
         self.settings = QSettings("SOS", "OrdemServico")
-        
         self._setup_ui()
         self._apply_global_styles()
         self._restore_window_state()
         self._init_auto_backup()
-        
         logger.info("Application initialized successfully")
     
     def _apply_global_styles(self) -> None:
@@ -78,17 +112,24 @@ class MainApp(QMainWindow):
         """
         app = QApplication.instance()
         if app:
+            # Configurar tooltips para aparecerem mais rápido e próximo ao cursor
+            from PyQt6.QtWidgets import QToolTip
+            from PyQt6.QtGui import QFont
+            
+            # Configurar fonte menor para tooltips
+            tooltip_font = QFont()
+            tooltip_font.setPointSize(9)
+            QToolTip.setFont(tooltip_font)
+            
             global_style = """
                 QToolTip {
-                    background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1,
-                        stop: 0 #3a3a3a, stop: 1 #2a2a2a);
-                    color: #ffffff;
-                    border: 2px solid #007ACC;
-                    border-radius: 8px;
-                    padding: 10px 12px;
-                    font-size: 13px;
-                    font-weight: 500;
-                    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+                    background: #2a2a2a;
+                    color: #e0e0e0;
+                    border: 1px solid #4a4a4a;
+                    border-radius: 4px;
+                    padding: 4px 8px;
+                    font-size: 11px;
+                    font-weight: normal;
                 }
             """
             app.setStyleSheet(global_style)
@@ -322,6 +363,15 @@ class MainApp(QMainWindow):
         try:
             logger.info("Closing application...")
             
+            # Remover event filter de tooltip para evitar segfault
+            app = QApplication.instance()
+            if app and hasattr(app, '_tooltip_filter'):
+                try:
+                    app.removeEventFilter(app._tooltip_filter)
+                    delattr(app, '_tooltip_filter')
+                except:
+                    pass
+            
             # Parar backup automático
             if hasattr(self, 'auto_backup'):
                 self.auto_backup.stop()
@@ -351,6 +401,22 @@ def setup_application() -> QApplication:
     
     font = QFont("Segoe UI", 10)
     app.setFont(font)
+    
+    # Configurar tooltips para serem menores e mais discretos
+    # Os tooltips do PyQt6 seguem automaticamente o cursor
+    app.setStyleSheet("""
+        QToolTip {
+            background: #2a2a2a;
+            color: #e0e0e0;
+            border: 1px solid #4a4a4a;
+            border-radius: 4px;
+            padding: 4px 8px;
+            font-size: 11px;
+        }
+    """)
+    
+    # Instalar correção de posicionamento de tooltips
+    install_tooltip_fix(app)
     
     icon_path = ROOT_DIR / "assets" / "logo.ico"  # ou logo.ico se for .ico
     if icon_path.exists():
@@ -385,23 +451,37 @@ def main() -> int:
         ImportError: Logs and prints an error if a required module is missing.
         Exception: Logs and prints any other critical errors during startup.
     """
+
+
     try:
         sys.excepthook = handle_exception
         logger.info("Iniciando Sistema de Ordem de Serviço...")
-        
+
         app = setup_application()
-        window = MainApp()
-        window.show()
-        
-        logger.info("Sistema iniciado com sucesso")
-        return app.exec()
-        
+
+        # Simula processamento do app principal enquanto login está aberto
+        loader_thread = AppLoaderThread()
+        loader_thread.start()
+
+        login_dialog = LoginDialog()
+        login_result = login_dialog.exec()
+        loader_thread.wait()
+
+        from PyQt6.QtWidgets import QDialog
+        if login_result == QDialog.DialogCode.Accepted:
+            window = MainApp()
+            window.show()
+            logger.info("Sistema iniciado com sucesso")
+            return app.exec()
+        logger.info("Login cancelado ou falhou. Encerrando aplicação.")
+        return 0
+
     except ImportError as import_error:
         error_msg = f"Módulo necessário não encontrado: {import_error}"
         logger.error(error_msg)
         print(error_msg, file=sys.stderr)
         return 1
-        
+
     except Exception as e:
         error_msg = f"Erro crítico ao iniciar aplicação: {e}"
         logger.error(error_msg)
@@ -409,6 +489,6 @@ def main() -> int:
         return 1
 
 
+
 if __name__ == "__main__":
-    exit_code = main()
-    sys.exit(exit_code)
+    sys.exit(main())

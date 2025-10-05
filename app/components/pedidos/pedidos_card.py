@@ -1139,7 +1139,7 @@ class PedidosCard(QWidget):
             cliente_tem_endereco = bool(pedido.get('cep_cliente')) and bool(pedido.get('rua_cliente'))
             if not cliente_tem_endereco:
                 try:
-                    from database.db_manager import db_manager
+                    from database import db_manager
                     cpf = pedido.get('cpf_cliente') or pedido.get('cpf')
                     if cpf:
                         cpf_limpo = ''.join(filter(str.isdigit, cpf))
@@ -1254,8 +1254,8 @@ class PedidosCard(QWidget):
             cliente_tem_endereco = bool(pedido.get('cep_cliente')) and bool(pedido.get('rua_cliente'))
             if not cliente_tem_endereco:
                 try:
-                    from database.db_manager import DBManager
-                    db = DBManager()
+                    from database.core.db_manager import DatabaseManager
+                    db = DatabaseManager()
                     cpf = pedido.get('cpf_cliente') or pedido.get('cpf')
                     if cpf:
                         dados_cliente = db.buscar_cliente_por_cpf(cpf)

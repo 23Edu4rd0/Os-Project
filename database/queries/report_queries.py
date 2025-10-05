@@ -1,5 +1,6 @@
 """
-Módulo para consultas e relatórios
+Module for queries and reports.
+All user-facing messages are in Portuguese. All comments, docstrings, and logs are in English.
 """
 import sqlite3
 from datetime import datetime, timedelta
@@ -9,7 +10,7 @@ class ReportQueries:
         self.cursor = cursor
     
     def buscar_todas_ordens(self):
-        """Busca todas as ordens de serviço"""
+        """Fetch all service orders."""
         try:
             query = '''
             SELECT id, numero_os, data_criacao, nome_cliente, cpf_cliente, 
@@ -21,11 +22,12 @@ class ReportQueries:
             self.cursor.execute(query)
             return self.cursor.fetchall()
         except Exception as e:
-            print(f"Erro ao buscar todas as ordens: {e}")
+            print(f"Erro ao buscar todas as ordens: {e}")  # User-facing message in Portuguese
+            print(f"Error fetching all orders: {e}")  # Log in English
             return []
     
     def buscar_por_periodo(self, data_inicio, data_fim):
-        """Busca ordens por período"""
+        """Fetch orders by period."""
         try:
             query = '''
             SELECT * FROM ordem_servico 
@@ -36,11 +38,12 @@ class ReportQueries:
             self.cursor.execute(query, (data_inicio, data_fim))
             return self.cursor.fetchall()
         except Exception as e:
-            print(f"Erro ao buscar por período: {e}")
+            print(f"Erro ao buscar por período: {e}")  # User-facing message in Portuguese
+            print(f"Error fetching by period: {e}")  # Log in English
             return []
     
     def buscar_por_cliente(self, nome_cliente):
-        """Busca ordens por nome do cliente"""
+        """Fetch orders by client name."""
         try:
             query = '''
             SELECT * FROM ordem_servico 
@@ -51,11 +54,12 @@ class ReportQueries:
             self.cursor.execute(query, (f'%{nome_cliente}%',))
             return self.cursor.fetchall()
         except Exception as e:
-            print(f"Erro ao buscar por cliente: {e}")
+            print(f"Erro ao buscar por cliente: {e}")  # User-facing message in Portuguese
+            print(f"Error fetching by client: {e}")  # Log in English
             return []
 
     def buscar_por_cpf(self, cpf_cliente):
-        """Busca ordens por CPF do cliente (igualdade exata)"""
+        """Fetch orders by client CPF (exact match)."""
         try:
             # Normalize CPF to digits-only for comparison
             cpf = ''.join(ch for ch in str(cpf_cliente or '') if ch.isdigit())
@@ -69,11 +73,12 @@ class ReportQueries:
             self.cursor.execute(query, (cpf,))
             return self.cursor.fetchall()
         except Exception as e:
-            print(f"Erro ao buscar por cpf: {e}")
+            print(f"Erro ao buscar por cpf: {e}")  # User-facing message in Portuguese
+            print(f"Error fetching by cpf: {e}")  # Log in English
             return []
     
     def calcular_vendas_periodo(self, data_inicio, data_fim):
-        """Calcula vendas por período"""
+        """Calculate sales by period."""
         try:
             query = '''
             SELECT 
@@ -87,11 +92,12 @@ class ReportQueries:
             self.cursor.execute(query, (data_inicio, data_fim))
             return self.cursor.fetchone()
         except Exception as e:
-            print(f"Erro ao calcular vendas: {e}")
+            print(f"Erro ao calcular vendas: {e}")  # User-facing message in Portuguese
+            print(f"Error calculating sales: {e}")  # Log in English
             return (0, 0, 0, 0)
     
     def vendas_por_dia(self, dias=30):
-        """Vendas dos últimos N dias"""
+        """Sales for the last N days."""
         try:
             data_limite = (datetime.now() - timedelta(days=dias)).strftime('%Y-%m-%d')
             query = '''
@@ -107,11 +113,12 @@ class ReportQueries:
             self.cursor.execute(query, (data_limite,))
             return self.cursor.fetchall()
         except Exception as e:
-            print(f"Erro ao buscar vendas por dia: {e}")
+            print(f"Erro ao buscar vendas por dia: {e}")  # User-facing message in Portuguese
+            print(f"Error fetching sales by day: {e}")  # Log in English
             return []
 
     def relatorio_top_clientes(self, limite=10):
-        """Retorna os clientes com mais compras (top clientes)"""
+        """Return clients with most purchases (top clients)."""
         try:
             query = '''
             SELECT nome_cliente, cpf_cliente, COUNT(*) as total_compras, SUM(valor_produto + frete) as total_gasto
@@ -124,11 +131,12 @@ class ReportQueries:
             self.cursor.execute(query, (limite,))
             return self.cursor.fetchall()
         except Exception as e:
-            print(f"Erro ao gerar relatório de top clientes: {e}")
+            print(f"Erro ao gerar relatório de top clientes: {e}")  # User-facing message in Portuguese
+            print(f"Error generating top clients report: {e}")  # Log in English
             return []
 
     def relatorio_pedidos_deletados(self, dias=30):
-        """Retorna estatísticas de pedidos deletados nos últimos N dias"""
+        """Return statistics of deleted orders in the last N days."""
         try:
             from datetime import datetime, timedelta
             data_limite = (datetime.now() - timedelta(days=dias)).strftime('%Y-%m-%d %H:%M:%S')
@@ -140,5 +148,6 @@ class ReportQueries:
             self.cursor.execute(query, (data_limite,))
             return self.cursor.fetchone()
         except Exception as e:
-            print(f"Erro ao gerar relatório de pedidos deletados: {e}")
+            print(f"Erro ao gerar relatório de pedidos deletados: {e}")  # User-facing message in Portuguese
+            print(f"Error generating deleted orders report: {e}")  # Log in English
             return (0, 0)

@@ -1,6 +1,8 @@
+
 """
-Módulo de gerenciamento do banco de dados SQLite para armazenar ordens de serviço.
-Refatorado para usar módulos especializados.
+DatabaseManager: Singleton for centralized access to the SQLite database.
+Handles orders, clients, products, reports, and migrations.
+All user-facing messages are in Portuguese. All comments, docstrings, and logs are in English.
 """
 
 
@@ -8,71 +10,64 @@ import sqlite3
 import json
 from datetime import datetime
 
-from database.db_setup import DatabaseSetup
-from database.order_crud import OrderCRUD
-from database.report_queries import ReportQueries
-from database.products_crud import ProductsCRUD
+# Specialized modules
+from database.core.db_setup import DatabaseSetup
+from database.crud.order_crud import OrderCRUD
+from database.queries.report_queries import ReportQueries
+from database.crud.products_crud import ProductsCRUD
+
 
 
 class DatabaseManager:
+    """Singleton for centralized database access and main operations."""
     _instance = None
-    
+
     def __new__(cls):
         if cls._instance is None:
-            cls._instance = super(DatabaseManager, cls).__new__(cls)
-            cls._instance._inicializado = False
+            cls._instance = super().__new__(cls)
+            cls._instance._initialized = False
         return cls._instance
 
     def __init__(self):
-        if not self._inicializado:
-            self.db_path = DatabaseSetup.get_database_path()
-            self.conn = sqlite3.connect(self.db_path, check_same_thread=False)
-            self.cursor = self.conn.cursor()
-            
-            # Inicializar módulos especializados
-            self.order_crud = OrderCRUD(self.cursor, self.conn)
-            self.reports = ReportQueries(self.cursor)
-            self.products = ProductsCRUD(self.cursor, self.conn)
-            
-            # Criar tabelas
-            DatabaseSetup.criar_tabelas(self.cursor)
-            self.conn.commit()
-            
-            # Executar migração de Soft Delete
-            self._migrate_soft_delete()
-            
-            # Executar migração de numero_compras
-            self._migrate_numero_compras()
-            
-            self._inicializado = True
+        if self._initialized:
+            return
+        self.db_path = DatabaseSetup.get_database_path()
+        self.conn = sqlite3.connect(self.db_path, check_same_thread=False)
+        self.cursor = self.conn.cursor()
+        # Specialized modules
+        self.order_crud = OrderCRUD(self.cursor, self.conn)
+        self.reports = ReportQueries(self.cursor)
+        self.products = ProductsCRUD(self.cursor, self.conn)
+        # Database initialization
+        DatabaseSetup.criar_tabelas(self.cursor)
+        self.conn.commit()
+        self._migrate_soft_delete()
+        self._migrate_numero_compras()
+        self._initialized = True
     
     def _migrate_soft_delete(self):
-        """Executa migração de Soft Delete"""
+        """Run Soft Delete migration if needed."""
         try:
             from app.utils.soft_delete import SoftDeleteManager
-            sucesso, mensagem = SoftDeleteManager.migrate_add_deleted_at_columns()
-            if sucesso:
-                print(f"✅ {mensagem}")
-            else:
-                print(f"⚠️ {mensagem}")
+            success, message = SoftDeleteManager.migrate_add_deleted_at_columns()
+            # Log migration result in English
+            print(f"Soft Delete migration: {message}" if success else f"Soft Delete migration warning: {message}")
         except Exception as e:
-            print(f"⚠️ Erro na migração de Soft Delete: {e}")
+            print(f"Soft Delete migration error: {e}")
     
     def _migrate_numero_compras(self):
-        """Executa migração e sincronização de numero_compras"""
+        """Run numero_compras migration and sync if needed."""
         try:
-            print("🔄 Iniciando migração/sincronização de numero_compras...")
+            print("Starting numero_compras migration/sync...")
             from database.migrations import migrate_add_numero_compras
             migrate_add_numero_compras(self.conn)
         except Exception as e:
-            print(f"⚠️ Erro na migração de numero_compras: {e}")
-            import traceback
-            traceback.print_exc()
+            print(f"numero_compras migration error: {e}")
 
     def salvar_ordem(self, dados, nome_pdf=""):
-        """Salva ordem de serviço usando módulo CRUD"""
+        """Save service order using CRUD module."""
         try:
-            # Debug: log incoming payload summary
+            # Log incoming payload summary (for debugging)
             produtos = dados.get('produtos') if isinstance(dados, dict) else None
             total_produtos = None
             if produtos and isinstance(produtos, (list, tuple)):
@@ -85,15 +80,15 @@ class DatabaseManager:
         return self.order_crud.criar_ordem(dados, nome_pdf)
 
     def deletar_pedido(self, pedido_id):
-        """Deleta um pedido específico pelo ID"""
+        """Delete a specific order by ID."""
         return self.order_crud.deletar_ordem(pedido_id)
 
     def deletar_ordem(self, pedido_id):
-        """Deleta ordem - mantido para compatibilidade"""
+        """Delete order - kept for compatibility."""
         return self.order_crud.deletar_ordem(pedido_id)
 
     def atualizar_status_pedido(self, pedido_id, novo_status):
-        """Atualiza o status do pedido usando dados JSON"""
+        """Update order status using JSON data."""
         try:
             self.cursor.execute('SELECT dados_json FROM ordem_servico WHERE id = ?', (pedido_id,))
             row = self.cursor.fetchone()
@@ -114,11 +109,11 @@ class DatabaseManager:
             return True
             
         except Exception as e:
-            print(f"Erro ao atualizar status: {e}")
+            print(f"Error updating status: {e}")
             return False
 
     def listar_pedidos_ordenados_por_prazo(self, limite=50):
-        """Lista pedidos ordenados por prazo - INCLUINDO TODOS OS CAMPOS PARA EDIÇÃO"""
+        """List orders sorted by deadline - INCLUDING ALL FIELDS FOR EDITING."""
         try:
             # Query com todos os campos necessários para edição (APENAS PEDIDOS NÃO DELETADOS)
             query = '''
@@ -212,7 +207,7 @@ class DatabaseManager:
                             # Montar endereço completo para compatibilidade
                             endereco_cliente = f"{rua_cliente} {numero_cliente} - {bairro_cliente} - {cidade_cliente} / {estado_cliente}".strip()
                 except Exception as e:
-                    print(f"Erro ao buscar endereço do cliente: {e}")
+                    print(f"Error fetching client address: {e}")
                     endereco_cliente = ''
 
                 pedido = {
@@ -247,11 +242,11 @@ class DatabaseManager:
 
             return pedidos
         except Exception as e:
-            print(f"Erro ao listar pedidos: {e}")
+            print(f"Error listing orders: {e}")
             return []
 
     def atualizar_json_campos(self, pedido_id, updates: dict) -> bool:
-        """Atualiza campos específicos dentro de dados_json da ordem."""
+        """Update specific fields inside order's dados_json."""
         try:
             self.cursor.execute('SELECT dados_json FROM ordem_servico WHERE id = ?', (pedido_id,))
             row = self.cursor.fetchone()
@@ -266,39 +261,39 @@ class DatabaseManager:
             self.conn.commit()
             return True
         except Exception as e:
-            print(f"Erro ao atualizar JSON da OS: {e}")
+            print(f"Error updating order JSON: {e}")
             return False
 
     def buscar_ordem_por_numero(self, numero_os):
-        """Busca ordem por número usando módulo CRUD"""
+        """Search order by number using CRUD module."""
         return self.order_crud.buscar_ordem(numero_os)
 
     def obter_vendas_por_periodo(self, data_inicio, data_fim):
-        """Obtém vendas por período usando módulo de relatórios"""
+        """Get sales by period using reports module."""
         return self.reports.buscar_por_periodo(data_inicio, data_fim)
 
     def calcular_resumo_vendas(self, data_inicio, data_fim):
-        """Calcula resumo de vendas usando módulo de relatórios"""
+        """Calculate sales summary using reports module."""
         return self.reports.calcular_vendas_periodo(data_inicio, data_fim)
 
     def obter_vendas_diarias(self, dias=30):
-        """Obtém vendas diárias usando módulo de relatórios"""
+        """Get daily sales using reports module."""
         return self.reports.vendas_por_dia(dias)
 
     def buscar_pedidos_por_cliente(self, nome_cliente):
-        """Busca pedidos por cliente usando módulo de relatórios"""
+        """Search orders by client using reports module."""
         return self.reports.buscar_por_cliente(nome_cliente)
 
     def buscar_pedidos_por_cpf(self, cpf_cliente):
-        """Busca pedidos por CPF do cliente"""
+        """Search orders by client CPF."""
         return self.reports.buscar_por_cpf(cpf_cliente)
 
     def atualizar_pedido(self, pedido_id, campos_atualizacao):
-        """Atualiza campos do pedido usando módulo CRUD"""
+        """Update order fields using CRUD module."""
         return self.order_crud.atualizar_ordem(pedido_id, campos_atualizacao)
 
     def listar_clientes(self, limite=None):
-        """Lista clientes da tabela de clientes separada"""
+        """List clients from the separate clients table."""
         try:
             if limite:
                 query = '''
@@ -317,11 +312,11 @@ class DatabaseManager:
                 self.cursor.execute(query)
             return self.cursor.fetchall()
         except Exception as e:
-            print(f"Erro ao listar clientes: {e}")
+            print(f"Error listing clients: {e}")
             return []
     
     def buscar_cliente_por_cpf(self, cpf):
-        """Busca dados completos do cliente por CPF"""
+        """Search full client data by CPF."""
         try:
             if not cpf:
                 return None
@@ -360,14 +355,14 @@ class DatabaseManager:
             return None
             
         except Exception as e:
-            print(f"Erro ao buscar cliente por CPF: {e}")
+            print(f"Error searching client by CPF: {e}")
             return None
 
     def atualizar_cliente(self, cliente_id, nome, cpf=None, telefone=None, email=None,
                           endereco=None, referencia=None, rua=None, numero=None,
                           bairro=None, cidade=None, estado=None):
-        """Atualiza um cliente existente na tabela de clientes.
-        Parâmetro 'endereco' mantido para compatibilidade e é ignorado, pois os campos estão normalizados.
+        """Update an existing client in the clients table.
+        Parameter 'endereco' kept for compatibility and is ignored, as fields are normalized.
         """
         try:
             self.cursor.execute(
@@ -382,13 +377,13 @@ class DatabaseManager:
             self.conn.commit()
             return True
         except Exception as e:
-            print(f"Erro ao atualizar cliente: {e}")
+            print(f"Error updating client: {e}")
             return False
 
     def atualizar_cliente_completo(self, cliente_id, nome, cpf=None, cnpj=None, inscricao_estadual=None,
                                   telefone=None, email=None, cep=None, rua=None, numero=None,
                                   bairro=None, cidade=None, estado=None, referencia=None):
-        """Atualiza um cliente existente com todos os campos, incluindo CNPJ, IE e CEP."""
+        """Update an existing client with all fields, including CNPJ, IE, and CEP."""
         try:
             self.cursor.execute(
                 """
@@ -403,13 +398,13 @@ class DatabaseManager:
             self.conn.commit()
             return True
         except Exception as e:
-            print(f"Erro ao atualizar cliente completo: {e}")
+            print(f"Error updating full client: {e}")
             return False
 
     def criar_cliente_completo(self, nome, cpf=None, cnpj=None, inscricao_estadual=None,
                               telefone=None, email=None, cep=None, rua=None, numero=None,
                               bairro=None, cidade=None, estado=None, referencia=None):
-        """Cria um novo cliente com todos os campos, incluindo CNPJ, IE e CEP."""
+        """Create a new client with all fields, including CNPJ, IE, and CEP."""
         try:
             from datetime import datetime
             data_atual = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
@@ -426,17 +421,17 @@ class DatabaseManager:
             self.conn.commit()
             return True
         except Exception as e:
-            print(f"Erro ao criar cliente completo: {e}")
+            print(f"Error creating full client: {e}")
             return False
 
     def deletar_cliente(self, cliente_id):
-        """Exclui um cliente pelo ID."""
+        """Delete a client by ID."""
         try:
             self.cursor.execute("DELETE FROM clientes WHERE id = ?", (int(cliente_id),))
             self.conn.commit()
             return True
         except Exception as e:
-            print(f"Erro ao deletar cliente: {e}")
+            print(f"Error deleting client: {e}")
             return False
 
     # ---------- Produtos (Catálogo) ----------
@@ -453,8 +448,8 @@ class DatabaseManager:
         return self.products.deletar_produto(produto_id)
 
     def listar_produtos_vendidos(self, busca: str = '', limite: int = 1000):
-        """Extrai produtos reais das ordens (dados_json.produtos ou detalhes_produto).
-        Retorna lista de dicts: {ordem_id, numero_os, data_criacao, descricao, valor, cor, reforco}
+        """Extracts real products from orders (dados_json.produtos or detalhes_produto).
+        Returns a list of dicts: {ordem_id, numero_os, data_criacao, descricao, valor, cor, reforco}
         """
         try:
             query = 'SELECT id, numero_os, data_criacao, detalhes_produto, dados_json FROM ordem_servico ORDER BY data_criacao DESC LIMIT ?'
@@ -542,11 +537,11 @@ class DatabaseManager:
                             pass
             return produtos
         except Exception as e:
-            print(f"Erro ao listar produtos vendidos: {e}")
+            print(f"Error listing sold products: {e}")
             return []
 
     def obter_resumo_mes(self, ano, mes):
-        """Obtém resumo de vendas do mês"""
+        """Get sales summary for the month."""
         try:
             query = '''
             SELECT 
@@ -560,15 +555,15 @@ class DatabaseManager:
             resultado = self.cursor.fetchone()
             return resultado if resultado else (0, 0, 0)
         except Exception as e:
-            print(f"Erro ao obter resumo do mês: {e}")
+            print(f"Error getting month summary: {e}")
             return (0, 0, 0)
 
     def listar_pedidos_ordenados_prazo(self, limite=200):
-        """Lista pedidos ordenados por prazo - compatibilidade"""
+        """List orders sorted by deadline - compatibility."""
         return self.listar_pedidos_ordenados_por_prazo(limite)
 
     def obter_resumo_ano(self, ano):
-        """Obtém resumo de vendas do ano"""
+        """Get sales summary for the year."""
         try:
             query = '''
             SELECT 
@@ -582,11 +577,11 @@ class DatabaseManager:
             resultado = self.cursor.fetchone()
             return resultado if resultado else (0, 0, 0)
         except Exception as e:
-            print(f"Erro ao obter resumo do ano: {e}")
+            print(f"Error getting year summary: {e}")
             return (0, 0, 0)
 
     def obter_resumo_total(self):
-        """Obtém resumo total de vendas"""
+        """Get total sales summary."""
         try:
             query = '''
             SELECT 
@@ -599,11 +594,11 @@ class DatabaseManager:
             resultado = self.cursor.fetchone()
             return resultado if resultado else (0, 0, 0)
         except Exception as e:
-            print(f"Erro ao obter resumo total: {e}")
+            print(f"Error getting total summary: {e}")
             return (0, 0, 0)
 
     def criar_dados_teste(self):
-        """Cria dados de teste se a tabela estiver vazia"""
+        """Create test data if the table is empty."""
         try:
             # Verificar se já existem dados
             self.cursor.execute('SELECT COUNT(*) FROM ordem_servico')
@@ -641,17 +636,17 @@ class DatabaseManager:
                 for dados in dados_teste:
                     self.salvar_ordem(dados, "")
                 
-                print("Dados de teste criados!")
+                print("Dados de teste criados!")  # User-facing message in Portuguese
                 return True
             
         except Exception as e:
-            print(f"Erro ao criar dados de teste: {e}")
+            print(f"Error creating test data: {e}")
             return False
 
     def upsert_cliente_completo(self, nome, cpf=None, telefone=None, email=None, 
                                cliente_id=None, referencia=None, rua=None, numero=None, 
                                bairro=None, cidade=None, estado=None):
-        """Insere ou atualiza um cliente com dados completos na tabela de clientes"""
+        """Insert or update a client with full data in the clients table."""
         try:
             from datetime import datetime
             
@@ -677,11 +672,11 @@ class DatabaseManager:
             return True
             
         except Exception as e:
-            print(f"Erro ao salvar cliente completo: {e}")
+            print(f"Error saving full client: {e}")
             return False
 
     def inserir_cliente(self, nome, cpf=None, telefone=None, email=None, endereco=None, referencia=None, numero=None):
-        """Insere um novo cliente na tabela de clientes"""
+        """Insert a new client in the clients table."""
         try:
             from datetime import datetime
             data_atual = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
@@ -696,16 +691,17 @@ class DatabaseManager:
             return self.cursor.lastrowid
             
         except Exception as e:
-            print(f"Erro ao inserir cliente: {e}")
+            print(f"Error inserting client: {e}")
             return None
 
     def close(self):
-        """Fecha conexão com o banco"""
+        """Close database connection."""
         if hasattr(self, 'conn'):
             self.conn.close()
 
     # ---------- Gastos (Despesas) ----------
     def inserir_gasto(self, tipo, descricao, valor, data=None):
+        """Insert an expense record."""
         try:
             if data:
                 self.cursor.execute("INSERT INTO gastos (tipo, descricao, valor, data) VALUES (?, ?, ?, ?)", (tipo, descricao, float(valor), data))
@@ -714,11 +710,11 @@ class DatabaseManager:
             self.conn.commit()
             return self.cursor.lastrowid
         except Exception as e:
-            print(f"Erro ao inserir gasto: {e}")
+            print(f"Error inserting expense: {e}")
             return None
 
     def atualizar_gasto(self, gasto_id, tipo=None, descricao=None, valor=None, data=None):
-        """Atualiza um gasto existente. Campos None serão preservados (não atualizados)."""
+        """Update an existing expense. None fields will be preserved (not updated)."""
         try:
             # Buscar valores atuais
             self.cursor.execute('SELECT tipo, descricao, valor, data FROM gastos WHERE id = ?', (gasto_id,))
@@ -740,50 +736,52 @@ class DatabaseManager:
             self.conn.commit()
             return True
         except Exception as e:
-            print(f"Erro ao atualizar gasto: {e}")
+            print(f"Error updating expense: {e}")
             return False
 
     def deletar_gasto(self, gasto_id):
-        """Exclui um gasto pelo seu ID."""
+        """Delete an expense by its ID."""
         try:
             self.cursor.execute('DELETE FROM gastos WHERE id = ?', (gasto_id,))
             self.conn.commit()
             return True
         except Exception as e:
-            print(f"Erro ao deletar gasto: {e}")
+            print(f"Error deleting expense: {e}")
             return False
 
     def get_gasto(self, gasto_id):
-        """Retorna um gasto pelo ID como tupla (id, tipo, descricao, valor, data) ou None."""
+        """Return an expense by ID as a tuple (id, tipo, descricao, valor, data) or None."""
         try:
             self.cursor.execute('SELECT id, tipo, descricao, valor, data FROM gastos WHERE id = ?', (gasto_id,))
             row = self.cursor.fetchone()
             return row
         except Exception as e:
-            print(f"Erro ao buscar gasto por id: {e}")
+            print(f"Error fetching expense by id: {e}")
             return None
 
     def listar_gastos_periodo(self, data_inicio, data_fim):
+        """List expenses for a given period."""
         try:
             query = 'SELECT id, tipo, descricao, valor, data FROM gastos WHERE date(data) BETWEEN ? AND ? ORDER BY data DESC'
             self.cursor.execute(query, (data_inicio, data_fim))
             return self.cursor.fetchall()
         except Exception as e:
-            print(f"Erro ao listar gastos por período: {e}")
+            print(f"Error listing expenses by period: {e}")
             return []
 
     def soma_gastos_periodo(self, data_inicio, data_fim):
+        """Sum expenses for a given period."""
         try:
             query = 'SELECT SUM(valor) FROM gastos WHERE date(data) BETWEEN ? AND ?'
             self.cursor.execute(query, (data_inicio, data_fim))
             row = self.cursor.fetchone()
             return float(row[0] or 0.0)
         except Exception as e:
-            print(f"Erro ao somar gastos por período: {e}")
+            print(f"Error summing expenses by period: {e}")
             return 0.0
 
     def contar_caixas_vendidas_periodo(self, data_inicio, data_fim):
-        """Conta ocorrências de 'caixa' em detalhes_produto no período (heurística simples)."""
+        """Count occurrences of 'caixa' in detalhes_produto in the period (simple heuristic)."""
         try:
             query = "SELECT detalhes_produto FROM ordem_servico WHERE date(data_criacao) BETWEEN ? AND ? AND (dados_json IS NULL OR instr(dados_json, 'cancelado') = 0)"
             self.cursor.execute(query, (data_inicio, data_fim))
@@ -797,11 +795,11 @@ class DatabaseManager:
                 total += txt.count('caixa')
             return total
         except Exception as e:
-            print(f"Erro ao contar caixas: {e}")
+            print(f"Error counting 'caixa': {e}")
             return 0
 
     def get_pedido_por_id(self, pedido_id):
-        """Busca um pedido específico por ID"""
+        """Fetch a specific order by ID."""
         import json
         try:
             query = '''
@@ -853,11 +851,11 @@ class DatabaseManager:
             return pedido
             
         except Exception as e:
-            print(f"Erro ao buscar pedido por ID: {e}")
+            print(f"Error fetching order by ID: {e}")
             return None
 
     def get_produtos_do_pedido(self, pedido_id):
-        """Extrai lista de produtos de um pedido"""
+        """Extract product list from an order."""
         try:
             pedido = self.get_pedido_por_id(pedido_id)
             if not pedido:
@@ -873,7 +871,8 @@ class DatabaseManager:
                     produtos_json = json_data.get('produtos', [])
                     if produtos_json:
                         for i, p in enumerate(produtos_json):
-                            print(f"Processando produto JSON {i}: {p}, tipo: {type(p)}")
+                            # Log processing of each product in JSON (debug)
+                            print(f"Processing JSON product {i}: {p}, type: {type(p)}")
                             if isinstance(p, dict):
                                 produto = {
                                     'nome': p.get('descricao', p.get('nome', 'Produto')),
@@ -889,11 +888,11 @@ class DatabaseManager:
                                     produto['cor'] = p['cor']
                                 
                                 # Debug: verificar se as cores estão sendo preservadas
-                                print(f"Produto {produto['nome']}: cor_data={produto.get('cor_data')}, cor={produto.get('cor')}")
+                                print(f"Product {produto['nome']}: cor_data={produto.get('cor_data')}, cor={produto.get('cor')}")
                                 
                                 produtos.append(produto)
                             else:
-                                print(f"ERRO: Produto não é dict: {p}")
+                                print(f"ERROR: Product is not dict: {p}")
                                 produtos.append({
                                     'nome': str(p),
                                     'quantidade': 1,
@@ -901,7 +900,7 @@ class DatabaseManager:
                                 })
                         return produtos
                 except Exception as e:
-                    print(f"Erro ao processar JSON de produtos: {e}")
+                    print(f"Error processing product JSON: {e}")
                     pass
             
             # Fallback: extrair do campo detalhes_produto (texto)
@@ -922,7 +921,7 @@ class DatabaseManager:
                                     'valor_unitario': valor
                                 })
                             except Exception as e:
-                                print(f"Erro ao processar linha de produto: {linha}, erro: {e}")
+                                print(f"Error processing product line: {linha}, error: {e}")
                                 pass
                         else:
                             # Produto sem valor especificado
@@ -935,13 +934,13 @@ class DatabaseManager:
             return produtos
             
         except Exception as e:
-            print(f"Erro ao buscar produtos do pedido: {e}")
+            print(f"Error fetching order products: {e}")
             import traceback
             traceback.print_exc()
             return []
 
     def excluir_pedido(self, pedido_id):
-        """Compatibilidade: chama deletar_pedido"""
+        """Compatibility: calls deletar_pedido."""
         return self.deletar_pedido(pedido_id)
 
-DBManager = DatabaseManager
+DBManager = DatabaseManager()

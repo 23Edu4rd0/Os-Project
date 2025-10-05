@@ -145,7 +145,7 @@ class PedidoResumoDialog(QDialog):
                 # Buscar dados completos do cliente se houver CPF/CNPJ
                 cliente_completo = None
                 if pedido.get('cpf_cliente'):
-                    from database.db_manager import DatabaseManager
+                    from database.core.db_manager import DatabaseManager
                     db = DatabaseManager()
                     
                     # Normalizar documento (remover pontuação)

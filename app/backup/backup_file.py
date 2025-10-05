@@ -3,7 +3,7 @@ import os
 from datetime import datetime
 from pathlib import Path
 
-from database.db_setup import DatabaseSetup
+from database.core.db_setup import DatabaseSetup
 
 
 def criar_backup(dest_dir=None, nome_prefixo='backup'):

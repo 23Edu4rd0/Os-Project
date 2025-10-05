@@ -1,7 +1,7 @@
 from .__init__ import PedidosModal
 from documents.os_pdf import OrdemServicoPDF
 from PyQt6.QtWidgets import QMessageBox
-from database.db_manager import DatabaseManager
+from database.core.db_manager import DatabaseManager
 
 def _gerar_pdf(self, pedido_data):
     try:

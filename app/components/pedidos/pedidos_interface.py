@@ -832,37 +832,44 @@ class PedidosInterface(QWidget):
 		from PyQt6.QtWidgets import QMessageBox
 		
 		# Mostrar confirmação ANTES de deletar
-		reply = QMessageBox.question(
-			self,
-			"⚠️ Confirmar Exclusão",
-			f"Tem certeza que deseja excluir o pedido #{pedido_id}?\n\n"
+		msgbox = QMessageBox(self)
+		msgbox.setWindowTitle("⚠️ Confirmar Exclusão")
+		msgbox.setText(f"Tem certeza que deseja excluir o pedido #{pedido_id}?\n\n"
 			f"⚠️ O pedido será movido para a lixeira!\n"
 			f"Você poderá recuperá-lo dentro de 30 dias.\n"
-			f"Após esse período, será removido permanentemente.",
-			QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-			QMessageBox.StandardButton.No
-		)
+			f"Após esse período, será removido permanentemente.")
+		msgbox.setIcon(QMessageBox.Icon.Question)
+		msgbox.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+		msgbox.setDefaultButton(QMessageBox.StandardButton.No)
+		
+		# Aplicar estilo escuro
+		from app.ui.theme import apply_dark_messagebox_style
+		apply_dark_messagebox_style(msgbox)
+		
+		reply = msgbox.exec()
 		
 		if reply != QMessageBox.StandardButton.Yes:
 			return  # Cancelou
 		
 		try:
-			if hasattr(db_manager, "deletar_pedido"):
-				db_manager.deletar_pedido(pedido_id)
+			# Usar soft delete em vez de exclusão permanente
+			from app.utils.soft_delete import SoftDeleteManager
+			success, mensagem = SoftDeleteManager.soft_delete_pedido(pedido_id)
+			
+			if success:
+				# Emitir sinal de exclusão
+				signals = get_signals()
+				signals.pedido_excluido.emit(pedido_id)
+				
+				# Mostrar mensagem de sucesso
+				QMessageBox.information(
+					self,
+					"✅ Sucesso",
+					f"Pedido #{pedido_id} movido para a lixeira!\n\n"
+					f"Você pode recuperá-lo em Backup → Registros Deletados."
+				)
 			else:
-				db_manager.deletar_ordem(pedido_id)
-			
-			# Emitir sinal de exclusão
-			signals = get_signals()
-			signals.pedido_excluido.emit(pedido_id)
-			
-			# Mostrar mensagem de sucesso
-			QMessageBox.information(
-				self,
-				"✅ Sucesso",
-				f"Pedido #{pedido_id} movido para a lixeira!\n\n"
-				f"Você pode recuperá-lo em Backup → Registros Deletados."
-			)
+				QMessageBox.warning(self, "❌ Erro", mensagem)
 		except Exception as e:
 			QMessageBox.critical(self, "❌ Erro", f"Erro ao excluir pedido: {e}")
 			print(f"Erro ao excluir: {e}")

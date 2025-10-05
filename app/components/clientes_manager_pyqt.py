@@ -45,7 +45,7 @@ class ClienteDetailDialog(QDialog):
         info_frame.setMaximumHeight(200)
         info_frame.setStyleSheet("""
             QFrame { 
-                background: #23272e; 
+                background: #1f232b; 
                 border-radius: 12px; 
                 padding: 12px;
                 border: 1px solid #393939;
@@ -162,7 +162,7 @@ class ClienteDetailDialog(QDialog):
 
         # Middle: orders table
         table_label = QLabel("Pedidos deste cliente:")
-        table_label.setStyleSheet("font-size: 16px; font-weight: bold; color: #b0e0ff; margin-bottom: 6px;")
+        table_label.setStyleSheet("font-size: 16px; font-weight: bold; color: #e0e0e0; margin-bottom: 6px;")
         main_layout.addWidget(table_label)
 
         self.orders_table = QTableWidget()
@@ -177,8 +177,8 @@ class ClienteDetailDialog(QDialog):
         self.orders_table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
         self.orders_table.setStyleSheet("""
             QTableWidget { background: #1f232b; color: #e6e6e6; font-size: 14px; border-radius: 8px; }
-            QHeaderView::section { background: #23272e; color: #b0e0ff; font-weight: bold; font-size: 15px; border: none; }
-            QTableWidget::item:selected { background: #2d8cff; color: #fff; }
+            QHeaderView::section { background: #2d2d2d; color: #e0e0e0; font-weight: bold; font-size: 15px; border: none; }
+            QTableWidget::item:selected { background: #4a4a4a; color: #fff; }
         """)
         self.orders_table.verticalHeader().setVisible(False)
         
@@ -215,17 +215,17 @@ class ClienteDetailDialog(QDialog):
                 font-size: 14px; 
                 font-weight: 600;
                 padding: 12px 20px; 
-                background-color: #2196F3; 
+                background-color: #5a5a5a; 
                 color: white; 
                 border: none;
                 border-radius: 8px;
                 text-align: center;
             }
             QPushButton:hover {
-                background-color: #1976D2;
+                background-color: #6a6a6a;
             }
             QPushButton:pressed {
-                background-color: #1565C0;
+                background-color: #4a4a4a;
             }
         """)
         
@@ -437,7 +437,7 @@ class ClienteDetailDialog(QDialog):
                 # Coluna 2: Status (editável)
                 status_item = QTableWidgetItem(status)
                 status_item.setData(Qt.ItemDataRole.UserRole, pedido_id)  # Guardar ID também aqui
-                status_item.setForeground(QColor('#b0e0ff'))  # Cor diferente para indicar que é editável
+                status_item.setForeground(QColor('#c0c0c0'))  # Cor diferente para indicar que é editável
                 status_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
                 self.orders_table.setItem(row, 1, status_item)
                 
@@ -455,7 +455,7 @@ class ClienteDetailDialog(QDialog):
                 btn_visualizar.setFixedHeight(32)  # Altura fixa para não ficar amassado
                 btn_visualizar.setStyleSheet("""
                     QPushButton {
-                        background-color: #2d8cff;
+                        background-color: #5a5a5a;
                         color: white;
                         border: none;
                         border-radius: 4px;
@@ -465,7 +465,7 @@ class ClienteDetailDialog(QDialog):
                         min-width: 90px;
                     }
                     QPushButton:hover {
-                        background-color: #1e7ae6;
+                        background-color: #6a6a6a;
                     }
                 """)
                 btn_visualizar.clicked.connect(lambda checked, pid=pedido_id: self._visualizar_pedido(pid))
@@ -546,23 +546,28 @@ class ClienteDetailDialog(QDialog):
         """Deleta um pedido após confirmação."""
         try:
             # Confirmação de exclusão
-            reply = QMessageBox.question(
-                self, 
-                "⚠️ Confirmar Exclusão", 
-                f"Tem certeza que deseja deletar a OS {pedido_id}?\n\n"
+            msgbox = QMessageBox(self)
+            msgbox.setWindowTitle("⚠️ Confirmar Exclusão")
+            msgbox.setText(f"Tem certeza que deseja deletar a OS {pedido_id}?\n\n"
                 f"⚠️ O pedido será movido para a lixeira!\n"
                 f"Você poderá recuperá-lo dentro de 30 dias.\n"
-                f"Após esse período, será removido permanentemente.",
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                QMessageBox.StandardButton.No
-            )
+                f"Após esse período, será removido permanentemente.")
+            msgbox.setIcon(QMessageBox.Icon.Question)
+            msgbox.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+            msgbox.setDefaultButton(QMessageBox.StandardButton.No)
+            
+            # Aplicar estilo escuro
+            from app.ui.theme import apply_dark_messagebox_style
+            apply_dark_messagebox_style(msgbox)
+            
+            reply = msgbox.exec()
             
             if reply == QMessageBox.StandardButton.Yes:
                 print(f"Deletando pedido ID: {pedido_id}")
                 
                 # Chama função de deletar do banco de dados
-                from database.db_manager import db_manager
-                sucesso = db_manager.deletar_pedido(pedido_id)
+                from database.core.db_manager import DatabaseManager
+                sucesso = DatabaseManager().deletar_pedido(pedido_id)
                 
                 if sucesso:
                     self.parent()._mostrar_mensagem_auto_close("✅ Sucesso", "Pedido deletado com sucesso!", "success", 5)
@@ -1138,6 +1143,20 @@ class ClientesManager(QWidget):
         self.btn_pesquisar.setMaximumWidth(40)
         self.btn_pesquisar.setMinimumHeight(36)
         self.btn_pesquisar.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_pesquisar.setStyleSheet("""
+            QPushButton {
+                background-color: #3a3a3a;
+                border: 1px solid #555555;
+                border-radius: 6px;
+            }
+            QPushButton:hover {
+                background-color: #4a4a4a;
+                border: 1px solid #666666;
+            }
+            QPushButton:pressed {
+                background-color: #2a2a2a;
+            }
+        """)
         self.btn_pesquisar.clicked.connect(self.pesquisar_clientes)
         top_layout.addWidget(self.btn_pesquisar)
 
@@ -1145,6 +1164,20 @@ class ClientesManager(QWidget):
         self.btn_limpar.setMaximumWidth(40)
         self.btn_limpar.setMinimumHeight(36)
         self.btn_limpar.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_limpar.setStyleSheet("""
+            QPushButton {
+                background-color: #3a3a3a;
+                border: 1px solid #555555;
+                border-radius: 6px;
+            }
+            QPushButton:hover {
+                background-color: #4a4a4a;
+                border: 1px solid #666666;
+            }
+            QPushButton:pressed {
+                background-color: #2a2a2a;
+            }
+        """)
         self.btn_limpar.clicked.connect(self.limpar_pesquisa)
         top_layout.addWidget(self.btn_limpar)
         
@@ -1343,7 +1376,7 @@ class ClientesManager(QWidget):
                 border-radius: 3px;
             }
             QMenu::item:selected {
-                background-color: #007ACC;
+                background-color: #5a5a5a;
             }
             QMenu::separator {
                 height: 1px;
@@ -1636,22 +1669,33 @@ class ClientesManager(QWidget):
         nome_cliente = nome_item.text()
         
         # Confirmar exclusão
-        reply = QMessageBox.question(
-            self,
-            "Confirmar Exclusão",
-            f"Excluir cliente '{nome_cliente}'?\n\nEsta ação não pode ser desfeita.",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            QMessageBox.StandardButton.No
-        )
+        msgbox = QMessageBox(self)
+        msgbox.setWindowTitle("Confirmar Exclusão")
+        msgbox.setText(f"Excluir cliente '{nome_cliente}'?\n\nEsta ação não pode ser desfeita.")
+        msgbox.setIcon(QMessageBox.Icon.Question)
+        msgbox.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        msgbox.setDefaultButton(QMessageBox.StandardButton.No)
+        
+        # Aplicar estilo escuro
+        from app.ui.theme import apply_dark_messagebox_style
+        apply_dark_messagebox_style(msgbox)
+        
+        reply = msgbox.exec()
         
         if reply == QMessageBox.StandardButton.Yes:
             try:
-                db_manager.deletar_cliente(int(cliente_id))
-                # Emitir sinal de cliente excluído
-                from app.signals import get_signals
-                signals = get_signals()
-                signals.cliente_excluido.emit(int(cliente_id))
-                self._mostrar_mensagem_auto_close("✅ Sucesso", "Cliente excluído com sucesso!", "success", 5)
+                # Usar soft delete em vez de exclusão permanente
+                from app.utils.soft_delete import SoftDeleteManager
+                sucesso, mensagem = SoftDeleteManager.soft_delete_cliente(int(cliente_id))
+                
+                if sucesso:
+                    # Emitir sinal de cliente excluído
+                    from app.signals import get_signals
+                    signals = get_signals()
+                    signals.cliente_excluido.emit(int(cliente_id))
+                    self._mostrar_mensagem_auto_close("✅ Sucesso", "Cliente movido para a lixeira! Você pode recuperá-lo em até 30 dias.", "success", 5)
+                else:
+                    QMessageBox.warning(self, "Aviso", mensagem)
             except Exception as e:
                 QMessageBox.critical(self, "Erro", f"Erro ao excluir cliente: {e}")
     
@@ -1771,14 +1815,58 @@ class ClientesManager(QWidget):
         """Aplica estilo moderno ao módulo"""
         # Produtos-like QSS (teal accents were added in Produtos dialog, here we keep neutral table + highlighted selection style)
         self.setStyleSheet('''
-            QWidget { background-color: #23272e; color: #f8f8f2; }
-            QLabel#header { color: #50fa7b; font-size: 22px; font-weight: bold; }
-            QPushButton { background-color: #323232; color: #eaeaea; border-radius: 6px; padding: 8px 14px; font-weight: 600; }
-            QPushButton:hover { background-color: #3a3a3a; }
+            QWidget { background-color: transparent; color: #f8f8f2; }
+            QFrame { background-color: transparent; }
+            QLabel#header { color: #e0e0e0; font-size: 22px; font-weight: bold; background-color: transparent; }
+            QPushButton { color: #eaeaea; border-radius: 6px; padding: 8px 14px; font-weight: 600; border: none; }
             QLineEdit { background-color: #1f1f1f; color: #e6e6e6; border: 1px solid #393939; border-radius: 6px; padding: 8px 12px; font-size: 14px; }
             QLineEdit:focus { border: 1px solid #5a5a5a; }
             QTableWidget { background-color: #1f1f1f; color: #e6e6e6; border: 1px solid #393939; border-radius: 6px; font-size: 13px; gridline-color: #333333; selection-background-color: #2d2d2d; alternate-background-color: #232323; }
             QHeaderView::section { background-color: #1f1f1f; color: #e6e6e6; font-weight: bold; font-size: 14px; }
+            
+            /* Botão Verde - Sucesso */
+            QPushButton[btnClass="success"] {
+                background-color: #28a745;
+            }
+            QPushButton[btnClass="success"]:hover {
+                background-color: #218838;
+            }
+            QPushButton[btnClass="success"]:pressed {
+                background-color: #1e7e34;
+            }
+            
+            /* Botão Cinza - Primário */
+            QPushButton[btnClass="primary"] {
+                background-color: #6c757d;
+            }
+            QPushButton[btnClass="primary"]:hover {
+                background-color: #5a6268;
+            }
+            QPushButton[btnClass="primary"]:pressed {
+                background-color: #545b62;
+            }
+            
+            /* Botão Vermelho - Perigo */
+            QPushButton[btnClass="danger"] {
+                background-color: #dc3545;
+            }
+            QPushButton[btnClass="danger"]:hover {
+                background-color: #c82333;
+            }
+            QPushButton[btnClass="danger"]:pressed {
+                background-color: #bd2130;
+            }
+            
+            /* Botão Ciano - Info */
+            QPushButton[btnClass="info"] {
+                background-color: #17a2b8;
+            }
+            QPushButton[btnClass="info"]:hover {
+                background-color: #138496;
+            }
+            QPushButton[btnClass="info"]:pressed {
+                background-color: #117a8b;
+            }
         ''')
     
     def apply_produtos_style(self):
@@ -1788,17 +1876,17 @@ class ClientesManager(QWidget):
         QPushButton:hover { background-color: #0b6a6c; }
         QPushButton:pressed { background-color: #095c5d; }
 
-        QLineEdit { background-color: #23272e; color: #f8f8f2; border: 1.5px solid #50fa7b; border-radius: 8px; padding: 8px 12px; }
+        QLineEdit { background-color: #2d2d2d; color: #f8f8f2; border: 1.5px solid #50fa7b; border-radius: 8px; padding: 8px 12px; }
         QLineEdit:focus { border: 2px solid #8be9fd; }
 
-        QTableWidget { background-color: #23272e; color: #f8f8f2; border-radius: 10px; gridline-color: #44475a; alternate-background-color: #282a36; }
+        QTableWidget { background-color: #2d2d2d; color: #f8f8f2; border-radius: 10px; gridline-color: #44475a; alternate-background-color: #282a36; }
         QHeaderView::section { background-color: #000; color: #fff; font-weight: bold; font-size: 16px; }
-        QTableWidget::item:selected { background-color: #50fa7b; color: #23272e; }
+        QTableWidget::item:selected { background-color: #50fa7b; color: #2d2d2d; }
         QTableWidget::item { padding: 8px; }
 
         QLabel { color: #e6e6e6; }
 
-        QGroupBox { background-color: #23272e; border: 1px solid #3a3a3a; border-radius: 8px; }
+        QGroupBox { background-color: #2d2d2d; border: 1px solid #3a3a3a; border-radius: 8px; }
         QGroupBox::title { color: #e6e6e6; }
         """
 
@@ -1815,15 +1903,15 @@ class ClientesManager(QWidget):
             background-color: #1e7e34;
         }
         
-        /* Botão Azul - Primário (Editar) */
+        /* Botão Cinza - Primário (Editar) */
         QPushButton[btnClass="primary"] {
-            background-color: #007bff;
+            background-color: #6c757d;
         }
         QPushButton[btnClass="primary"]:hover {
-            background-color: #0069d9;
+            background-color: #5a6268;
         }
         QPushButton[btnClass="primary"]:pressed {
-            background-color: #0056b3;
+            background-color: #545b62;
         }
         
         /* Botão Vermelho - Perigo (Excluir) */
@@ -2163,7 +2251,6 @@ class ClienteModal(QDialog):
                             dados['estado'],
                             dados['referencia']
                         )
-                        self._mostrar_mensagem_auto_close("✅ Sucesso", "Cliente atualizado com sucesso!", "success", 5)
                     else:
                         # Criar novo cliente
                         db_manager.criar_cliente_completo(
@@ -2181,7 +2268,6 @@ class ClienteModal(QDialog):
                             dados['estado'],
                             dados['referencia']
                         )
-                        self._mostrar_mensagem_auto_close("✅ Sucesso", "Cliente criado com sucesso!", "success", 5)
                     
                     self.accept()  # Fecha o modal
                     
@@ -2269,8 +2355,8 @@ class ClienteModal(QDialog):
             QLabel { color: #e6e6e6; }
             QLineEdit { background-color: #1f1f1f; color: #e6e6e6; border: 1px solid #393939; border-radius: 6px; padding: 8px; }
             QLineEdit:focus { border: 1px solid #5a5a5a; }
-            QPushButton { background-color: #0078d4; color: #ffffff; border-radius: 8px; padding: 10px 14px; font-weight: 600; }
-            QPushButton:hover { background-color: #106ebe; }
+            QPushButton { background-color: #5a5a5a; color: #ffffff; border-radius: 8px; padding: 10px 14px; font-weight: 600; }
+            QPushButton:hover { background-color: #6a6a6a; }
             QScrollBar:vertical { background-color: #262626; width: 12px; border-radius: 6px; }
             QScrollBar::handle:vertical { background-color: #606060; border-radius: 6px; min-height: 20px; }
         """)

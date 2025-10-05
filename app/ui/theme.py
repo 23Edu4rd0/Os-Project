@@ -107,11 +107,12 @@ def apply_app_theme(app: QApplication):
 
     /* Tooltips */
     QToolTip {
-        background: #2d2d2d;
-        color: #e6e6e6;
-        border: 1px solid #404040;
-        border-radius: 4px;
-        padding: 6px;
+        background: #2a2a2a;
+        color: #e0e0e0;
+        border: 1px solid #4a4a4a;
+        border-radius: 3px;
+        padding: 3px 6px;
+        font-size: 11px;
     }
 
     /* Cards */
@@ -142,3 +143,34 @@ def small_icon(app: QApplication, name: str) -> QIcon | None:
     if sp is None:
         return None
     return app.style().standardIcon(sp)
+
+
+def apply_dark_messagebox_style(msgbox):
+    """
+    Aplica estilo escuro a um QMessageBox
+    """
+    msgbox.setStyleSheet("""
+        QMessageBox {
+            background-color: #2d2d2d;
+            color: #e6e6e6;
+        }
+        QMessageBox QLabel {
+            color: #e6e6e6;
+            background-color: transparent;
+        }
+        QMessageBox QPushButton {
+            background-color: #3a3a3a;
+            color: #ffffff;
+            border: 1px solid #555555;
+            border-radius: 4px;
+            padding: 6px 16px;
+            min-width: 70px;
+        }
+        QMessageBox QPushButton:hover {
+            background-color: #4a4a4a;
+            border: 1px solid #666666;
+        }
+        QMessageBox QPushButton:pressed {
+            background-color: #2a2a2a;
+        }
+    """)

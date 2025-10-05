@@ -33,7 +33,7 @@ class ThemeManager:
     }
     
     QTabBar::tab:selected {
-        background: #0d7377;
+        background: #4a4a4a;
         color: white;
     }
     
@@ -49,7 +49,7 @@ class ThemeManager:
     }
     
     QLabel#sectionLabel {
-        color: #0d7377;
+        color: #b0b0b0;
         font-weight: 500;
         font-size: 14px;
     }
@@ -67,7 +67,7 @@ class ThemeManager:
     }
     
     QTableWidget::item:selected {
-        background: #0d7377;
+        background: #5a5a5a;
     }
 
     /* Botões */
@@ -82,11 +82,11 @@ class ThemeManager:
     
     QPushButton:hover {
         background: #3d3d3d;
-        border-color: #0d7377;
+        border-color: #5a5a5a;
     }
     
     QPushButton:pressed {
-        background: #0d7377;
+        background: #5a5a5a;
     }
 
     /* Campos de texto */
@@ -95,11 +95,11 @@ class ThemeManager:
         border: 1px solid #404040;
         border-radius: 6px;
         padding: 8px;
-        selection-background-color: #0d7377;
+        selection-background-color: #5a5a5a;
     }
     
     QLineEdit:focus, QTextEdit:focus, QPlainTextEdit:focus {
-        border-color: #0d7377;
+        border-color: #5a5a5a;
     }
 
     /* ComboBox e SpinBox */
@@ -117,7 +117,7 @@ class ThemeManager:
     
     QComboBox QAbstractItemView {
         background: #2d2d2d;
-        selection-background-color: #0d7377;
+        selection-background-color: #5a5a5a;
     }
 
     /* ScrollBars */
@@ -134,7 +134,7 @@ class ThemeManager:
     }
     
     QScrollBar::handle:vertical:hover {
-        background: #0d7377;
+        background: #6a6a6a;
     }
     
     QScrollBar:horizontal {
@@ -150,7 +150,7 @@ class ThemeManager:
     }
     
     QScrollBar::handle:horizontal:hover {
-        background: #0d7377;
+        background: #6a6a6a;
     }
     
     /* MessageBox */
@@ -187,7 +187,7 @@ class ThemeManager:
     }
     
     QTabBar::tab:selected {
-        background: #3498db;
+        background: #95a5a6;
         color: white;
     }
     
@@ -203,7 +203,7 @@ class ThemeManager:
     }
     
     QLabel#sectionLabel {
-        color: #3498db;
+        color: #7f8c8d;
         font-weight: 500;
         font-size: 14px;
     }
@@ -222,7 +222,7 @@ class ThemeManager:
     }
     
     QTableWidget::item:selected {
-        background: #3498db;
+        background: #7f8c8d;
         color: white;
     }
 
@@ -238,11 +238,11 @@ class ThemeManager:
     
     QPushButton:hover {
         background: #bdc3c7;
-        border-color: #3498db;
+        border-color: #7f8c8d;
     }
     
     QPushButton:pressed {
-        background: #3498db;
+        background: #7f8c8d;
         color: white;
     }
 
@@ -253,11 +253,11 @@ class ThemeManager:
         border-radius: 6px;
         padding: 8px;
         color: #2c3e50;
-        selection-background-color: #3498db;
+        selection-background-color: #7f8c8d;
     }
     
     QLineEdit:focus, QTextEdit:focus, QPlainTextEdit:focus {
-        border-color: #3498db;
+        border-color: #7f8c8d;
     }
 
     /* ComboBox e SpinBox */
@@ -275,7 +275,7 @@ class ThemeManager:
     
     QComboBox QAbstractItemView {
         background: #ffffff;
-        selection-background-color: #3498db;
+        selection-background-color: #7f8c8d;
         color: #2c3e50;
     }
 
@@ -293,7 +293,7 @@ class ThemeManager:
     }
     
     QScrollBar::handle:vertical:hover {
-        background: #3498db;
+        background: #7f8c8d;
     }
     
     QScrollBar:horizontal {
@@ -309,7 +309,7 @@ class ThemeManager:
     }
     
     QScrollBar::handle:horizontal:hover {
-        background: #3498db;
+        background: #7f8c8d;
     }
     
     /* MessageBox */

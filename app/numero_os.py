@@ -2,7 +2,7 @@
 Gerador de números de OS
 """
 import sqlite3
-from database.db_manager import DatabaseManager
+from database.core.db_manager import DatabaseManager
 
 class Contador:
     """Classe para gerar números sequenciais de OS"""

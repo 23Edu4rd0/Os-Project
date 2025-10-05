@@ -1,7 +1,7 @@
 import shutil
 import os
 from pathlib import Path
-from database.db_setup import DatabaseSetup
+from database.core.db_setup import DatabaseSetup
 
 
 def restaurar_backup(backup_file_path):

@@ -472,8 +472,8 @@ class ProdutosManager(QWidget):
         # Header
         header_layout = QHBoxLayout()
         
-        title = QLabel("🛍️ Gestão de Produtos")
-        title.setStyleSheet("font-size: 20px; font-weight: bold; color: #2fa6a0; background: transparent;")
+        title = QLabel("Gestão de Produtos")
+        title.setStyleSheet("font-size: 20px; font-weight: bold; color: #ffffff; background: transparent;")
         header_layout.addWidget(title)
         
         header_layout.addStretch()
@@ -875,23 +875,32 @@ class ProdutosManager(QWidget):
             product_name = self.table.item(current_row, 1).text()
             
             # Confirmar exclusão
-            reply = QMessageBox.question(
-                self, "⚠️ Confirmar Exclusão",
-                f"Tem certeza que deseja excluir:\n\n'{product_name}'\n\nEsta ação não pode ser desfeita.",
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                QMessageBox.StandardButton.No
-            )
+            msgbox = QMessageBox(self)
+            msgbox.setWindowTitle("⚠️ Confirmar Exclusão")
+            msgbox.setText(f"Tem certeza que deseja excluir:\n\n'{product_name}'\n\n⚠️ O produto será movido para a lixeira!\nVocê poderá recuperá-lo dentro de 30 dias.")
+            msgbox.setIcon(QMessageBox.Icon.Question)
+            msgbox.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+            msgbox.setDefaultButton(QMessageBox.StandardButton.No)
+            
+            # Aplicar estilo escuro
+            from app.ui.theme import apply_dark_messagebox_style
+            apply_dark_messagebox_style(msgbox)
+            
+            reply = msgbox.exec()
             
             if reply == QMessageBox.StandardButton.Yes:
-                success = db_manager.deletar_produto(product_id)
+                # Usar soft delete em vez de exclusão permanente
+                from app.utils.soft_delete import SoftDeleteManager
+                success, mensagem = SoftDeleteManager.soft_delete_produto(product_id)
+                
                 if success:
-                    self._mostrar_mensagem_auto_close("✅ Sucesso", "Produto excluído com sucesso!", "success", 5)
+                    self._mostrar_mensagem_auto_close("✅ Sucesso", "Produto movido para a lixeira! Você pode recuperá-lo em até 30 dias.", "success", 5)
                     # Emitir sinal de produto excluído
                     from app.signals import get_signals
                     signals = get_signals()
                     signals.produto_excluido.emit(product_id)
                 else:
-                    QMessageBox.warning(self, "❌ Erro", "Falha ao excluir produto.")
+                    QMessageBox.warning(self, "❌ Erro", mensagem)
                     
         except Exception as e:
             print(f"[ERROR] Erro ao excluir produto: {e}")

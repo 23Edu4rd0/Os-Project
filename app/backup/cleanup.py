@@ -1,6 +1,6 @@
 import sqlite3
 from datetime import datetime, timedelta
-from database.db_setup import DatabaseSetup
+from database.core.db_setup import DatabaseSetup
 
 
 def apagar_tudo(confirm=False):

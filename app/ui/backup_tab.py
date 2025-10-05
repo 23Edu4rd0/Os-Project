@@ -11,7 +11,7 @@ from app.backup import criar_backup, restaurar_backup, substituir_por_arquivo, a
 from app.ui.category_manager import CategoryManagerDialog
 from app.ui.status_manager import StatusManagerDialog
 from app.ui.color_manager import ColorManagerDialog
-from database.db_setup import DatabaseSetup
+from database.core.db_setup import DatabaseSetup
 
 
 class BackupTab(QWidget):

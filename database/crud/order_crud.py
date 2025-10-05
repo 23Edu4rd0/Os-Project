@@ -1,5 +1,6 @@
 """
-Módulo para operações CRUD de ordens de serviço
+Module for CRUD operations on service orders.
+All user-facing messages are in Portuguese. All comments, docstrings, and logs are in English.
 """
 import sqlite3
 import json
@@ -21,7 +22,7 @@ class OrderCRUD:
         self.conn = conn
     
     def criar_ordem(self, dados, nome_pdf=""):
-        """Cria nova ordem de serviço"""
+        """Create a new service order."""
         try:
             query = '''
             INSERT INTO ordem_servico (numero_os, data_criacao, nome_cliente, cpf_cliente, 
@@ -99,7 +100,7 @@ class OrderCRUD:
             # Verificar campos obrigatórios
             nome_cliente = dados.get('nome_cliente')
             if not nome_cliente:
-                raise ValueError("Campo 'nome_cliente' é obrigatório")
+                raise ValueError("Campo 'nome_cliente' é obrigatório")  # User-facing message in Portuguese
             
             valores = (
                 dados.get('numero_os', 1),
@@ -119,7 +120,7 @@ class OrderCRUD:
             
             self.cursor.execute(query, valores)
             self.conn.commit()
-            logger.info(f"Ordem criada: numero_os={dados.get('numero_os')}, cliente={nome_cliente}, valor_produto={valor_produto}")
+            logger.info(f"Order created: numero_os={dados.get('numero_os')}, client={nome_cliente}, valor_produto={valor_produto}")
             # Incrementar contador de compras do cliente
             try:
                 if cpf_norm:
@@ -130,14 +131,14 @@ class OrderCRUD:
                     """, (cpf_norm, cpf_norm))
                     self.conn.commit()
             except Exception as e:
-                logger.warning(f"Aviso: não foi possível atualizar contador de compras: {e}")
+                logger.warning(f"Warning: could not update purchase counter: {e}")
             return True
         except Exception as e:
-            logger.error(f"Erro ao criar ordem: {e}", exc_info=True)
+            logger.error(f"Error creating order: {e}", exc_info=True)
             return False
     
     def buscar_ordem(self, numero_os):
-        """Busca ordem por número"""
+        """Search order by number."""
         try:
             query = 'SELECT * FROM ordem_servico WHERE numero_os = ?'
             self.cursor.execute(query, (numero_os,))
@@ -153,25 +154,25 @@ class OrderCRUD:
                 mapped['produtos'] = []
             return mapped
         except Exception as e:
-            logger.error(f"Erro ao buscar ordem: {e}", exc_info=True)
+            logger.error(f"Error searching order: {e}", exc_info=True)
             return None
     
     def atualizar_ordem(self, pedido_id, campos):
-        """Atualiza campos específicos da ordem"""
+        """Update specific fields of the order."""
         try:
             set_clause = ', '.join([f'{campo} = ?' for campo in campos.keys()])
             query = f'UPDATE ordem_servico SET {set_clause} WHERE id = ?'
             valores = list(campos.values()) + [pedido_id]
             self.cursor.execute(query, valores)
             self.conn.commit()
-            logger.info(f"Ordem atualizada: pedido_id={pedido_id}, campos={campos}")
+            logger.info(f"Order updated: pedido_id={pedido_id}, fields={campos}")
             return True
         except Exception as e:
-            logger.error(f"Erro ao atualizar ordem: {e}", exc_info=True)
+            logger.error(f"Error updating order: {e}", exc_info=True)
             return False
     
     def deletar_ordem(self, pedido_id):
-        """Marca ordem como deletada (soft delete) - fica na lixeira por 30 dias"""
+        """Mark order as deleted (soft delete) - stays in trash for 30 days."""
         try:
             from datetime import datetime
             deleted_at = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
@@ -181,8 +182,8 @@ class OrderCRUD:
                 (deleted_at, pedido_id)
             )
             self.conn.commit()
-            logger.info(f"Pedido {pedido_id} movido para lixeira (recuperável por 30 dias)")
+            logger.info(f"Order {pedido_id} moved to trash (recoverable for 30 days)")
             return True
         except Exception as e:
-            logger.error(f"Erro ao deletar ordem: {e}", exc_info=True)
+            logger.error(f"Error deleting order: {e}", exc_info=True)
             return False

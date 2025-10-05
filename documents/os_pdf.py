@@ -9,7 +9,7 @@ import os
 import re
 import sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from database.db_manager import DBManager
+from database.core.db_manager import DatabaseManager as DBManager
 
 
 class OrdemServicoPDF:
