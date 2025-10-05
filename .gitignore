@@ -46,3 +46,9 @@ desktop.ini
 # Arquivos específicos do projeto
 icon.ico
 ordem_servico.pdf
+
+# Banco de dados (manter apenas na pasta database/)
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
