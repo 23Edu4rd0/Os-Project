@@ -1,18 +1,3 @@
-def limpar_campos_produto(self):
-    from ._clear_product_fields import limpar_campos_produto as _limpar_campos_produto
-    _limpar_campos_produto(self)
-def _limpar_campos_produto(self):
-    if 'nome_produto' in self.campos:
-        self.campos['nome_produto'].clear()
-    if 'valor_produto' in self.campos:
-        self.campos['valor_produto'].clear()
-    if 'categoria_produto' in self.campos:
-        self.campos['categoria_produto'].setCurrentIndex(0)
-from ..modal_parts.cliente import criar_secao_cliente as _criar_secao_cliente_part
-from ..modal_parts.produtos import criar_secao_produtos as _criar_secao_produtos_part
-from ..modal_parts.pagamento import criar_secao_pagamento as _criar_secao_pagamento_part
-from ..modal_parts.resumo import criar_secao_resumo as _criar_secao_resumo_part, recalcular_total as _recalcular_total_part
-from ..modal_parts.botoes import criar_botoes as _criar_botoes_part
 # -*- coding: utf-8 -*-
 """
 Classe principal PedidosModal e imports compartilhados

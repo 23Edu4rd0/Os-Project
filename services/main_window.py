@@ -24,7 +24,7 @@ class MainApp(QMainWindow):
     """
 
     APP_NAME = "Sistema de Ordem de Serviço"
-    APP_VERSION = "1.0.0"
+    APP_VERSION = "2.0.0"
 
     def __init__(self):
         super().__init__()
