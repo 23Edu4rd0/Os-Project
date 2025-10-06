@@ -434,3 +434,4 @@ class BackupTab(QWidget):
             b.setMaximumWidth(maxw)
         # status bar subtle background
         self.status.setStyleSheet('background: transparent;')
+

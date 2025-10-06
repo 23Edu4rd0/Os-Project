@@ -3,11 +3,17 @@ from PyQt6.QtGui import QIcon
 from app.ui.theme_manager import get_theme_manager
 
 
-def apply_app_theme(app: QApplication):
+def apply_app_theme(app):
     """
     Apply a compact, app-wide stylesheet for a consistent look.
     Usa o gerenciador de temas para aplicar tema salvo (claro/escuro).
     """
+    from PyQt6.QtWidgets import QApplication
+    
+    # Se recebeu a instância da MainWindow, pegar o QApplication
+    if not isinstance(app, QApplication):
+        app = QApplication.instance()
+    
     theme_manager = get_theme_manager()
     theme_manager.apply_theme(app)
     return  # Retorna aqui, o tema já foi aplicado

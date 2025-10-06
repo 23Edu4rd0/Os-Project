@@ -2360,3 +2360,4 @@ class ClienteModal(QDialog):
             QScrollBar:vertical { background-color: #262626; width: 12px; border-radius: 6px; }
             QScrollBar::handle:vertical { background-color: #606060; border-radius: 6px; min-height: 20px; }
         """)
+

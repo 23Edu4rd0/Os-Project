@@ -47,3 +47,4 @@ class PedidosManager(QWidget):
     def atualizar_status(self, pedido_id, novo_status):
         """Atualiza o status de um pedido"""
         return self.interface.atualizar_status(pedido_id, novo_status)
+

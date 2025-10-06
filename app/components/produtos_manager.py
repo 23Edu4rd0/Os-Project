@@ -1013,3 +1013,4 @@ class ProdutosManager(QWidget):
                 color: #2fa6a0;
             }
         """)
+
