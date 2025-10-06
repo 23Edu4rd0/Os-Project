@@ -372,7 +372,7 @@ class ClienteDetailDialog(QDialog):
                 else:
                     pedido_id = int(texto)
             
-            from app.components.pedidos.novo_pedidos_modal import NovoPedidosModal
+            from app.components.orders.order_modal import NovoPedidosModal
             pm = NovoPedidosModal(self)
             # Conectar sinal para atualizar a interface após salvar
             pm.pedido_salvo.connect(lambda: self.carregar_pedidos())
@@ -521,7 +521,7 @@ class ClienteDetailDialog(QDialog):
             print(f"Editando status do pedido {pedido_id}")
             
             # Usar o menu de status existente
-            from app.components.pedidos.status_editor import show_status_menu
+            from app.components.orders.status_editor import show_status_menu
             show_status_menu(self, pedido_id)
             
             # Recarregar os pedidos para atualizar a interface
@@ -636,7 +636,7 @@ class ClienteDetailDialog(QDialog):
     def abrir_ordem_completa(self):
         """Abre o modal de novo pedido já preenchendo e travando os dados do cliente."""
         try:
-            from app.components.pedidos.novo_pedidos_modal import NovoPedidosModal
+            from app.components.orders.order_modal import NovoPedidosModal
             pedidos_modal = NovoPedidosModal(self)
             cli = {
                 'nome': self.cliente.get('nome',''),

@@ -1,7 +1,7 @@
 from PyQt6.QtWidgets import QGroupBox, QFormLayout
 from PyQt6.QtGui import QFont
 
-from app.components.pedidos.ui.produtos_ui import criar_produtos_ui
+from app.components.orders.ui.products_ui import criar_produtos_ui
 
 
 def _criar_secao_produtos_pedidos(self, layout, pedido_data):

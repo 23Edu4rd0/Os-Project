@@ -432,7 +432,7 @@ class PedidoResumoDialog(QDialog):
     def _editar_pedido(self):
         """Abre o modal de edição do pedido"""
         try:
-            from app.components.pedidos.novo_pedidos_modal import NovoPedidosModal
+            from app.components.orders.order_modal import NovoPedidosModal
             modal = NovoPedidosModal(self.parent())
             modal.abrir_modal_edicao(self.pedido_id)
             self.close()

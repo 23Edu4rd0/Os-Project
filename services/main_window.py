@@ -185,9 +185,9 @@ class MainApp(QMainWindow):
         try:
             logger.info("Loading application modules...")
             
-            from app.components.clientes_manager_pyqt import ClientesManager
-            from app.components.pedidos import PedidosManager
-            from app.components.produtos_manager import ProdutosManager
+            from app.components.clients_manager import ClientesManager
+            from app.components.orders import PedidosManager
+            from app.components.products_manager import ProdutosManager
             from app.ui.backup_tab import BackupTab
             
             tabs_config = [

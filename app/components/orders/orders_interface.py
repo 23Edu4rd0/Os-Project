@@ -35,15 +35,15 @@ except ModuleNotFoundError:
 
 # Imports dos componentes (funciona tanto como pacote quanto executado direto)
 try:
-	from .pedidos_card import PedidosCard
-	from .novo_pedidos_modal import NovoPedidosModal
+	from .order_card import PedidosCard
+	from .order_modal import NovoPedidosModal
 except Exception:
 	import sys, pathlib
 	ROOT = pathlib.Path(__file__).resolve().parents[3]
 	if str(ROOT) not in sys.path:
 		sys.path.insert(0, str(ROOT))
-	from app.components.pedidos.pedidos_card import PedidosCard  # type: ignore
-	from app.components.pedidos.novo_pedidos_modal import NovoPedidosModal  # type: ignore
+	from app.components.orders.order_card import PedidosCard  # type: ignore
+	from app.components.orders.order_modal import NovoPedidosModal  # type: ignore
 
 
 class CustomDateEdit(QDateEdit):
