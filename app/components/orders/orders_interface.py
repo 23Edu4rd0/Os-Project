@@ -214,7 +214,6 @@ class CustomDateEdit(QDateEdit):
 				border: 2px solid #007ACC;
 				background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1,
 					stop: 0 #404040, stop: 1 #2f2f2f);
-				box-shadow: 0 0 5px rgba(0, 122, 204, 0.3);
 			}
 			QDateEdit::drop-down {
 				subcontrol-origin: padding;

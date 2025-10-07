@@ -34,11 +34,11 @@ from ..order_form_model import PedidoFormModel
 
 # Modular parts (imported as needed)
 try:
-    from .modal_parts.client import criar_secao_cliente as _criar_secao_cliente_part
-    from .modal_parts.products import criar_secao_produtos as _criar_secao_produtos_part
-    from .modal_parts.payment import criar_secao_pagamento as _criar_secao_pagamento_part
-    from .modal_parts.summary import criar_secao_resumo as _criar_secao_resumo_part, recalcular_total as _recalcular_total_part
-    from .modal_parts.buttons import criar_botoes as _criar_botoes_part
+    from ..modal_parts.client import criar_secao_cliente as _criar_secao_cliente_part
+    from ..modal_parts.products import criar_secao_produtos as _criar_secao_produtos_part
+    from ..modal_parts.payment import criar_secao_pagamento as _criar_secao_pagamento_part
+    from ..modal_parts.summary import criar_secao_resumo as _criar_secao_resumo_part, recalcular_total as _recalcular_total_part
+    from ..modal_parts.buttons import criar_botoes as _criar_botoes_part
 except Exception:
     try:
         from app.components.orders.modal_parts.client import criar_secao_cliente as _criar_secao_cliente_part

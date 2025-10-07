@@ -138,7 +138,6 @@ class MainApp(QMainWindow):
                 border: 2px solid #007ACC;
                 color: #ffffff;
                 font-weight: bold;
-                transform: translateY(-2px);
             }
             
             QTabBar::tab:hover:!selected {
@@ -147,17 +146,11 @@ class MainApp(QMainWindow):
                     stop: 0.5 #4a4a4a, stop: 0.9 #3e3e3e, stop: 1 #3a3a3a);
                 border: 2px solid #666666;
                 color: #f0f0f0;
-                transform: translateY(-1px);
             }
             
             QTabBar::tab:pressed {
                 background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1,
                     stop: 0 #005588, stop: 0.5 #004466, stop: 1 #003344);
-            }
-            
-            /* Adicionar sombra às abas */
-            QTabBar::tab:selected {
-                box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
             }
             
             /* Estilo para o botão de fechar aba */

@@ -1,7 +1,21 @@
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QLabel, QLineEdit, QPushButton, QHBoxLayout, QMessageBox, QFrame)
-from PyQt6.QtCore import Qt, QPropertyAnimation, QEasingCurve
-from PyQt6.QtGui import QIcon, QFont, QPixmap
+from PyQt6.QtCore import Qt, QPropertyAnimation, QEasingCurve, QEvent
+from PyQt6.QtGui import QIcon, QFont, QPixmap, QKeyEvent
 from pathlib import Path
+
+class UserLineEdit(QLineEdit):
+    """Campo de usuário que move foco para senha ao pressionar Enter"""
+    def __init__(self, next_field, parent=None):
+        super().__init__(parent)
+        self.next_field = next_field
+    
+    def keyPressEvent(self, event: QKeyEvent):
+        if event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+            # Apenas move o foco, não emite returnPressed
+            self.next_field.setFocus()
+        else:
+            # Comportamento normal para outras teclas
+            super().keyPressEvent(event)
 
 class LoginDialog(QDialog):
     def __init__(self, parent=None):
@@ -40,18 +54,20 @@ class LoginDialog(QDialog):
         info.setStyleSheet('color: #ddd; font-size: 14px;')
         layout.addWidget(info)
 
-        # Usuário
-        self.user_input = QLineEdit()
-        self.user_input.setPlaceholderText('Usuário')
-        self.user_input.setMinimumHeight(34)
-        layout.addWidget(self.user_input)
-
-        # Senha
+        # Senha (criar primeiro para poder referenciar no UserLineEdit)
         self.pass_input = QLineEdit()
         self.pass_input.setPlaceholderText('Senha')
         self.pass_input.setEchoMode(QLineEdit.EchoMode.Password)
         self.pass_input.setMinimumHeight(34)
         self.pass_input.returnPressed.connect(self.try_login)
+
+        # Usuário (usar classe customizada que move foco para senha)
+        self.user_input = UserLineEdit(self.pass_input)
+        self.user_input.setPlaceholderText('Usuário')
+        self.user_input.setMinimumHeight(34)
+        layout.addWidget(self.user_input)
+        
+        # Adicionar campo de senha depois
         layout.addWidget(self.pass_input)
 
         # Botão

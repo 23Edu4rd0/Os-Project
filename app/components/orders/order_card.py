@@ -367,33 +367,42 @@ class PedidosCard(QWidget):
                 """)
                 produto_item_layout.addWidget(produto_label)
                 
-                # Cor do produto (se disponível)
-                cor_data = produto.get('cor_data')
-                if cor_data:
-                    cor_display = ""
-                    if cor_data.get('tipo') == 'separadas':
-                        tampa = cor_data.get('tampa', '')
-                        corpo = cor_data.get('corpo', '')
-                        if tampa or corpo:
-                            cor_display = f"T:{tampa[:3]} C:{corpo[:3]}"
-                    elif cor_data.get('tipo') == 'unica':
-                        cor_unica = cor_data.get('cor', '')
-                        if cor_unica:
-                            cor_display = cor_unica[:8]
-                    
-                    if cor_display:
-                        cor_label = QLabel(cor_display)
-                        cor_label.setStyleSheet("""
-                            background: rgba(129, 140, 248, 0.2);
-                            color: #a5b4fc;
-                            font-size: 10px;
-                            font-weight: 600;
-                            padding: 4px 10px;
-                            border-radius: 6px;
-                            min-width: 80px;
-                        """)
-                        cor_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-                        produto_item_layout.addWidget(cor_label)
+                # Cor do produto (suporta formato antigo e novo)
+                cor_display = ""
+                
+                # Tentar novo formato (string simples)
+                cor = produto.get('cor', '')
+                if cor and cor != '-':
+                    cor_display = cor
+                
+                # Se não tem cor no novo formato, tentar formato antigo (cor_data)
+                if not cor_display:
+                    cor_data = produto.get('cor_data')
+                    if cor_data:
+                        if cor_data.get('tipo') == 'separadas':
+                            tampa = cor_data.get('tampa', '')
+                            corpo = cor_data.get('corpo', '')
+                            if tampa or corpo:
+                                cor_display = f"T:{tampa}/C:{corpo}"
+                        elif cor_data.get('tipo') == 'unica':
+                            cor_unica = cor_data.get('cor', '')
+                            if cor_unica:
+                                cor_display = cor_unica
+                
+                # Exibir a cor se houver
+                if cor_display:
+                    cor_label = QLabel(cor_display)
+                    cor_label.setStyleSheet("""
+                        background: rgba(129, 140, 248, 0.2);
+                        color: #a5b4fc;
+                        font-size: 10px;
+                        font-weight: 600;
+                        padding: 4px 10px;
+                        border-radius: 6px;
+                        min-width: 80px;
+                    """)
+                    cor_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                    produto_item_layout.addWidget(cor_label)
                 
                 produto_item_layout.addStretch()
                 produtos_layout.addLayout(produto_item_layout)
