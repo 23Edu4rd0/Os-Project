@@ -52,3 +52,6 @@ ordem_servico.pdf
 *.db-journal
 *.db-shm
 *.db-wal
+
+# Arquivos pdf gerados
+*.pdf
